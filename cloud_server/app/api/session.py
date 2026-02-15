@@ -4,7 +4,6 @@ import os
 from fastapi import APIRouter, Request
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
-from app.core.config import BASE_URL
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -15,7 +14,10 @@ async def create_session(request: Request):
 
     os.makedirs("static", exist_ok=True)
 
-    upload_url = f"{BASE_URL}/upload?session={session_id}"
+    # Automatically detect current domain
+    base_url = str(request.base_url).rstrip("/")
+
+    upload_url = f"{base_url}/upload?session={session_id}"
 
     qr = qrcode.make(upload_url)
     qr_path = f"static/{session_id}.png"
