@@ -1,38 +1,55 @@
 import os
-from fastapi import APIRouter, Request, UploadFile, File, Form
-from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
-from app.websocket.manager import session_jobs
+import uuid
+from fastapi import APIRouter, UploadFile, File, Form
+from fastapi.responses import JSONResponse
+from app.core.job_store import print_jobs
+from app.websocket.manager import broadcast_job
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
 
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-@router.get("/upload", response_class=HTMLResponse)
-async def upload_page(request: Request, session: str):
-    return templates.TemplateResponse(
-        "upload.html",
-        {"request": request, "session": session}
-    )
 
 @router.post("/upload")
-async def handle_upload(
-    session: str = Form(...),
+async def upload_file(
     file: UploadFile = File(...),
-    copies: int = Form(...),
-    color: str = Form(...)
+    session: str = Form(...)
 ):
-    file_path = os.path.join(UPLOAD_DIR, file.filename)
+    try:
+        file_id = str(uuid.uuid4())
+        filename = f"{file_id}_{file.filename}"
+        file_path = os.path.join(UPLOAD_FOLDER, filename)
 
-    with open(file_path, "wb") as f:
-        f.write(await file.read())
+        # Save file
+        with open(file_path, "wb") as f:
+            content = await file.read()
+            f.write(content)
 
-    session_jobs[session] = {
-        "file_path": file_path,
-        "copies": copies,
-        "color": color
-    }
+        # Create job
+        job = {
+            "id": file_id,
+            "filename": filename,
+            "file_url": f"/uploads/{filename}",
+            "status": "pending"
+        }
 
-    return {"message": "Job submitted successfully"}
+        # Store job
+        print_jobs.append(job)
+
+        # Broadcast job to connected printers
+        await broadcast_job(job)
+
+        return JSONResponse({"message": "Job submitted successfully"})
+
+    except Exception as e:
+        return JSONResponse({"error": str(e)})
+
+
+@router.post("/mark_printed/{job_id}")
+def mark_printed(job_id: str):
+    for job in print_jobs:
+        if job["id"] == job_id:
+            job["status"] = "printed"
+            return {"message": "Marked as printed"}
+    return {"error": "Job not found"}
