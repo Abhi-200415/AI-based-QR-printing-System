@@ -16,7 +16,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 @router.get("/upload/{session_id}", response_class=HTMLResponse)
 async def upload_page(request: Request, session_id: str):
     return templates.TemplateResponse(
-        "mobile.html",
+        "upload.html",
         {
             "request": request,
             "session_id": session_id
@@ -44,3 +44,4 @@ async def handle_upload(
     })
 
     return {"message": "Job submitted successfully"}
+
