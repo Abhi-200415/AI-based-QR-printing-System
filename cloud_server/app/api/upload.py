@@ -1,55 +1,46 @@
 import os
 import uuid
-from fastapi import APIRouter, UploadFile, File, Form
-from fastapi.responses import JSONResponse
-from app.core.job_store import print_jobs
+from fastapi import APIRouter, UploadFile, File, Form, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from app.websocket.manager import broadcast_job
 
 router = APIRouter()
+templates = Jinja2Templates(directory="templates")
 
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
-@router.post("/upload")
-async def upload_file(
-    file: UploadFile = File(...),
-    session: str = Form(...)
-):
-    try:
-        file_id = str(uuid.uuid4())
-        filename = f"{file_id}_{file.filename}"
-        file_path = os.path.join(UPLOAD_FOLDER, filename)
-
-        # Save file
-        with open(file_path, "wb") as f:
-            content = await file.read()
-            f.write(content)
-
-        # Create job
-        job = {
-            "id": file_id,
-            "filename": filename,
-            "file_url": f"/uploads/{filename}",
-            "status": "pending"
+# ✅ STEP 1 — Show upload page (GET)
+@router.get("/upload/{session_id}", response_class=HTMLResponse)
+async def upload_page(request: Request, session_id: str):
+    return templates.TemplateResponse(
+        "mobile.html",
+        {
+            "request": request,
+            "session_id": session_id
         }
-
-        # Store job
-        print_jobs.append(job)
-
-        # Broadcast job to connected printers
-        await broadcast_job(job)
-
-        return JSONResponse({"message": "Job submitted successfully"})
-
-    except Exception as e:
-        return JSONResponse({"error": str(e)})
+    )
 
 
-@router.post("/mark_printed/{job_id}")
-def mark_printed(job_id: str):
-    for job in print_jobs:
-        if job["id"] == job_id:
-            job["status"] = "printed"
-            return {"message": "Marked as printed"}
-    return {"error": "Job not found"}
+# ✅ STEP 2 — Handle file upload (POST)
+@router.post("/upload/{session_id}")
+async def handle_upload(
+    session_id: str,
+    file: UploadFile = File(...)
+):
+    file_id = str(uuid.uuid4())
+    file_path = os.path.join(UPLOAD_DIR, f"{file_id}_{file.filename}")
+
+    with open(file_path, "wb") as f:
+        f.write(await file.read())
+
+    # Send job to printer
+    await broadcast_job({
+        "file_id": file_id,
+        "filename": file.filename,
+        "path": file_path
+    })
+
+    return {"message": "Job submitted successfully"}
