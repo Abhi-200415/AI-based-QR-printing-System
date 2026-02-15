@@ -1,11 +1,9 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from app.core.job_store import print_jobs
 import json
 
 websocket_router = APIRouter()
 
 connected_printers = []
-
 
 @websocket_router.websocket("/ws/print")
 async def printer_ws(websocket: WebSocket):
