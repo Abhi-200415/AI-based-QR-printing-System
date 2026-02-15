@@ -1,22 +1,26 @@
-from fastapi import APIRouter, WebSocket
-import asyncio
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from app.core.job_store import print_jobs
 import json
 
 websocket_router = APIRouter()
-session_jobs = {}
 
-@websocket_router.websocket("/ws/{session_id}")
-async def websocket_endpoint(websocket: WebSocket, session_id: str):
+connected_printers = []
+
+
+@websocket_router.websocket("/ws/print")
+async def printer_ws(websocket: WebSocket):
     await websocket.accept()
+    connected_printers.append(websocket)
+    print("Printer connected")
 
     try:
         while True:
-            await asyncio.sleep(2)
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        connected_printers.remove(websocket)
+        print("Printer disconnected")
 
-            if session_id in session_jobs:
-                job = session_jobs[session_id]
-                await websocket.send_text(json.dumps(job))
-                del session_jobs[session_id]
 
-    except:
-        pass
+async def broadcast_job(job):
+    for printer in connected_printers:
+        await printer.send_text(json.dumps(job))
