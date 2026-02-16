@@ -14,10 +14,9 @@ async def create_session(request: Request):
 
     os.makedirs("static", exist_ok=True)
 
-    # Automatically detect current domain (Render domain)
     base_url = str(request.base_url).rstrip("/")
 
-    # ✅ FIXED ROUTE
+    # ✅ FIXED URL FORMAT
     upload_url = f"{base_url}/upload/{session_id}"
 
     qr = qrcode.make(upload_url)
