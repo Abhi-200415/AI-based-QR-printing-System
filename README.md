@@ -8,4 +8,7 @@ The system uses FastAPI for the backend and WebSocket to send print jobs to a lo
 
 No user data is permanently stored. Files are temporarily saved and deleted after printing.
 
+# A local agent
+in this local agent will do all task 
+
 This project is built for educational and demonstration purposes.
