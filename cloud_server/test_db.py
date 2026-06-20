@@ -1,10 +1,7 @@
 from app.database.connection import engine
+from app.database.models import Base
 
-try:
-    conn = engine.connect()
-    print("DATABASE CONNECTED SUCCESSFULLY")
-    conn.close()
+Base.metadata.drop_all(bind=engine)
+Base.metadata.create_all(bind=engine)
 
-except Exception as e:
-    print("ERROR:")
-    print(e)
+print("Database Reset Successful")
