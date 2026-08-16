@@ -2,62 +2,62 @@
 
 # 🚀 AI-BASED QR SMART PRINTING SYSTEM
 
-### Cloud-Based Intelligent Printing Platform
+## Cloud-Based Intelligent Printing Platform
 
-**QR Access • Cloud Backend • AI/ML • Smart Queue • Payment Verification • Local Print Agent • Printer Automation**
-
-<br>
-
-![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?style=for-the-badge&logo=fastapi&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
-![Neon](https://img.shields.io/badge/Neon-Cloud%20Database-00E599?style=for-the-badge)
-![AI/ML](https://img.shields.io/badge/AI%2FML-Enabled-8A2BE2?style=for-the-badge)
-![Render](https://img.shields.io/badge/Render-Deployment-46E3B7?style=for-the-badge&logo=render&logoColor=black)
+### **QR-Based Shop Access • Cloud Printing • AI/ML • Payment Verification • Smart Queue • Local Print Agent • Printer Automation**
 
 <br>
 
-### 🎓 Academic Major Project
+<img src="https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white">
+<img src="https://img.shields.io/badge/FastAPI-Backend-009688?style=for-the-badge&logo=fastapi&logoColor=white">
+<img src="https://img.shields.io/badge/PostgreSQL-Database-4169E1?style=for-the-badge&logo=postgresql&logoColor=white">
+<img src="https://img.shields.io/badge/Neon-Cloud%20Database-00E599?style=for-the-badge">
+<img src="https://img.shields.io/badge/AI%2FML-Intelligent%20Printing-8A2BE2?style=for-the-badge">
+<img src="https://img.shields.io/badge/Render-Cloud%20Deployment-46E3B7?style=for-the-badge">
+
+<br><br>
+
+**Academic Major Project**
 
 </div>
 
 ---
 
-# 🌟 About The Project
+# 📌 1. What Is This Project?
 
-**AI-Based QR Smart Printing System** is a cloud-connected smart printing platform designed to modernize the traditional printing-shop workflow.
+The **AI-Based QR Smart Printing System** is a cloud-based platform that allows customers to submit printing jobs to a printing shop **without standing in the traditional printing queue**.
 
-Instead of customers physically waiting at a printing shop to submit documents, configure printing options, calculate prices, make payments, and wait for printing, our system provides a digital workflow.
+The main idea is simple:
 
-A customer can:
+> **A customer scans the QR code of a printing shop, uploads their document, selects printing requirements, sees the price, completes payment, and submits the print job remotely.**
 
-**Scan → Upload → Configure → Pay → Track → Collect**
+The submitted job is then handled by the cloud backend.
 
-Each printing shop has its own unique QR identifier. Scanning the QR opens the corresponding shop's printing interface.
+The backend:
 
-The cloud backend manages the printing workflow, while a **Local Print Agent** installed on the shop computer acts as the bridge between the cloud system and the physical printer.
+- identifies the correct shop,
+- stores the job information,
+- calculates the printing cost,
+- verifies payment,
+- places the job in the queue,
+- selects a suitable printer,
+- and sends the job toward the printer through a **Local Print Agent**.
 
-The system also incorporates **AI/ML-based printer assignment, job prioritization, analytics, and waiting-time prediction**.
+The Local Print Agent runs on the computer inside the printing shop and acts as the bridge between the **cloud system and the physical printer**.
 
----
-
-# 💡 Problem Statement
-
-Traditional printing shops commonly depend on manual processes:
+So the complete idea is:
 
 ```text
-Customer visits shop
-        ↓
-Waits in queue
-        ↓
-Transfers document
-        ↓
-Explains printing requirements
-        ↓
-Price is calculated manually
-        ↓
-Makes payment
-        ↓
-Waits for printing
-        ↓
-Collects documents
+CUSTOMER
+   ↓
+SHOP QR
+   ↓
+CUSTOMER WEBSITE
+   ↓
+CLOUD BACKEND
+   ↓
+PAYMENT + DATABASE + QUEUE + AI
+   ↓
+LOCAL PRINT AGENT
+   ↓
+PHYSICAL PRINTER
