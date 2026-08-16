@@ -2,60 +2,62 @@
 
 # 🚀 AI-BASED QR SMART PRINTING SYSTEM
 
-### Cloud-Based Intelligent Printing Platform with QR Access, AI/ML, Automated Queue Management & Smart Printer Assignment
+### Cloud-Based Intelligent Printing Platform
 
-<p>
-  <b>🎓 Academic Major Project</b>
-</p>
+**QR Access • Cloud Backend • AI/ML • Smart Queue • Payment Verification • Local Print Agent • Printer Automation**
 
-<p>
-  <img src="https://img.shields.io/badge/Python-3.11-blue?style=for-the-badge&logo=python">
-  <img src="https://img.shields.io/badge/FastAPI-Backend-009688?style=for-the-badge&logo=fastapi">
-  <img src="https://img.shields.io/badge/PostgreSQL-Database-336791?style=for-the-badge&logo=postgresql">
-  <img src="https://img.shields.io/badge/Neon-Cloud%20Database-00E599?style=for-the-badge">
-  <img src="https://img.shields.io/badge/AI%2FML-Enabled-purple?style=for-the-badge">
-  <img src="https://img.shields.io/badge/Render-Deployment-46E3B7?style=for-the-badge">
-</p>
+<br>
+
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![Neon](https://img.shields.io/badge/Neon-Cloud%20Database-00E599?style=for-the-badge)
+![AI/ML](https://img.shields.io/badge/AI%2FML-Enabled-8A2BE2?style=for-the-badge)
+![Render](https://img.shields.io/badge/Render-Deployment-46E3B7?style=for-the-badge&logo=render&logoColor=black)
+
+<br>
+
+### 🎓 Academic Major Project
 
 </div>
 
 ---
 
-# 🌟 Project Overview
+# 🌟 About The Project
 
-The **AI-Based QR Smart Printing System** is a cloud-based smart printing platform designed to modernize traditional printing-shop workflows.
+**AI-Based QR Smart Printing System** is a cloud-connected smart printing platform designed to modernize the traditional printing-shop workflow.
 
-Instead of customers waiting at a printing shop to submit documents, configure printing options, make payments, and wait for their turn, the proposed system allows them to **scan a shop-specific QR code, upload documents remotely, configure printing settings, calculate the price, make a payment, and track their print job.**
+Instead of customers physically waiting at a printing shop to submit documents, configure printing options, calculate prices, make payments, and wait for printing, our system provides a digital workflow.
 
-The system also provides shop owners with a dedicated management interface for:
+A customer can:
 
-- 📊 Analytics
-- 🖨️ Printer management
-- 📋 Queue management
-- 💰 Pricing
-- 💳 Payment status
-- 🤖 AI/ML-based predictions
-- ⚡ Intelligent printer assignment
+**Scan → Upload → Configure → Pay → Track → Collect**
 
-The architecture is designed to support **multiple independent printing shops**, where each shop maintains its own jobs, printers, pricing, and operational information.
+Each printing shop has its own unique QR identifier. Scanning the QR opens the corresponding shop's printing interface.
+
+The cloud backend manages the printing workflow, while a **Local Print Agent** installed on the shop computer acts as the bridge between the cloud system and the physical printer.
+
+The system also incorporates **AI/ML-based printer assignment, job prioritization, analytics, and waiting-time prediction**.
 
 ---
 
-# 💡 Problem We Solve
+# 💡 Problem Statement
 
-Traditional printing shops often require customers to:
+Traditional printing shops commonly depend on manual processes:
 
 ```text
-Visit Shop
-    ↓
-Wait in Queue
-    ↓
-Transfer Documents
-    ↓
-Explain Printing Requirements
-    ↓
-Wait for Price Calculation
-    ↓
-Make Payment
-    ↓
-Wait for Printing
+Customer visits shop
+        ↓
+Waits in queue
+        ↓
+Transfers document
+        ↓
+Explains printing requirements
+        ↓
+Price is calculated manually
+        ↓
+Makes payment
+        ↓
+Waits for printing
+        ↓
+Collects documents
