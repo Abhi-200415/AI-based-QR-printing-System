@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+
+# Test files
+test_*.pdf
+test_*.docx
+abcd.pdf
+aab.txt
+
+# Print Agent runtime
+PRINT_AGENT/downloads/
+PRINT_AGENT/logs/
+PRINT_AGENT/__pycache__/
+PRINT_AGENT/**/__pycache__/
+
+# Local backups
+*.backup
+*.backup_*
+cloud_server/app_backup_printer/
+
+# Cloud uploaded user files
+cloud_server/uploads/*
+!cloud_server/uploads/.gitkeep
+
+combined_project.txt

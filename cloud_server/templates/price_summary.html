@@ -1,0 +1,110 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Print Summary</title>
+</head>
+
+<body>
+
+<h2>Print Summary</h2>
+
+<p>
+    File:
+    <strong>{{ file_name }}</strong>
+</p>
+
+<hr>
+
+<p>Pages: <strong>{{ page_count }}</strong></p>
+<p>Copies: <strong>{{ copies }}</strong></p>
+<p>Paper: <strong>{{ paper_size }}</strong></p>
+<p>Orientation: <strong>{{ orientation }}</strong></p>
+<p>Print Type: <strong>{{ print_type }}</strong></p>
+<p>Duplex: <strong>{{ duplex }}</strong></p>
+
+<hr>
+
+<h3>
+    Total Amount:
+    ₹<span id="total">{{ total_amount }}</span>
+</h3>
+
+<button
+    type="button"
+    id="paymentButton"
+>
+    Proceed to Payment
+</button>
+
+<p id="message"></p>
+
+<script>
+
+const paymentButton =
+    document.getElementById("paymentButton");
+
+paymentButton.addEventListener("click", async function () {
+
+    paymentButton.disabled = true;
+
+    const message =
+        document.getElementById("message");
+
+    message.innerText =
+        "Creating payment...";
+
+    try {
+
+        const response = await fetch(
+            "/payment/create/{{ job_id }}",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: "{}"
+            }
+        );
+
+        const result =
+            await response.json();
+
+        console.log(
+            "Payment response:",
+            result
+        );
+
+        if (!response.ok) {
+
+            message.innerText =
+                result.detail ||
+                "Unable to create payment.";
+
+            paymentButton.disabled = false;
+
+            return;
+        }
+
+        message.innerText =
+            "Payment created successfully. Payment ID: "
+            + result.payment_id;
+
+    }
+    catch (error) {
+
+        console.error(error);
+
+        message.innerText =
+            "Unable to connect to payment service.";
+
+        paymentButton.disabled = false;
+    }
+
+});
+
+</script>
+
+</body>
+
+</html>

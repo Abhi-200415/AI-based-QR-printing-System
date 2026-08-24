@@ -1,0 +1,277 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Print Settings</title>
+</head>
+
+<body>
+
+<h2>Print Settings</h2>
+
+<p>
+    File:
+    <strong>{{ file_name }}</strong>
+</p>
+
+<p>
+    Pages:
+    <strong>{{ page_count }}</strong>
+</p>
+
+<hr>
+
+<form id="settingsForm">
+
+    <label>
+        Copies:
+    </label>
+
+    <input
+        type="number"
+        id="copies"
+        value="1"
+        min="1"
+        required
+    >
+
+    <br><br>
+
+    <label>
+        Paper Size:
+    </label>
+
+    <select id="paper_size">
+
+        <option value="A4">
+            A4
+        </option>
+
+        <option value="A3">
+            A3
+        </option>
+
+        <option value="LEGAL">
+            Legal
+        </option>
+
+    </select>
+
+    <br><br>
+
+    <label>
+        Orientation:
+    </label>
+
+    <select id="orientation">
+
+        <option value="Portrait">
+            Portrait
+        </option>
+
+        <option value="Landscape">
+            Landscape
+        </option>
+
+    </select>
+
+    <br><br>
+
+    <label>
+        Print Type:
+    </label>
+
+    <select id="print_type">
+
+        <option value="BW">
+            Black & White
+        </option>
+
+        <option value="COLOR">
+            Color
+        </option>
+
+        <option value="MIXED">
+            Mixed
+        </option>
+
+    </select>
+
+    <br><br>
+
+    <label>
+        Duplex:
+    </label>
+
+    <input
+        type="checkbox"
+        id="duplex"
+    >
+
+    <br><br>
+
+    <label>
+        Page Range:
+    </label>
+
+    <input
+        type="text"
+        id="page_ranges"
+        placeholder="Example: 1-5,8,10"
+    >
+
+    <br><br>
+
+    <div id="mixedSection" style="display:none;">
+
+        <label>
+            Color Page Range:
+        </label>
+
+        <input
+            type="text"
+            id="color_page_ranges"
+            placeholder="Example: 2-5,8"
+        >
+
+        <br><br>
+
+    </div>
+
+    <button type="submit">
+        Save Print Settings
+    </button>
+
+</form>
+
+<p id="message"></p>
+
+<script>
+
+const form =
+    document.getElementById("settingsForm");
+
+const printType =
+    document.getElementById("print_type");
+
+const mixedSection =
+    document.getElementById("mixedSection");
+
+
+printType.addEventListener(
+    "change",
+    function() {
+
+        if (this.value === "MIXED") {
+
+            mixedSection.style.display =
+                "block";
+
+        } else {
+
+            mixedSection.style.display =
+                "none";
+
+        }
+
+    }
+);
+
+
+form.addEventListener(
+    "submit",
+    async function(event) {
+
+        event.preventDefault();
+
+        const data = {
+
+            copies:
+                parseInt(
+                    document.getElementById("copies").value
+                ),
+
+            paper_size:
+                document.getElementById("paper_size").value,
+
+            orientation:
+                document.getElementById("orientation").value,
+
+            print_type:
+                document.getElementById("print_type").value,
+
+            duplex:
+                document.getElementById("duplex").checked,
+
+            page_ranges:
+                document.getElementById("page_ranges").value
+                || null,
+
+            color_page_ranges:
+                document.getElementById("color_page_ranges").value
+                || null
+
+        };
+
+
+        document.getElementById("message").innerText =
+            "Saving settings...";
+
+
+        try {
+
+            const response = await fetch(
+                "/file/{{ file_id }}/settings",
+                {
+                    method: "PUT",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify(data)
+                }
+            );
+
+
+            const result =
+                await response.json();
+
+
+            if (!response.ok) {
+
+                document.getElementById("message").innerText =
+                    result.detail ||
+                    "Unable to save settings.";
+
+                return;
+
+            }
+
+
+            window.location.href =
+                "/file/summary/{{ file_id }}";
+
+        }
+
+        catch(error) {
+
+            console.error(error);
+
+            document.getElementById("message").innerText =
+                "Unable to connect to server.";
+
+        }
+
+    }
+);
+
+</script>
+
+</body>
+
+</html>
+
+

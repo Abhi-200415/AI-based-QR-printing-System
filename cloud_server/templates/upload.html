@@ -1,22 +1,112 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
-    <title>Upload File</title>
+    <title>AI Smart Printing - Upload</title>
 </head>
+
 <body>
-    <h2>Upload File</h2>
-    <form action="/upload/{{ session_id }}" method="post" enctype="multipart/form-data">
-        <input type="hidden" name="session" value="{{ session }}">
-        <input type="file" name="file" required><br><br>
-        Copies:
-        <input type="number" name="copies" value="1"><br><br>
-        Type:
-        <select name="color">
-            <option value="bw">B&W</option>
-            <option value="color">Color</option>
-        </select><br><br>
-        <button type="submit">Submit</button>
-    </form>
+
+<h2>Upload Documents for Printing</h2>
+
+<p>
+    Job ID: {{ job_id }}
+</p>
+
+<form id="uploadForm" enctype="multipart/form-data">
+
+    <input
+        type="file"
+        name="files"
+        id="files"
+        multiple
+        required
+    >
+
+    <br><br>
+
+    <button type="submit">
+        Upload Documents
+    </button>
+
+</form>
+
+<p id="message"></p>
+
+<script>
+
+const form = document.getElementById("uploadForm");
+
+form.addEventListener("submit", async function(event) {
+
+    event.preventDefault();
+
+    const files =
+        document.getElementById("files").files;
+
+    if (files.length === 0) {
+        return;
+    }
+
+    const formData = new FormData();
+
+    for (const file of files) {
+        formData.append("files", file);
+    }
+
+    document.getElementById("message").innerText =
+        "Uploading...";
+
+    try {
+
+        const response = await fetch(
+            "/upload/{{ job_id }}",
+            {
+                method: "POST",
+                body: formData
+            }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+
+            document.getElementById("message").innerText =
+                result.detail || "Upload failed.";
+
+            return;
+        }
+
+        if (
+            result.uploaded_files &&
+            result.uploaded_files.length === 1
+        ) {
+
+            const fileId =
+                result.uploaded_files[0].file_id;
+
+            window.location.href =
+                "/file/settings-page/" + fileId;
+
+        } else {
+
+            document.getElementById("message").innerText =
+                "Files uploaded successfully. Multiple-file settings will be handled next.";
+
+        }
+
+    }
+    catch (error) {
+
+        console.error(error);
+
+        document.getElementById("message").innerText =
+            "Unable to connect to server.";
+
+    }
+
+});
+
+</script>
+
 </body>
 </html>
-

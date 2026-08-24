@@ -1,99 +1,203 @@
 import asyncio
-import websockets
-import json
-import requests
-import os
-import time
-import win32api
-import win32print
+import signal
+import sys
 
-SERVER_URL = "wss://qr-printing-system.onrender.com/ws/print"
-HTTP_BASE = "https://qr-printing-system.onrender.com"
+from core.logger import (
+    info,
+    error
+)
 
-DOWNLOAD_DIR = "downloads"
-os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+from core.config import (
+    SHOP_ID,
+    PRINTER_SYNC_INTERVAL
+)
 
+from printers.manager import (
+    sync_printers
+)
 
-def print_file(filepath):
-    try:
-        printer_name = win32print.GetDefaultPrinter()
-        print(f"Using printer: {printer_name}")
-
-        # Send file to default printer silently
-        win32api.ShellExecute(
-            0,
-            "print",
-            filepath,
-            None,
-            ".",
-            0
-        )
-
-        print("Print command sent successfully 🖨")
-        return True
-
-    except Exception as e:
-        print("Printing error:", e)
-        return False
+from websocket.client import (
+    connect
+)
 
 
-async def connect():
+# ==========================================================
+# Shutdown Handler
+# ==========================================================
+
+def shutdown(signum=None, frame=None):
+
+    info(
+        "Stopping Print Agent..."
+    )
+
+    sys.exit(0)
+
+
+# ==========================================================
+# Continuous Printer Synchronization
+# ==========================================================
+
+async def printer_sync_loop():
+
     while True:
+
         try:
-            print("=== Print Agent Started ===")
-            print("Connecting to server...")
 
-            async with websockets.connect(SERVER_URL) as websocket:
-                print("Connected to server ✅")
+            await asyncio.sleep(
+                PRINTER_SYNC_INTERVAL
+            )
 
-                while True:
-                    message = await websocket.recv()
-                    data = json.loads(message)
+            info(
+                "Running automatic printer synchronization..."
+            )
 
-                    print("\nJob Received:", data)
+            success = await asyncio.to_thread(
 
-                    file_id = data["file_id"]
-                    filename = data["filename"]
+                sync_printers,
 
-                    file_url = f"{HTTP_BASE}/uploads/{file_id}_{filename}"
+                SHOP_ID
 
-                    print("Downloading:", file_url)
+            )
 
-                    response = requests.get(file_url)
+            if success:
 
-                    if response.status_code == 200:
+                info(
+                    "Automatic printer synchronization successful."
+                )
 
-                        local_file = os.path.join(
-                            DOWNLOAD_DIR,
-                            f"{file_id}_{filename}"
-                        )
+            else:
 
-                        with open(local_file, "wb") as f:
-                            f.write(response.content)
+                error(
+                    "Automatic printer synchronization completed "
+                    "with errors."
+                )
 
-                        print("Downloaded:", local_file)
+        except asyncio.CancelledError:
 
-                        # Print file
-                        success = print_file(local_file)
+            info(
+                "Printer synchronization stopped."
+            )
 
-                        if success:
-                            time.sleep(3)  # small delay to allow spool start
-
-                            # Auto delete after printing
-                            try:
-                                os.remove(local_file)
-                                print("File auto-deleted ✅")
-                            except:
-                                pass
-
-                    else:
-                        print("Download failed:", response.status_code)
+            break
 
         except Exception as e:
-            print("Connection error:", e)
-            print("Reconnecting in 5 seconds...\n")
-            time.sleep(5)
+
+            error(
+                f"Printer synchronization error: {e}"
+            )
+
+
+# ==========================================================
+# Start Print Agent
+# ==========================================================
+
+async def start_agent():
+
+    info("=" * 60)
+
+    info(
+        "AI Smart Printing Agent Started"
+    )
+
+    info("=" * 60)
+
+    # -----------------------------------------
+    # Initial Printer Synchronization
+    # -----------------------------------------
+
+    info(
+        "Detecting printers..."
+    )
+
+    registered = await asyncio.to_thread(
+
+        sync_printers,
+
+        SHOP_ID
+
+    )
+
+    if registered:
+
+        info(
+            "Printers synchronized successfully."
+        )
+
+    else:
+
+        error(
+            "Printer synchronization completed with errors."
+        )
+
+    # -----------------------------------------
+    # Start Continuous Synchronization
+    # -----------------------------------------
+
+    sync_task = asyncio.create_task(
+
+        printer_sync_loop()
+
+    )
+
+    # -----------------------------------------
+    # Connect WebSocket
+    # -----------------------------------------
+
+    info(
+        "Connecting to Cloud..."
+    )
+
+    try:
+
+        await connect()
+
+    finally:
+
+        sync_task.cancel()
+
+        try:
+
+            await sync_task
+
+        except asyncio.CancelledError:
+
+            pass
+
+
+# ==========================================================
+# Main
+# ==========================================================
+
+def main():
+
+    signal.signal(
+        signal.SIGINT,
+        shutdown
+    )
+
+    signal.signal(
+        signal.SIGTERM,
+        shutdown
+    )
+
+    try:
+
+        asyncio.run(
+            start_agent()
+        )
+
+    except KeyboardInterrupt:
+
+        shutdown()
+
+    except Exception as e:
+
+        error(
+            f"Agent crashed : {e}"
+        )
 
 
 if __name__ == "__main__":
-    asyncio.run(connect())
+
+    main()

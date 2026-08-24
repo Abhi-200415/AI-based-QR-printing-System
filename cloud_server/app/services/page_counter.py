@@ -1,79 +1,85 @@
-from pypdf import PdfReader
-from docx import Document
-from PIL import Image
-import os
+from pathlib import Path
 
+from PIL import Image
+from docx import Document
+from pypdf import PdfReader
+
+
+# ==========================================================
+# PDF
+# ==========================================================
 
 def count_pdf_pages(file_path: str) -> int:
-    reader = PdfReader(file_path)
-    return len(reader.pages)
+    return len(PdfReader(file_path).pages)
 
+
+# ==========================================================
+# DOCX
+# ==========================================================
 
 def count_docx_pages(file_path: str) -> int:
+    document = Document(file_path)
 
-    doc = Document(file_path)
-
-    text = ""
-
-    for para in doc.paragraphs:
-        text += para.text
+    total_characters = sum(
+        len(paragraph.text)
+        for paragraph in document.paragraphs
+    )
 
     chars_per_page = 3000
 
-    pages = max(
-        1,
-        (len(text) // chars_per_page) + 1
-    )
+    return max(1, (total_characters + chars_per_page - 1) // chars_per_page)
 
-    return pages
 
+# ==========================================================
+# TXT
+# ==========================================================
 
 def count_txt_pages(file_path: str) -> int:
-
     with open(
         file_path,
         "r",
         encoding="utf-8",
         errors="ignore"
-    ) as f:
-
-        content = f.read()
+    ) as file:
+        content = file.read()
 
     chars_per_page = 3000
 
-    pages = max(
-        1,
-        (len(content) // chars_per_page) + 1
-    )
+    return max(1, (len(content) + chars_per_page - 1) // chars_per_page)
 
-    return pages
 
+# ==========================================================
+# IMAGE
+# ==========================================================
 
 def count_image_pages(file_path: str) -> int:
-    return 1
+    try:
+        Image.open(file_path)
+        return 1
+    except Exception:
+        return 0
 
+
+# ==========================================================
+# MAIN
+# ==========================================================
 
 def count_pages(file_path: str) -> int:
 
-    extension = (
-        os.path.splitext(file_path)[1]
-        .lower()
-    )
+    extension = Path(file_path).suffix.lower()
 
-    if extension == ".pdf":
-        return count_pdf_pages(file_path)
+    page_counter = {
+        ".pdf": count_pdf_pages,
+        ".docx": count_docx_pages,
+        ".txt": count_txt_pages,
+        ".png": count_image_pages,
+        ".jpg": count_image_pages,
+        ".jpeg": count_image_pages,
+    }
 
-    elif extension == ".docx":
-        return count_docx_pages(file_path)
+    counter = page_counter.get(extension)
 
-    elif extension == ".txt":
-        return count_txt_pages(file_path)
+    if counter is None:
+        raise ValueError(f"Unsupported file format: {extension}")
 
-    elif extension in [
-        ".png",
-        ".jpg",
-        ".jpeg"
-    ]:
-        return count_image_pages(file_path)
-
-    return 1
+    return counter(file_path)

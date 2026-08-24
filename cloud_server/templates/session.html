@@ -1,11 +1,32 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
+
 <head>
-    <title>Print Session</title>
+    <title>Shop QR Code</title>
 </head>
+
 <body>
-    <h2>Scan QR to Upload Files</h2>
-    <p>Session ID: {{ session_id }}</p>
-    <img src="{{ qr_path }}" width="300">
+
+    <h2>{{ owner.shop_name }}</h2>
+
+    <h3>Scan QR to Upload Files</h3>
+
+    <img
+        src="{{ qr_path }}"
+        width="300"
+        alt="Shop QR Code"
+    >
+
+    <p>
+        Scan this QR code using a mobile phone
+        to upload documents for printing.
+    </p>
+
+    <p>
+        Upload URL:
+        {{ upload_url }}
+    </p>
+
 </body>
+
 </html>
