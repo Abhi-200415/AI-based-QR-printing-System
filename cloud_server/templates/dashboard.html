@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Smart Printing - Owner & Operator Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0b0f19;
+            --bg-card: #151e2e;
+            --accent: #6366f1;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #233044;
+        }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text);
+            margin: 0;
+            padding: 24px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 0;
+            background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 20px;
+        }
+        .stat-card .label {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text);
+        }
+        .stat-card.revenue .value { color: #34d399; }
+        .stat-card.active .value { color: #818cf8; }
+        .stat-card.failed .value { color: #f87171; }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 24px 0 12px 0;
+        }
+        .table-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 14px;
+        }
+        th, td {
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+        }
+        th {
+            background: rgba(15, 23, 42, 0.8);
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge.online { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+        .badge.offline { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+        .badge.busy { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div>
+        <h1>Shop Operations & Analytics Dashboard</h1>
+        <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Owner ID: <span id="ownerId">{{ owner_id }}</span></div>
+    </div>
+    <div style="font-size: 13px; color: var(--text-muted);" id="liveClock"></div>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="label">Total Print Jobs</div>
+        <div class="value" id="statTotalJobs">-</div>
+    </div>
+    <div class="stat-card active">
+        <div class="label">Completed Jobs</div>
+        <div class="value" id="statCompletedJobs">-</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Active Queue</div>
+        <div class="value" id="statActiveQueue">-</div>
+    </div>
+    <div class="stat-card failed">
+        <div class="label">Failed Jobs</div>
+        <div class="value" id="statFailedJobs">-</div>
+    </div>
+    <div class="stat-card revenue">
+        <div class="label">Total Revenue</div>
+        <div class="value" id="statRevenue">₹-</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Avg Print Time</div>
+        <div class="value" id="statAvgTime">-s</div>
+    </div>
+</div>
+
+<div class="section-title">Connected Physical Printers</div>
+<div class="table-card">
+    <table>
+        <thead>
+            <tr>
+                <th>Printer Name</th>
+                <th>Status</th>
+                <th>Queue</th>
+                <th>Capabilities</th>
+                <th>Total Printed</th>
+            </tr>
+        </thead>
+        <tbody id="printersTable">
+            <tr><td colspan="5" style="text-align:center; color: var(--text-muted);">Loading printers...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="section-title">Live Print Queue</div>
+<div class="table-card">
+    <table>
+        <thead>
+            <tr>
+                <th>Position</th>
+                <th>Job ID</th>
+                <th>Status</th>
+                <th>Assigned Printer</th>
+                <th>Est. Seconds</th>
+            </tr>
+        </thead>
+        <tbody id="queueTable">
+            <tr><td colspan="5" style="text-align:center; color: var(--text-muted);">No active jobs in queue.</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+const ownerId = "{{ owner_id }}";
+
+function updateClock() {
+    document.getElementById("liveClock").innerText = new Date().toLocaleTimeString();
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+async function loadDashboard() {
+    try {
+        const statsRes = await fetch(`/analytics/dashboard/${ownerId}`);
+        if (statsRes.ok) {
+            const data = await statsRes.json();
+            const stats = data.statistics || {};
+            document.getElementById("statTotalJobs").innerText = stats.total_jobs || "0";
+            document.getElementById("statCompletedJobs").innerText = stats.completed_jobs || "0";
+            document.getElementById("statActiveQueue").innerText = (stats.pending_jobs || 0) + (stats.printing_jobs || 0);
+            document.getElementById("statFailedJobs").innerText = stats.failed_jobs || "0";
+            document.getElementById("statRevenue").innerText = "₹" + (stats.total_revenue || 0).toFixed(2);
+            document.getElementById("statAvgTime").innerText = (stats.average_completion_seconds || 0) + "s";
+
+            // Populate printers
+            const pTable = document.getElementById("printersTable");
+            const printers = data.printer_utilization || [];
+            if (printers.length > 0) {
+                pTable.innerHTML = printers.map(p => `
+                    <tr>
+                        <td><strong>${p.printer_name}</strong></td>
+                        <td><span class="badge ${p.status.toLowerCase()}">${p.status}</span></td>
+                        <td>${p.current_queue || 0} jobs</td>
+                        <td>B/W, Color, Duplex</td>
+                        <td>${p.jobs_printed || 0}</td>
+                    </tr>
+                `).join("");
+            } else {
+                pTable.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-muted);">No printers registered yet.</td></tr>`;
+            }
+        }
+
+        // Load Queue
+        const qRes = await fetch("/queue/");
+        if (qRes.ok) {
+            const qJobs = await qRes.json();
+            const qTable = document.getElementById("queueTable");
+            if (qJobs.length > 0) {
+                qTable.innerHTML = qJobs.map(q => `
+                    <tr>
+                        <td><strong>#${q.queue_position || 1}</strong></td>
+                        <td><code>${q.job_id.slice(0, 8)}...</code></td>
+                        <td><span class="badge ${q.status.toLowerCase()}">${q.status}</span></td>
+                        <td>${q.assigned_printer_id ? q.assigned_printer_id.slice(0, 8) + "..." : "Auto"}</td>
+                        <td>${q.estimated_seconds || 0}s</td>
+                    </tr>
+                `).join("");
+            } else {
+                qTable.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-muted);">No active jobs in queue.</td></tr>`;
+            }
+        }
+    } catch (err) {
+        console.error("Dashboard error:", err);
+    }
+}
+
+loadDashboard();
+setInterval(loadDashboard, 3000);
+</script>
+
+</body>
+</html>

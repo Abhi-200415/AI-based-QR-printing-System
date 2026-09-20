@@ -3,136 +3,90 @@ from fastapi import (
     WebSocket,
     WebSocketDisconnect
 )
-
 from app.websocket.manager import (
     connect,
-    disconnect
+    disconnect,
+    update_heartbeat
 )
+from app.utils.logger import logger
 
 router = APIRouter()
 
 
 @router.websocket("/ws/printer")
 async def printer_socket(websocket: WebSocket):
-
     agent_id = None
     shop_id = None
 
     try:
-
         await websocket.accept()
 
         # ==================================================
         # First Message Must Be Registration
         # ==================================================
-
         message = await websocket.receive_json()
 
         if message.get("type") != "register":
-
-            await websocket.close(
-                code=1008
-            )
-
+            logger.warning(f"WebSocket rejected: Expected register message, got {message.get('type')}")
+            await websocket.close(code=1008)
             return
 
         agent_id = message.get("agent_id")
         shop_id = message.get("shop_id")
+        printer_ids = message.get("printer_ids", [])
 
         if not agent_id or not shop_id:
-
-            await websocket.close(
-                code=1008
-            )
-
+            logger.warning("WebSocket rejected: Missing agent_id or shop_id.")
+            await websocket.close(code=1008)
             return
 
         # ==================================================
         # Register Agent
         # ==================================================
-
         await connect(
             websocket,
             agent_id,
-            shop_id
+            shop_id,
+            printer_ids
         )
 
         await websocket.send_json({
-
             "type": "registered",
-
             "agent_id": agent_id,
-
-            "shop_id": shop_id
-
+            "shop_id": shop_id,
+            "status": "connected"
         })
 
         # ==================================================
         # Message Loop
         # ==================================================
-
         while True:
-
             message = await websocket.receive_json()
-
             message_type = message.get("type")
 
-            # ==================================================
-            # Heartbeat
-            # ==================================================
-
             if message_type == "heartbeat":
-
-                print(
-                    "Heartbeat received from:",
-                    message.get("agent_id")
-                )
-
+                update_heartbeat(agent_id)
                 await websocket.send_json({
-
                     "type": "heartbeat_ack",
-
-                    "agent_id":
-                        message.get("agent_id")
-
+                    "agent_id": agent_id
                 })
 
-            # ==================================================
-            # Pong
-            # ==================================================
+            elif message_type == "job_ack":
+                job_id = message.get("job_id")
+                logger.info(f"Agent {agent_id} acknowledged receipt of Job {job_id}")
 
             elif message_type == "pong":
-
-                print(
-                    "Pong received from:",
-                    message.get("agent_id")
-                )
-
-            # ==================================================
-            # Unknown
-            # ==================================================
+                update_heartbeat(agent_id)
 
             else:
-
-                print(
-                    "Unknown printer message:",
-                    message
-                )
+                logger.debug(f"Received WebSocket message from {agent_id}: {message_type}")
 
     except WebSocketDisconnect:
-
         if websocket:
-
             disconnect(websocket)
-
-        print(
-            "Print Agent disconnected."
-        )
+        logger.info(f"Print Agent {agent_id} disconnected.")
 
     except Exception as e:
-
-        print(
-            f"Printer WebSocket error: {e}"
-        )
-
-        disconnect(websocket)
+        logger.error(f"Printer WebSocket error for {agent_id}: {e}")
+        if websocket:
+            disconnect(websocket)

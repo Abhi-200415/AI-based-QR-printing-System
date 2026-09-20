@@ -14,15 +14,16 @@ from app.database.models import JobStatus
 class QueueResponse(BaseModel):
     job_id: UUID
 
-    assigned_printer_id: Optional[UUID]
+    assigned_printer_id: Optional[UUID] = None
 
-    queue_position: int
+    queue_position: Optional[int] = None
 
     status: JobStatus
 
-    estimated_seconds: int
+    # Estimated seconds is nullable — 0 when not yet calculated
+    estimated_seconds: Optional[int] = 0
 
-    created_at: datetime
+    queued_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -36,4 +37,4 @@ class QueueUpdate(BaseModel):
 
     assigned_printer_id: Optional[UUID] = None
 
-    status: Optional[JobStatus] = None
+    status: Optional[JobStatus] = None

@@ -1,5 +1,5 @@
 from datetime import datetime
-
+from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.database.models import (
@@ -7,104 +7,56 @@ from app.database.models import (
     Printer,
     JobStatus,
 )
+from app.utils.logger import logger
 
 
 # ==========================================================
-# AI Waiting Time Prediction
+# Waiting Time Estimation
 # ==========================================================
 
 def estimate_waiting_time(job: ActiveJob) -> int:
-    """
-    Estimate waiting time in seconds
-    based on queue position.
-    """
-
     AVERAGE_PRINT_TIME = 45
-
     if job.queue_position is None:
         return 0
-
     return job.queue_position * AVERAGE_PRINT_TIME
 
 
-# ==========================================================
-# AI Printer Load
-# ==========================================================
-
-def get_printer_load(
-    printer: Printer
-) -> str:
-
+def get_printer_load(printer: Printer) -> str:
     queue = printer.current_queue or 0
-
     if queue <= 2:
         return "LOW"
-
     if queue <= 5:
         return "MEDIUM"
-
     return "HIGH"
 
 
-# ==========================================================
-# AI Recommendation
-# ==========================================================
-
-def get_ai_recommendation(
-    job: ActiveJob
-) -> str:
-
-    estimated_seconds = (
-        job.estimated_seconds or 0
-    )
-
+def get_ai_recommendation(job: ActiveJob) -> str:
+    estimated_seconds = job.estimated_seconds or 0
     if estimated_seconds < 60:
         return "Printing will start shortly."
-
     if estimated_seconds < 300:
         return "Normal waiting time."
-
-    return (
-        "Queue is busy. "
-        "Consider another compatible printer."
-    )
+    return "Queue is busy. Consider another compatible printer."
 
 
 # ==========================================================
-# Update AI Predictions
+# Update Queue Positions and ETAs
 # ==========================================================
 
-def update_queue_predictions(
-    printer_id,
-    db: Session
-):
-
+def update_queue_predictions(printer_id, db: Session):
     jobs = (
         db.query(ActiveJob)
         .filter(
             ActiveJob.assigned_printer_id == printer_id,
             ActiveJob.status == JobStatus.QUEUED
         )
-        .order_by(
-            ActiveJob.queue_position.asc()
-        )
+        .order_by(ActiveJob.queue_position.asc())
         .all()
     )
 
-    # ------------------------------------------------------
-    # Rebuild queue positions
-    # ------------------------------------------------------
-
-    for position, job in enumerate(
-        jobs,
-        start=1
-    ):
-
+    for position, job in enumerate(jobs, start=1):
         job.queue_position = position
-
-        job.estimated_seconds = (
-            position * 45
-        )
+        job.estimated_seconds = position * 45
 
     db.commit()
 
@@ -116,103 +68,56 @@ def update_queue_predictions(
 def add_job_to_queue(
     job_id,
     db: Session
-):
-
+) -> Optional[ActiveJob]:
     job = (
         db.query(ActiveJob)
-        .filter(
-            ActiveJob.job_id == job_id
-        )
+        .filter(ActiveJob.job_id == job_id)
         .first()
     )
 
-    if not job:
+    if not job or not job.assigned_printer_id:
         return None
 
-    # ------------------------------------------------------
-    # Job must have a printer
-    # ------------------------------------------------------
-
-    if not job.assigned_printer_id:
-        return None
-
-    # ------------------------------------------------------
-    # Prevent duplicate queue insertion
-    # ------------------------------------------------------
-
-    if job.status == JobStatus.QUEUED:
-
+    # Prevent requeuing already completed/failed/cancelled jobs
+    if job.status in (JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED):
         return job
 
-    # ------------------------------------------------------
-    # Find assigned printer
-    # ------------------------------------------------------
+    # If already queued, return job
+    if job.status == JobStatus.QUEUED:
+        return job
 
     printer = (
         db.query(Printer)
-        .filter(
-            Printer.printer_id ==
-            job.assigned_printer_id
-        )
+        .filter(Printer.printer_id == job.assigned_printer_id)
         .first()
     )
 
     if not printer:
         return None
 
-    # ------------------------------------------------------
-    # Find current queued jobs
-    # ------------------------------------------------------
-
+    # Count current queued jobs for this printer
     queue_count = (
         db.query(ActiveJob)
         .filter(
-            ActiveJob.assigned_printer_id ==
-            job.assigned_printer_id,
-
-            ActiveJob.status ==
-            JobStatus.QUEUED
+            ActiveJob.assigned_printer_id == job.assigned_printer_id,
+            ActiveJob.status == JobStatus.QUEUED
         )
         .count()
     )
 
-    # ------------------------------------------------------
-    # Assign queue position
-    # ------------------------------------------------------
-
-    job.queue_position = (
-        queue_count + 1
-    )
-
+    job.queue_position = queue_count + 1
     job.status = JobStatus.QUEUED
-
     job.queued_at = datetime.utcnow()
+    job.estimated_seconds = estimate_waiting_time(job)
 
-    job.estimated_seconds = (
-        estimate_waiting_time(job)
-    )
-
-    # ------------------------------------------------------
     # Synchronize printer queue count
-    # ------------------------------------------------------
-
-    printer.current_queue = (
-        queue_count + 1
-    )
-
+    printer.current_queue = queue_count + 1
     db.commit()
 
-    # ------------------------------------------------------
-    # Recalculate queue predictions
-    # ------------------------------------------------------
-
-    update_queue_predictions(
-        printer.printer_id,
-        db
-    )
-
+    update_queue_predictions(printer.printer_id, db)
     db.refresh(job)
 
+    logger.info(f"Job {job.job_id} added to queue at position {job.queue_position} for printer {printer.printer_name}")
     return job
 
 
@@ -223,133 +128,39 @@ def add_job_to_queue(
 def remove_job_from_queue(
     job_id,
     db: Session
-):
-
+) -> Optional[ActiveJob]:
     job = (
         db.query(ActiveJob)
-        .filter(
-            ActiveJob.job_id == job_id
-        )
+        .filter(ActiveJob.job_id == job_id)
         .first()
     )
 
     if not job:
         return None
 
-    printer_id = (
-        job.assigned_printer_id
-    )
-
-    # ------------------------------------------------------
-    # Find printer
-    # ------------------------------------------------------
-
-    printer = None
-
-    if printer_id:
-
-        printer = (
-            db.query(Printer)
-            .filter(
-                Printer.printer_id ==
-                printer_id
-            )
-            .first()
-        )
-
-    # ------------------------------------------------------
-    # Remove job from active queue
-    # ------------------------------------------------------
-
+    printer_id = job.assigned_printer_id
     job.queue_position = None
-
     job.estimated_seconds = 0
 
-    # ------------------------------------------------------
-    # Synchronize printer queue count
-    # ------------------------------------------------------
-
-    if printer:
-
-        remaining_count = (
-            db.query(ActiveJob)
-            .filter(
-                ActiveJob.assigned_printer_id ==
-                printer_id,
-
-                ActiveJob.status ==
-                JobStatus.QUEUED,
-
-                ActiveJob.job_id != job.job_id
-            )
-            .count()
-        )
-
-        printer.current_queue = (
-            remaining_count
-        )
-
-    db.commit()
-
-    # ------------------------------------------------------
-    # Rebuild remaining queue
-    # ------------------------------------------------------
-
     if printer_id:
+        printer = db.query(Printer).filter(Printer.printer_id == printer_id).first()
+        if printer:
+            remaining = (
+                db.query(ActiveJob)
+                .filter(
+                    ActiveJob.assigned_printer_id == printer_id,
+                    ActiveJob.status == JobStatus.QUEUED,
+                    ActiveJob.job_id != job.job_id
+                )
+                .count()
+            )
+            printer.current_queue = remaining
 
-        update_queue_predictions(
-            printer_id,
-            db
-        )
+        db.commit()
+        update_queue_predictions(printer_id, db)
 
     db.refresh(job)
-
     return job
-
-
-# ==========================================================
-# Get Queue
-# ==========================================================
-
-def get_queue(
-    printer_id,
-    db: Session
-):
-
-    jobs = (
-        db.query(ActiveJob)
-        .filter(
-            ActiveJob.assigned_printer_id ==
-            printer_id,
-
-            ActiveJob.status ==
-            JobStatus.QUEUED
-        )
-        .order_by(
-            ActiveJob.queue_position.asc()
-        )
-        .all()
-    )
-
-    return jobs
-
-
-# ==========================================================
-# Get Single Queue Job
-# ==========================================================
-
-def get_queue_job(
-    job_id,
-    db: Session
-):
-
-    return (
-        db.query(ActiveJob)
-        .filter(
-            ActiveJob.job_id == job_id
-        )
-        .first()
-    )
 
 
 # ==========================================================
@@ -359,38 +170,21 @@ def get_queue_job(
 def cancel_queue_job(
     job_id,
     db: Session
-):
-
+) -> Optional[ActiveJob]:
     job = (
         db.query(ActiveJob)
-        .filter(
-            ActiveJob.job_id == job_id
-        )
+        .filter(ActiveJob.job_id == job_id)
         .first()
     )
 
     if not job:
         return None
 
-    printer_id = (
-        job.assigned_printer_id
-    )
-
-    # ------------------------------------------------------
-    # Cancel the job
-    # ------------------------------------------------------
+    if job.status == JobStatus.CANCELLED:
+        return job
 
     job.status = JobStatus.CANCELLED
-
-    # ------------------------------------------------------
-    # Remove from queue
-    # ------------------------------------------------------
-
-    remove_job_from_queue(
-        job_id,
-        db
-    )
-
+    remove_job_from_queue(job_id, db)
     return job
 
 
@@ -401,105 +195,66 @@ def cancel_queue_job(
 def complete_queue_job(
     job_id,
     db: Session
-):
-
+) -> Optional[ActiveJob]:
     job = (
         db.query(ActiveJob)
-        .filter(
-            ActiveJob.job_id == job_id
-        )
+        .filter(ActiveJob.job_id == job_id)
         .first()
     )
 
     if not job:
         return None
 
-    # ------------------------------------------------------
-    # Complete job
-    # ------------------------------------------------------
-
     job.status = JobStatus.COMPLETED
+    remove_job_from_queue(job_id, db)
 
-    # ------------------------------------------------------
-    # Remove from queue
-    # ------------------------------------------------------
-
-    remove_job_from_queue(
-        job_id,
-        db
-    )
-
-    # ------------------------------------------------------
-    # Update printer statistics
-    # ------------------------------------------------------
-
-    printer_id = (
-        job.assigned_printer_id
-    )
-
+    printer_id = job.assigned_printer_id
     if printer_id:
-
-        printer = (
-            db.query(Printer)
-            .filter(
-                Printer.printer_id ==
-                printer_id
-            )
-            .first()
-        )
-
+        printer = db.query(Printer).filter(Printer.printer_id == printer_id).first()
         if printer:
-
-            printer.total_jobs_printed = (
-                printer.total_jobs_printed or 0
-            ) + 1
-
+            printer.total_jobs_printed = (printer.total_jobs_printed or 0) + 1
             db.commit()
 
     db.refresh(job)
-
     return job
 
 
 # ==========================================================
-# Queue Dashboard
+# Get Queues
 # ==========================================================
 
-def get_queue_dashboard(
+def get_queue(
     printer_id,
     db: Session
-):
-
-    printer = (
-        db.query(Printer)
+) -> List[ActiveJob]:
+    return (
+        db.query(ActiveJob)
         .filter(
-            Printer.printer_id == printer_id
+            ActiveJob.assigned_printer_id == printer_id,
+            ActiveJob.status == JobStatus.QUEUED
         )
+        .order_by(ActiveJob.queue_position.asc())
+        .all()
+    )
+
+
+def get_all_queue_jobs(
+    db: Session
+) -> List[ActiveJob]:
+    return (
+        db.query(ActiveJob)
+        .filter(ActiveJob.status == JobStatus.QUEUED)
+        .order_by(ActiveJob.queued_at.asc())
+        .all()
+    )
+
+
+def get_queue_job(
+    job_id,
+    db: Session
+) -> Optional[ActiveJob]:
+    return (
+        db.query(ActiveJob)
+        .filter(ActiveJob.job_id == job_id)
         .first()
     )
-
-    if not printer:
-        return None
-
-    jobs = get_queue(
-        printer_id,
-        db
-    )
-
-    return {
-
-        "printer_name":
-            printer.printer_name,
-
-        "printer_status":
-            printer.status.value,
-
-        "queue_length":
-            printer.current_queue or 0,
-
-        "printer_load":
-            get_printer_load(printer),
-
-        "queued_jobs":
-            jobs
-    }

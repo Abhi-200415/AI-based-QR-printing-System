@@ -1,4 +1,7 @@
-import win32print
+try:
+    import win32print
+except ImportError:
+    win32print = None
 
 
 # ==========================================================

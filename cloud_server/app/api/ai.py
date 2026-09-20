@@ -1,11 +1,9 @@
 from uuid import UUID
-
 from fastapi import (
     APIRouter,
     Depends,
     HTTPException
 )
-
 from sqlalchemy.orm import Session
 
 from app.database.connection import get_db
@@ -13,16 +11,18 @@ from app.database.models import (
     ShopOwner,
     ActiveJob
 )
-
 from app.services.analytics_service import (
     analytics_dashboard,
     predict_revenue,
     predict_busy_hour,
     get_ai_recommendation
 )
-
 from app.services.assignment_service import (
-    assign_best_printer
+    assign_printer
+)
+from app.services.ml_prediction_service import (
+    train_ml_model_from_db,
+    get_ml_model
 )
 
 router = APIRouter(
@@ -40,12 +40,9 @@ def ai_dashboard(
     owner_id: UUID,
     db: Session = Depends(get_db)
 ):
-
     owner = (
         db.query(ShopOwner)
-        .filter(
-            ShopOwner.owner_id == owner_id
-        )
+        .filter(ShopOwner.owner_id == owner_id)
         .first()
     )
 
@@ -55,10 +52,7 @@ def ai_dashboard(
             detail="Owner not found."
         )
 
-    return analytics_dashboard(
-        owner_id,
-        db
-    )
+    return analytics_dashboard(owner_id, db)
 
 
 # ==========================================================
@@ -70,12 +64,9 @@ def recommend_printer(
     job_id: UUID,
     db: Session = Depends(get_db)
 ):
-
     job = (
         db.query(ActiveJob)
-        .filter(
-            ActiveJob.job_id == job_id
-        )
+        .filter(ActiveJob.job_id == job_id)
         .first()
     )
 
@@ -85,113 +76,57 @@ def recommend_printer(
             detail="Job not found."
         )
 
-    printer = assign_best_printer(
-        job,
-        db
-    )
+    printer = assign_printer(job, db)
 
     if not printer:
         raise HTTPException(
             status_code=404,
-            detail="No suitable printer found."
+            detail="No suitable eligible printer found."
         )
 
     return {
-
-        "recommended_printer": printer.printer_name,
-
-        "printer_id": str(printer.printer_id),
-
-        "supports_color": printer.supports_color,
-
-        "supports_duplex": printer.supports_duplex,
-
-        "current_queue": printer.current_queue
+        "job_id": str(job.job_id),
+        "assigned_printer_id": str(printer.printer_id),
+        "printer_name": printer.printer_name,
+        "estimated_seconds": job.estimated_seconds or 0
     }
 
 
 # ==========================================================
-# AI Revenue Prediction
+# ML Model Status & Training Endpoints
 # ==========================================================
 
-@router.get("/prediction/revenue/{owner_id}")
-def revenue_prediction(
-    owner_id: UUID,
+@router.get("/model-status")
+def model_status():
+    """
+    Check the current AI/ML print time prediction model status.
+    """
+    model = get_ml_model()
+    return {
+        "model_loaded": model is not None,
+        "model_type": type(model).__name__ if model else "None",
+        "fallback_status": "Active (Deterministic domain predictor)",
+        "feature_set": [
+            "total_pages",
+            "total_copies",
+            "color_ratio",
+            "duplex_ratio",
+            "is_a3",
+            "is_legal",
+            "printer_historical_jobs",
+            "printer_queue_length",
+            "queue_wait_seconds"
+        ],
+        "target": "actual_completion_seconds"
+    }
+
+
+@router.post("/train-model")
+def train_model(
     db: Session = Depends(get_db)
 ):
-
-    return {
-
-        "predicted_monthly_revenue":
-
-        predict_revenue(
-            owner_id,
-            db
-        )
-    }
-
-
-# ==========================================================
-# AI Busy Hour Prediction
-# ==========================================================
-
-@router.get("/prediction/busy-hour/{owner_id}")
-def busy_hour_prediction(
-    owner_id: UUID,
-    db: Session = Depends(get_db)
-):
-
-    return {
-
-        "predicted_busy_hour":
-
-        predict_busy_hour(
-            owner_id,
-            db
-        )
-    }
-
-
-# ==========================================================
-# AI Business Recommendation
-# ==========================================================
-
-@router.get("/recommendation/{owner_id}")
-def recommendation(
-    owner_id: UUID,
-    db: Session = Depends(get_db)
-):
-
-    return {
-
-        "recommendation":
-
-        get_ai_recommendation(
-            owner_id,
-            db
-        )
-    }
-
-
-# ==========================================================
-# Future AI Features
-# ==========================================================
-
-@router.get("/future")
-def future_ai():
-
-    return {
-
-        "planned_features": [
-
-            "AI Color Detection",
-
-            "AI OCR",
-
-            "Semantic Document Search",
-
-            "AI Print Cost Optimization",
-
-            "AI Queue Optimization"
-        ]
-    }
+    """
+    Trigger training of ML print time prediction model using real completed jobs.
+    """
+    result = train_ml_model_from_db(db)
+    return result

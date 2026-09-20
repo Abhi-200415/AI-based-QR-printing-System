@@ -1,0 +1,371 @@
+# AI-BASED QR PRINTING SYSTEM — COMPLETE DIAGNOSTIC REPORT
+*Auditor: Senior Software Debugger / System Architect / QA Engineer*
+
+---
+
+## A. EXECUTION FLOW (Traced End-to-End)
+
+```
+Step 1:  Customer scans QR  → GET /qr/{qr_token}                  ✓
+Step 2:  Job created (auto) → ActiveJob inserted                   ✓
+Step 3:  Redirect to upload → GET /upload/{job_id}                 ✓
+Step 4:  Files uploaded     → POST /upload/{job_id}                ✓ (1-file dispatch only)
+Step 5:  Pages counted      → count_pages()                        ✓ (ValueError on .doc/.ppt)
+Step 6:  Settings page      → GET /file/settings-page/{file_id}   ✓
+Step 7:  Settings saved     → PUT /file/{file_id}/settings         ✓
+Step 8:  Price summary      → GET /file/summary/{file_id}          ✓
+Step 9:  Payment created    → POST /payment/create/{job_id}        ✓ (MANUAL only, no gateway)
+Step 10: Payment callback   → POST /payment/callback/{id}?success= ✗ NO GATEWAY; open to abuse
+Step 11: assign_paid_job()  → assign_printer() + add_job_to_queue()✗ CRASHES (estimated_seconds missing)
+Step 12: dispatch_job_...() → WebSocket send_job_to_shop()         ✗ File[0] only
+Step 13: Agent receives job → receive_messages() → handle_job()    ✓ (blocks event loop)
+Step 14: File downloaded    → GET /download/job/{id}/file/{id}     ✓
+Step 15: SumatraPDF prints  → advanced_executor.py                 ✓ (Windows only)
+Step 16: Status reported    → PUT /jobs/{job_id}/status            ✓
+Step 17: Next job triggered → update_job_status() COMPLETED branch ✓
+```
+
+**FIRST END-TO-END FAILURE POINT:**
+`queue_service.add_job_to_queue()` → `job.estimated_seconds = ...`
+→ `AttributeError: 'ActiveJob' object has no attribute 'estimated_seconds'`
+→ HTTP 500 returned to customer after payment
+→ Printer never assigned → Queue never populated → Nothing ever prints
+
+---
+
+## B. ALL ERRORS (30 Total)
+
+### CRITICAL (7)
+
+**ERR-001** — UTF-8 BOM in 11 source files
+- Files: `main.py`, `api/agent.py`, `api/file_settings.py`, `api/jobs.py`, `api/payment.py`, `api/session.py`, `database/models.py`, `services/assignment_service.py`, `services/dispatch_service.py`, `services/physical_printer_service.py`, `services/printer_capability_service.py`
+- All Line 1 — BOM character `U+FEFF` present
+- Python's `ast.parse()` fails; strict UTF-8 environments will crash on startup
+- **Evidence:** `python -c "import ast; ast.parse(open(f,'r').read())"` → `SyntaxError: invalid non-printable character U+FEFF` on all 11 files
+
+**ERR-002** — `QueueResponse` schema mismatch: required fields never passed
+- File: `schemas/queue.py` L23, L25
+- `estimated_seconds: int` (required, no default) and `created_at: datetime` (required) declared in schema
+- `api/queue.py` L51–57: `QueueResponse(job_id=..., status=..., assigned_printer_id=..., queue_position=..., queued_at=...)` — neither `estimated_seconds` nor `created_at` passed
+- **Impact:** All queue API endpoints (`POST /queue/{id}`, `GET /queue/`, `GET /queue/{id}`, `DELETE /queue/{id}`) raise `pydantic.ValidationError` → HTTP 500
+
+**ERR-003** — Download URL hardcoded to `localhost:8000`
+- File: `services/dispatch_service.py` L25
+- `"download_url": f"http://localhost:8000/download/job/{job.job_id}/file/{file.file_id}"`
+- `BASE_URL` exists in `core/config.py` but is unused here
+- **Impact:** Any non-localhost deployment (LAN, VPS, cloud) → agent downloads from wrong host → file never received → print job fails
+
+**ERR-004** — Only `file[0]` dispatched in multi-file jobs
+- File: `services/dispatch_service.py` L14
+- `file = job.files[0]` — hardcoded, ignores all subsequent files
+- **Impact:** Multi-file jobs: only file #1 prints. Files #2–N never dispatched, never printed, never completed — but payment was collected for all
+
+**ERR-005** — Payment callback has no security
+- File: `api/payment.py` L240–246
+- `async def payment_callback(payment_id: UUID, success: bool, ...)` — `success` comes from query parameter
+- No HMAC, no webhook signature, no gateway secret
+- **Impact:** Anyone knowing a valid `payment_id` can call `POST /payment/callback/{id}?success=true` and get free printing
+
+**ERR-006** — `payment_service.py` is empty (0 bytes of logic)
+- File: `services/payment_service.py` — placeholder only, never implemented
+- No payment gateway code exists anywhere in the project
+
+**ERR-007** — `get_queue(db)` called with wrong number of arguments
+- File: `api/queue.py` L69
+- Calls `get_queue(db)` — 1 argument
+- Actual signature: `queue_service.get_queue(printer_id, db)` — 2 required arguments
+- **Impact:** `GET /queue/` → `TypeError: get_queue() missing 1 required positional argument: 'db'`
+
+---
+
+### HIGH (9)
+
+**ERR-008** — `GET /queue/statistics/summary` unreachable (route order conflict)
+- File: `api/queue.py` L96 vs L168
+- `GET /queue/{job_id}` declared before `GET /queue/statistics/summary`
+- FastAPI matches `statistics` as `job_id` parameter → 422 Unprocessable Entity
+- **Fix:** Declare `/statistics/summary` BEFORE `/{job_id}`
+
+**ERR-009** — `GET /printer/health` unreachable (route order conflict)
+- File: `api/printer.py` L274 vs L549
+- `GET /printer/{printer_id}` declared before `GET /printer/health`
+- FastAPI matches `health` as `printer_id` → 422 UUID validation error
+- **Fix:** Declare `/health` BEFORE `/{printer_id}`
+
+**ERR-010** — `estimated_seconds` field written to `ActiveJob` but column does not exist in model
+- File: `services/queue_service.py` L57, L105, L191, L266
+- `job.estimated_seconds = ...` written in 4 places
+- Confirmed: `estimated_seconds` NOT present in `ActiveJob` model in `database/models.py` (grep confirmed 0 results)
+- **Impact:** `AttributeError` at every queue operation — the primary runtime failure that prevents printing
+
+**ERR-011** — `check_printer_available()` runs on cloud server, not agent machine
+- File: `services/assignment_service.py` L221–228
+- Calls `check_printer_available(printer.printer_name, printer.printer_type)` from `physical_printer_service.py`
+- `physical_printer_service.py` runs `subprocess: powershell Get-Printer` on the cloud server
+- **Impact:** On Linux cloud: `check_printer_available()` always returns `False` → every printer skipped in assignment → `assign_printer()` always returns `None` → no jobs ever assigned
+
+**ERR-012** — `ValueError` from `count_pages()` not caught in upload handler
+- File: `api/upload.py` L152 (calls `analyze_uploaded_file()`)
+- `page_counter.py` L82: `raise ValueError(f"Unsupported file format: {extension}")`
+- No try/except wraps the call
+- **Impact:** Uploading `.doc`, `.ppt`, `.xls` etc. → unhandled 500 error, file saved on disk, no `JobFile` record created, database inconsistency
+
+**ERR-013** — Customer has no payment completion path (UI broken)
+- File: `templates/price_summary.html` L89–92
+- After `POST /payment/create/{job_id}`, frontend shows `"Payment created. Payment ID: {id}"`
+- No UPI QR code, no payment gateway redirect, no polling for completion
+- **Impact:** Customer is stuck. No path from "payment created" to "payment verified" through the UI
+
+**ERR-014** — `cancel_queue_job()` fragile double-write pattern
+- File: `services/queue_service.py` L383–393
+- Sets `job.status = JobStatus.CANCELLED` then calls `remove_job_from_queue()` which calls `db.commit()` and `db.refresh(job)`, potentially overwriting the status change before it's committed
+
+**ERR-015** — `GET /jobs/{id}/status` returns hardcoded `estimated_seconds: 0`
+- File: `api/jobs.py` L444–445
+- Always returns `"estimated_seconds": 0` regardless of actual queue position
+- **Impact:** Customer status page never shows a real wait time
+
+**ERR-016** — `POST /agent/register` and `POST /agent/heartbeat` use query params for POST
+- File: `api/agent.py`
+- `owner_id` and `agent_id` passed as URL query parameters on POST endpoints
+- Unusual API design; not a runtime failure but violates REST conventions
+
+---
+
+### MEDIUM (9)
+
+**ERR-017** — `handle_job()` blocks the asyncio event loop in PRINT_AGENT
+- File: `PRINT_AGENT/websocket/client.py` L166
+- `handle_job(job)` — synchronous call inside `async def receive_messages()`
+- `handle_job()` runs: HTTP download + SumatraPDF subprocess + print queue monitoring (up to 120 seconds)
+- **Impact:** Heartbeat loop starved; WebSocket connection may drop mid-print; potential job collision on reconnect
+- **Fix:** `await asyncio.get_event_loop().run_in_executor(None, handle_job, job)`
+
+**ERR-018** — WebSocket dispatch routes to first agent per shop, not the correct printer's agent
+- File: `services/websocket/manager.py` L89–101
+- `send_to_shop()` iterates `connected_agents` and returns on first `shop_id` match
+- Multi-agent shops: job assigned to Printer-B (on Agent-B) may be routed to Agent-A
+
+**ERR-019** — Job created on every QR scan, no cleanup
+- File: `api/session.py` L168–176
+- Every QR scan creates an `ActiveJob` record immediately
+- Accidental scans, bots, browser refreshes → phantom jobs accumulate with no TTL or cleanup
+
+**ERR-020** — Pricing failure is silent and misleading
+- File: `services/pricing_engine.py` L27–35
+- If no `PricingRule` configured for owner → `calculate_file_cost()` returns `Decimal("0.00")`
+- `payment.py` L106 blocks payment with `"Job price could not be calculated."`
+- New shop owners with no pricing rules configured get a cryptic error with no guidance
+
+**ERR-021** — Redundant status set in job completion
+- File: `api/jobs.py` L273 and `services/queue_service.py` L421
+- `update_job_status()` sets `job.status = COMPLETED`, then calls `complete_queue_job()` which sets `job.status = COMPLETED` again — redundant, potential double-commit
+
+**ERR-022** — Queue statistics uses string enum comparison → always returns 0
+- File: `api/queue.py` L179–195
+- `str(job.status) == "PENDING"` — if `str(JobStatus.PENDING)` returns `"JobStatus.PENDING"`, all counts are 0
+- **Fix:** Use `job.status == JobStatus.PENDING`
+
+**ERR-023** — PRINT_AGENT is Windows-only with no OS guard
+- File: `PRINT_AGENT/printers/discovery.py` L1 — `import win32print`
+- No graceful fallback for non-Windows development environments
+
+**ERR-024** — `physical_printer_service.py` always returns `False` on non-Windows cloud
+- File: `services/physical_printer_service.py`
+- Runs `powershell Get-Printer` — fails silently on Linux → `check_printer_available()` returns `False`
+- Combined with ERR-011: on a Linux cloud server, no job is ever assigned a printer
+
+**ERR-025** — Multi-file settings flow relies on fragile `localStorage`
+- File: `templates/upload.html` L82–87
+- All pending `file_id` values stored in `localStorage`
+- Tab close or browser refresh between uploads → pending file list lost
+- Files saved on disk, no settings configured, job incomplete
+
+---
+
+### LOW (5)
+
+**ERR-026** — Duplicate comment blocks in `api/jobs.py` L74–80 (cosmetic)
+
+**ERR-027** — Redundant status assignment in `queue_service.complete_queue_job()` L421
+
+**ERR-028** — `SHOP_ID` defaults to `""` in PRINT_AGENT config
+- File: `PRINT_AGENT/core/config.py`
+- If `.env` missing `SHOP_ID`, WebSocket registration sends `shop_id: ""`, server rejects connection (L42 `printer_socket.py`)
+- Agent silently fails to connect with no clear error
+
+**ERR-029** — Lazy-loading all jobs for printer delete guard
+- File: `api/printer.py` L521–527
+- `if len(printer.jobs) > 0` — loads entire job history into memory
+- Should use: `db.query(ActiveJob).filter(ActiveJob.assigned_printer_id == printer_id).count() > 0`
+
+**ERR-030** — `Decimal(job.total_amount)` unguarded against `None`
+- File: `services/analytics_service.py` L56
+- If any `ActiveJob.total_amount` is `None` → `TypeError` → analytics dashboard 500
+- **Fix:** `Decimal(job.total_amount or 0)`
+
+---
+
+## C. BROKEN / MISSING FEATURES
+
+| Feature | Status | Root Cause |
+|---------|--------|------------|
+| Queue insertion after payment | BROKEN | `estimated_seconds` not in `ActiveJob` model |
+| All queue API endpoints | BROKEN | `QueueResponse` schema mismatch + wrong `get_queue()` arity |
+| Multi-file job printing | BROKEN | Only `file[0]` dispatched |
+| Payment gateway | MISSING | `payment_service.py` empty; no Razorpay/PhonePe/UPI |
+| Customer payment completion UI | BROKEN | No redirect, no QR, no polling |
+| Payment callback security | BROKEN | No signature/HMAC — open to free-payment abuse |
+| Physical printer availability (cloud) | BROKEN | Runs PowerShell on cloud server, not agent machine |
+| `GET /printer/health` | UNREACHABLE | Route shadowed by `/{printer_id}` |
+| `GET /queue/statistics/summary` | UNREACHABLE | Route shadowed by `/{job_id}` |
+| Queue statistics counts | BROKEN | Enum string comparison always returns 0 |
+| PRINT_AGENT async | BROKEN | `handle_job()` blocks event loop |
+| Multi-agent job routing | BROKEN | First-match routing ignores assigned printer's agent |
+| Owner/operator dashboard | MISSING | No HTML template exists |
+| Authentication / authorization | MISSING | No JWT, no sessions, no ownership checks |
+| File size enforcement | MISSING | `max_file_size_mb` stored but never checked |
+| File MIME validation | MISSING | Extension-only; MIME not checked before saving |
+| Abandoned job cleanup | MISSING | No TTL, no cleanup for phantom jobs |
+| `AnalyticsDaily` table population | MISSING | Defined in model, never written to |
+| DOCX page count accuracy | PARTIAL | Character-count estimate only |
+
+---
+
+## D. DATABASE PROBLEMS
+
+| Field / Table | Problem |
+|---------------|---------|
+| `ActiveJob.estimated_seconds` | **MISSING FROM MODEL** — referenced in 4 places in `queue_service.py` → `AttributeError` at runtime |
+| `ActiveJob.priority` | Written by `job_service.py` L148 — verify presence in model |
+| `QueueResponse.estimated_seconds` | Required field, never passed by callers → `ValidationError` |
+| `QueueResponse.created_at` | Required field, never passed by callers → `ValidationError` |
+| `AnalyticsDaily` | Defined in model, never populated |
+| `Payment.job` | ✓ Relationship present |
+| `ActiveJob.files` | ✓ Relationship present |
+| `ActiveJob.payment` | ✓ Relationship present |
+| `ActiveJob.assigned_printer` | ✓ Relationship present |
+
+---
+
+## E. SECURITY PROBLEMS
+
+| # | Issue | Severity |
+|---|-------|----------|
+| 1 | Payment callback accepts `?success=true` from anyone with a `payment_id` | CRITICAL |
+| 2 | No authentication/authorization on any API endpoint | CRITICAL |
+| 3 | No file MIME validation before saving uploads | HIGH |
+| 4 | No file size limit enforcement (only stored, never checked) | HIGH |
+| 5 | Download endpoint has no ownership check | HIGH |
+| 6 | WebSocket has no authentication (agent_id/shop_id unverified) | HIGH |
+| 7 | `download_url` hardcoded to `localhost:8000` | MEDIUM |
+| 8 | No rate limiting on QR scan endpoint (job created per scan) | MEDIUM |
+| 9 | Uploaded files stored flat in `uploads/` by UUID | LOW |
+
+---
+
+## F. DEPENDENCY / CONFIGURATION STATUS
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `fastapi==0.128.0` | ✓ | |
+| `uvicorn==0.40.0` | ✓ | |
+| `sqlalchemy==2.0.50` | ✓ | |
+| `psycopg2-binary==2.9.12` | ✓ | `psycopg2` (non-binary) not installed — OK for psycopg2-binary |
+| `passlib==1.7.4` + `bcrypt==4.0.1` | ✓ | Compatible |
+| `pypdf==6.13.2` | ✓ | |
+| `python-docx==1.2.0` | ✓ | |
+| `qrcode==8.2` | ✓ | |
+| `pillow==12.1.0` | ✓ | |
+| `python-multipart==0.0.21` | ✓ | |
+| `python-dotenv==1.2.2` | ✓ | |
+| `websockets==16.0` | ✓ | |
+| `pywin32==311` | ✓ | Windows only, correct for agent |
+| `requests==2.32.5` | ✓ | |
+| BOM encoding | ✗ | 11 cloud_server files affected |
+| `SumatraPDF.exe` | NOT VERIFIED | Must exist at `PRINT_AGENT/tools/SumatraPDF.exe` |
+| `payment_service.py` | ✗ | Empty file |
+| No automated tests | ✗ | 0 test files found in project |
+| BOM syntax check (cloud_server) | 11/49 files FAIL | |
+| Syntax check (PRINT_AGENT) | 19/19 PASS | |
+
+---
+
+## G. FEATURE STATUS MATRIX
+
+| Feature | ✓ Working | ⚠ Partial | ✗ Broken | ✗ Missing |
+|---------|-----------|-----------|----------|-----------|
+| QR generation | ✓ | | | |
+| QR scan → job creation | ✓ | | | |
+| File upload (backend) | | ⚠ | | |
+| Page counting PDF | ✓ | | | |
+| Page counting DOCX/TXT/IMG | | ⚠ | | |
+| Page counting DOC/PPT | | | ✗ | |
+| Print settings UI | ✓ | | | |
+| Print settings backend | ✓ | | | |
+| Pricing engine | | ⚠ | | |
+| Payment creation (manual) | ✓ | | | |
+| Payment gateway | | | | ✗ |
+| Payment security | | | ✗ | |
+| Customer payment UI | | | ✗ | |
+| Cash payment (operator) | ✓ | | | |
+| Queue insertion | | | ✗ | |
+| Queue ordering logic | ✓ | | | |
+| AI printer scoring | ✓ | | | |
+| AI time prediction | ✓ | | | |
+| Physical printer availability | | | ✗ | |
+| Printer registration (agent) | ✓ | | | |
+| WebSocket connection | ✓ | | | |
+| WebSocket dispatch (file[0]) | | ⚠ | | |
+| WebSocket multi-file | | | ✗ | |
+| WebSocket multi-agent | | | ✗ | |
+| Print Agent receive | ✓ | | | |
+| Print Agent async (non-blocking) | | | ✗ | |
+| File download | ✓ | | | |
+| Physical print (SumatraPDF) | ✓ | | | |
+| Status reporting agent→cloud | ✓ | | | |
+| Next-job trigger on completion | ✓ | | | |
+| Customer status polling | | ⚠ | | |
+| Owner dashboard | | | | ✗ |
+| Analytics | | ⚠ | | |
+| Authentication | | | | ✗ |
+| Authorization | | | | ✗ |
+| Upload security | | | ✗ | |
+
+---
+
+## H. RECOMMENDED FIX ORDER
+
+### Priority 1 — System Cannot Run (Fix First)
+1. **Add `estimated_seconds` to `ActiveJob` model** (ERR-010) — fixes primary crash point
+2. **Fix `QueueResponse` schema** — make `estimated_seconds` and `created_at` optional with defaults (ERR-002)
+3. **Fix `get_queue()` call** — pass `printer_id` or redesign all-queue view (ERR-007)
+4. **Strip BOM** from 11 source files (ERR-001)
+
+### Priority 2 — Core Business Logic
+5. **Dispatch all files** not just `file[0]` in `dispatch_service.py` (ERR-004)
+6. **Use `BASE_URL`** instead of hardcoded `localhost:8000` in `dispatch_service.py` (ERR-003)
+7. **Move physical printer check** to agent-side API, remove from cloud assignment (ERR-011, ERR-024)
+8. **Fix route ordering** — move `/health` and `/statistics/summary` before parameterized routes (ERR-008, ERR-009)
+
+### Priority 3 — Security (Required for Production)
+9. **Secure payment callback** — add shared secret or replace with real gateway (ERR-005)
+10. **Add authentication middleware** — JWT on all endpoints
+11. **Add file upload validation** — MIME type + file size enforcement (ERR-012)
+
+### Priority 4 — Customer Flow
+12. **Implement payment gateway** (Razorpay/PhonePe) or minimal UPI QR + polling (ERR-013, ERR-006)
+
+### Priority 5 — Stability
+13. **Fix async blocking** — `run_in_executor` for `handle_job()` in PRINT_AGENT (ERR-017)
+14. **Fix queue stats enum comparison** — `job.status == JobStatus.PENDING` (ERR-022)
+15. **Validate `SHOP_ID` at startup** in PRINT_AGENT (ERR-028)
+16. **Add None guard** in analytics `Decimal(job.total_amount or 0)` (ERR-030)
+17. **Fix printer delete** — use `.count()` not `len(printer.jobs)` (ERR-029)
+
+### Priority 6 — Robustness
+18. Implement `payment_service.py` with real gateway logic
+19. Add job TTL / cleanup for abandoned QR-scan jobs
+20. Add multi-agent routing by `agent_id` not just `shop_id`
+21. Build owner/operator dashboard HTML templates
+22. Add default pricing rule or onboarding check

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Smart Printing - Live Job Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-card: #1e293b;
+            --accent: #6366f1;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+        }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text);
+            margin: 0;
+            padding: 24px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        .container {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 32px;
+            max-width: 540px;
+            width: 100%;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+        h2 {
+            margin-top: 0;
+            font-weight: 700;
+            background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 8px 18px;
+            border-radius: 9999px;
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin: 12px 0 24px 0;
+            background: rgba(99, 102, 241, 0.2);
+            color: #a5b4fc;
+            border: 1px solid rgba(99, 102, 241, 0.4);
+        }
+        .status-badge.queued { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border-color: rgba(245, 158, 11, 0.4); }
+        .status-badge.printing { background: rgba(99, 102, 241, 0.2); color: #818cf8; border-color: rgba(99, 102, 241, 0.4); }
+        .status-badge.completed { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.4); }
+        .status-badge.failed { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border-color: rgba(239, 68, 68, 0.4); }
+        
+        .progress-steps {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            margin: 32px 0 28px 0;
+        }
+        .progress-steps::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 10%;
+            right: 10%;
+            height: 3px;
+            background: var(--border);
+            transform: translateY(-50%);
+            z-index: 1;
+        }
+        .step {
+            position: relative;
+            z-index: 2;
+            background: var(--bg-card);
+            border: 3px solid var(--border);
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        .step.active {
+            border-color: var(--accent);
+            background: var(--accent);
+            color: white;
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.6);
+        }
+        .step.done {
+            border-color: var(--success);
+            background: var(--success);
+            color: white;
+        }
+        .step-label {
+            position: absolute;
+            top: 44px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin: 24px 0;
+            text-align: left;
+        }
+        .detail-box {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+        }
+        .detail-box .title {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+        .detail-box .value {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text);
+        }
+        .completion-banner {
+            display: none;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.2) 100%);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Live Print Status</h2>
+    <div id="statusBadge" class="status-badge queued">Queued</div>
+
+    <div class="progress-steps">
+        <div class="step done" id="stepPaid">
+            1
+            <span class="step-label">Paid</span>
+        </div>
+        <div class="step active" id="stepQueued">
+            2
+            <span class="step-label">In Queue</span>
+        </div>
+        <div class="step" id="stepPrinting">
+            3
+            <span class="step-label">Printing</span>
+        </div>
+        <div class="step" id="stepCompleted">
+            4
+            <span class="step-label">Completed</span>
+        </div>
+    </div>
+
+    <div class="details-grid">
+        <div class="detail-box">
+            <div class="title">Assigned Printer</div>
+            <div class="value" id="printerName">Detecting...</div>
+        </div>
+        <div class="detail-box">
+            <div class="title">Queue Position</div>
+            <div class="value" id="queuePos">-</div>
+        </div>
+        <div class="detail-box">
+            <div class="title">Estimated Wait</div>
+            <div class="value" id="estWait">-</div>
+        </div>
+        <div class="detail-box">
+            <div class="title">Total Pages</div>
+            <div class="value" id="totalPages">-</div>
+        </div>
+    </div>
+
+    <div id="completionBanner" class="completion-banner">
+        <div style="font-size: 28px; margin-bottom: 8px;">🎉</div>
+        <div style="font-size: 16px; font-weight: 600; color: #6ee7b7;">Your documents have finished printing!</div>
+        <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Please collect your printed pages from the counter tray.</div>
+    </div>
+</div>
+
+<script>
+const jobId = "{{ job_id }}";
+
+async function fetchStatus() {
+    try {
+        const res = await fetch(`/jobs/${jobId}/status`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        // Update UI fields
+        document.getElementById("printerName").innerText = data.assigned_printer_name || "AI Assigning...";
+        document.getElementById("queuePos").innerText = data.queue_position !== null ? `#${data.queue_position}` : "Active";
+        document.getElementById("estWait").innerText = (data.estimated_seconds || 0) + "s";
+        document.getElementById("totalPages").innerText = data.total_pages || "1";
+
+        const badge = document.getElementById("statusBadge");
+        badge.innerText = data.status;
+        badge.className = "status-badge " + data.status.toLowerCase();
+
+        const s1 = document.getElementById("stepPaid");
+        const s2 = document.getElementById("stepQueued");
+        const s3 = document.getElementById("stepPrinting");
+        const s4 = document.getElementById("stepCompleted");
+
+        s1.className = "step done";
+        s2.className = "step";
+        s3.className = "step";
+        s4.className = "step";
+
+        if (data.status === "Queued" || data.status === "Assigned") {
+            s2.className = "step active";
+        } else if (data.status === "Printing") {
+            s2.className = "step done";
+            s3.className = "step active";
+        } else if (data.status === "Completed") {
+            s2.className = "step done";
+            s3.className = "step done";
+            s4.className = "step done";
+            document.getElementById("completionBanner").style.display = "block";
+            clearInterval(trackerInterval);
+        } else if (data.status === "Failed") {
+            badge.innerText = "Print Failed";
+            clearInterval(trackerInterval);
+        }
+    } catch (e) {
+        console.error("Tracker fetch error:", e);
+    }
+}
+
+fetchStatus();
+const trackerInterval = setInterval(fetchStatus, 2000);
+</script>
+
+</body>
+</html>

@@ -4,12 +4,16 @@ import sys
 
 from core.logger import (
     info,
-    error
+    error,
+    warn
 )
 
 from core.config import (
     SHOP_ID,
-    PRINTER_SYNC_INTERVAL
+    AGENT_ID,
+    PRINTER_SYNC_INTERVAL,
+    CLOUD_API_URL,
+    WEBSOCKET_URL
 )
 
 from printers.manager import (
@@ -26,178 +30,84 @@ from websocket.client import (
 # ==========================================================
 
 def shutdown(signum=None, frame=None):
-
-    info(
-        "Stopping Print Agent..."
-    )
-
+    info("Stopping Print Agent gracefully...")
     sys.exit(0)
 
 
 # ==========================================================
-# Continuous Printer Synchronization
+# Continuous Printer Synchronization Loop
 # ==========================================================
 
 async def printer_sync_loop():
-
     while True:
-
         try:
+            await asyncio.sleep(PRINTER_SYNC_INTERVAL)
+            if not SHOP_ID:
+                continue
 
-            await asyncio.sleep(
-                PRINTER_SYNC_INTERVAL
-            )
-
-            info(
-                "Running automatic printer synchronization..."
-            )
-
-            success = await asyncio.to_thread(
-
-                sync_printers,
-
-                SHOP_ID
-
-            )
-
+            info("Running automatic printer synchronization...")
+            success = await asyncio.to_thread(sync_printers, SHOP_ID)
             if success:
-
-                info(
-                    "Automatic printer synchronization successful."
-                )
-
+                info("Printer synchronization complete.")
             else:
-
-                error(
-                    "Automatic printer synchronization completed "
-                    "with errors."
-                )
+                warn("Printer synchronization reported warnings.")
 
         except asyncio.CancelledError:
-
-            info(
-                "Printer synchronization stopped."
-            )
-
             break
-
         except Exception as e:
-
-            error(
-                f"Printer synchronization error: {e}"
-            )
+            error(f"Printer synchronization error: {e}")
 
 
 # ==========================================================
-# Start Print Agent
+# Start Agent
 # ==========================================================
 
 async def start_agent():
+    info("=" * 65)
+    info(f"AI Smart Printing Agent Started [Agent ID: {AGENT_ID}]")
+    info(f"Target Cloud Server : {CLOUD_API_URL}")
+    info(f"WebSocket Endpoint  : {WEBSOCKET_URL}")
+    info("=" * 65)
 
-    info("=" * 60)
-
-    info(
-        "AI Smart Printing Agent Started"
-    )
-
-    info("=" * 60)
-
-    # -----------------------------------------
-    # Initial Printer Synchronization
-    # -----------------------------------------
-
-    info(
-        "Detecting printers..."
-    )
-
-    registered = await asyncio.to_thread(
-
-        sync_printers,
-
-        SHOP_ID
-
-    )
-
-    if registered:
-
-        info(
-            "Printers synchronized successfully."
-        )
-
+    if not SHOP_ID:
+        warn("NOTICE: SHOP_ID is not configured in .env.")
+        warn("Printers will not sync until SHOP_ID (Shop Owner UUID) is provided in PRINT_AGENT/.env.")
     else:
+        info(f"Configured for Shop Owner ID: {SHOP_ID}")
+        info("Detecting and synchronizing local printers...")
+        try:
+            registered = await asyncio.to_thread(sync_printers, SHOP_ID)
+            if registered:
+                info("Printers synchronized with Cloud.")
+            else:
+                warn("Printer synchronization completed with warnings.")
+        except Exception as e:
+            error(f"Initial printer synchronization failed: {e}")
 
-        error(
-            "Printer synchronization completed with errors."
-        )
-
-    # -----------------------------------------
-    # Start Continuous Synchronization
-    # -----------------------------------------
-
-    sync_task = asyncio.create_task(
-
-        printer_sync_loop()
-
-    )
-
-    # -----------------------------------------
-    # Connect WebSocket
-    # -----------------------------------------
-
-    info(
-        "Connecting to Cloud..."
-    )
+    # Start background sync task
+    sync_task = asyncio.create_task(printer_sync_loop())
 
     try:
-
         await connect()
-
     finally:
-
         sync_task.cancel()
-
         try:
-
             await sync_task
-
         except asyncio.CancelledError:
-
             pass
 
 
-# ==========================================================
-# Main
-# ==========================================================
-
 def main():
-
-    signal.signal(
-        signal.SIGINT,
-        shutdown
-    )
-
-    signal.signal(
-        signal.SIGTERM,
-        shutdown
-    )
+    signal.signal(signal.SIGINT, shutdown)
+    signal.signal(signal.SIGTERM, shutdown)
 
     try:
-
-        asyncio.run(
-            start_agent()
-        )
-
+        asyncio.run(start_agent())
     except KeyboardInterrupt:
-
         shutdown()
-
     except Exception as e:
-
-        error(
-            f"Agent crashed : {e}"
-        )
+        error(f"Agent fatal crash: {e}")
 
 
 if __name__ == "__main__":
-
     main()

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
     <title>AI Smart Printing - Upload</title>
@@ -76,21 +76,20 @@ form.addEventListener("submit", async function(event) {
             return;
         }
 
-        if (
-            result.uploaded_files &&
-            result.uploaded_files.length === 1
-        ) {
+        if (result.uploaded_files && result.uploaded_files.length > 0) {
 
-            const fileId =
-                result.uploaded_files[0].file_id;
+            const fileIds = result.uploaded_files.map(f => f.file_id);
+            localStorage.setItem("pending_file_ids", JSON.stringify(fileIds));
+            
+            const firstFileId = fileIds.shift();
+            localStorage.setItem("pending_file_ids", JSON.stringify(fileIds));
 
-            window.location.href =
-                "/file/settings-page/" + fileId;
+            window.location.href = "/file/settings-page/" + firstFileId;
 
         } else {
 
             document.getElementById("message").innerText =
-                "Files uploaded successfully. Multiple-file settings will be handled next.";
+                "No files were processed.";
 
         }
 

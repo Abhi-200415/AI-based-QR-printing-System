@@ -31,6 +31,13 @@ def get_file_preview(file_path: str):
     }
 
 
+def analyze_uploaded_file(file_path: str):
+    preview = get_file_preview(file_path)
+    if not preview:
+        raise ValueError("File could not be read.")
+    return preview
+
+
 # ==========================================================
 # Validate Upload
 # ==========================================================

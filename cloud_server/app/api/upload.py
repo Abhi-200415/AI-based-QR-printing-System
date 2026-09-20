@@ -5,31 +5,27 @@ from typing import List
 
 from fastapi import (
     APIRouter,
-    UploadFile,
-    File,
     Depends,
     HTTPException,
+    UploadFile,
+    File,
     Request
 )
-
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-
 from sqlalchemy.orm import Session
 
 from app.database.connection import get_db
 from app.database.models import (
     ActiveJob,
     JobFile,
+    PrintType,
     PaperSize,
-    Orientation,
-    PrintType
+    Orientation
 )
-
-from app.services.page_counter import count_pages
-from app.services.job_service import update_job_summary
-from app.services.preview_service import get_file_preview
-from app.websocket.manager import broadcast_job
+from app.services.preview_service import analyze_uploaded_file
+from app.core.config import UPLOAD_DIR, MAX_UPLOAD_SIZE_MB, ALLOWED_EXTENSIONS
+from app.utils.logger import logger
 
 router = APIRouter(
     tags=["Upload"]
@@ -39,55 +35,28 @@ templates = Jinja2Templates(
     directory="templates"
 )
 
-UPLOAD_DIR = "uploads"
-
-os.makedirs(
-    UPLOAD_DIR,
-    exist_ok=True
-)
-
-
-# ==========================================================
-# AI File Analysis (Future Ready)
-# ==========================================================
-
-def analyze_uploaded_file(file_path: str):
-
-    page_count = count_pages(file_path)
-
-    return {
-
-        "page_count": page_count,
-
-        # Future AI Module
-        "ai_color_detected": False,
-
-        "bw_pages": page_count,
-
-        "color_pages": 0,
-
-        "recommended_print_type": PrintType.BW,
-
-        "recommended_orientation": Orientation.PORTRAIT,
-
-        "recommended_duplex": False,
-
-        "document_type": "Unknown"
-    }
-
 
 # ==========================================================
 # Upload Page
 # ==========================================================
 
-@router.get(
-    "/upload/{job_id}",
-    response_class=HTMLResponse
-)
-async def upload_page(
+@router.get("/upload/{job_id}", response_class=HTMLResponse)
+def upload_page(
     request: Request,
-    job_id: str
+    job_id: str,
+    db: Session = Depends(get_db)
 ):
+    job = (
+        db.query(ActiveJob)
+        .filter(ActiveJob.job_id == job_id)
+        .first()
+    )
+
+    if not job:
+        raise HTTPException(
+            status_code=404,
+            detail="Print session not found."
+        )
 
     return templates.TemplateResponse(
         "upload.html",
@@ -104,20 +73,13 @@ async def upload_page(
 
 @router.post("/upload/{job_id}")
 async def upload_files(
-
     job_id: str,
-
     files: List[UploadFile] = File(...),
-
     db: Session = Depends(get_db)
-
 ):
-
     job = (
         db.query(ActiveJob)
-        .filter(
-            ActiveJob.job_id == job_id
-        )
+        .filter(ActiveJob.job_id == job_id)
         .first()
     )
 
@@ -127,125 +89,101 @@ async def upload_files(
             detail="Job not found."
         )
 
+    if not files:
+        raise HTTPException(
+            status_code=400,
+            detail="No files uploaded."
+        )
+
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    max_bytes = MAX_UPLOAD_SIZE_MB * 1024 * 1024
     uploaded_files = []
 
     for upload in files:
+        # Sanitize filename
+        safe_original_name = os.path.basename(upload.filename or "document")
+        extension = Path(safe_original_name).suffix.lower()
 
-        extension = Path(
-            upload.filename
-        ).suffix.lower()
+        # Validate extension
+        if extension not in ALLOWED_EXTENSIONS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported file format '{extension}'. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
+            )
 
-        unique_name = (
-            f"{uuid.uuid4()}{extension}"
-        )
+        unique_name = f"{uuid.uuid4()}{extension}"
+        file_path = os.path.join(UPLOAD_DIR, unique_name)
 
-        file_path = os.path.join(
-            UPLOAD_DIR,
-            unique_name
-        )
-
+        # Read content and enforce file size limit
         contents = await upload.read()
+        if len(contents) > max_bytes:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File '{safe_original_name}' exceeds maximum allowed size of {MAX_UPLOAD_SIZE_MB}MB."
+            )
 
-        with open(file_path, "wb") as file:
-            file.write(contents)
+        if len(contents) == 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File '{safe_original_name}' is empty."
+            )
 
-        analysis = analyze_uploaded_file(
-            file_path
-        )
+        # Save to disk
+        try:
+            with open(file_path, "wb") as f:
+                f.write(contents)
+        except Exception as e:
+            logger.error(f"Error saving uploaded file: {e}")
+            raise HTTPException(status_code=500, detail="Failed to save uploaded file.")
 
+        # Analyze file (page counting + format check) with exception handling
+        try:
+            analysis = analyze_uploaded_file(file_path)
+            page_count = max(analysis.get("page_count", 1), 1)
+        except Exception as e:
+            logger.warning(f"Error analyzing uploaded file {file_path}: {e}")
+            # If corrupted or unsupported, cleanup file and return HTTP 400
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unable to process file '{safe_original_name}': {str(e)}"
+            )
+
+        # Create JobFile record in DB
         job_file = JobFile(
-
             job_id=job.job_id,
-
-            original_filename=upload.filename,
-
+            original_filename=safe_original_name,
             stored_filename=unique_name,
-
             file_path=file_path,
-
-            file_type=extension,
-
-            file_size=len(contents),
-
-            page_count=analysis["page_count"],
-
+            file_type=extension.replace(".", "").upper(),
+            file_size_bytes=len(contents),
+            page_count=page_count,
             copies=1,
-
             paper_size=PaperSize.A4,
-
-            orientation=analysis["recommended_orientation"],
-
-            duplex=analysis["recommended_duplex"],
-
-            print_type=analysis["recommended_print_type"],
-
-            color_mode="AUTO",
-
-            page_ranges=None,
-
-            color_page_ranges=None,
-
-            bw_pages=analysis["bw_pages"],
-
-            color_pages=analysis["color_pages"],
-
-            ai_color_detected=analysis["ai_color_detected"],
-
-            estimated_cost=0,
-
-            print_completed=False
+            orientation=Orientation.PORTRAIT,
+            duplex=False,
+            print_type=PrintType.BW,
+            color_mode="AUTO"
         )
 
         db.add(job_file)
-
-        db.flush()
-
-        preview = get_file_preview(
-            file_path
-        )
+        db.commit()
+        db.refresh(job_file)
 
         uploaded_files.append({
-
             "file_id": str(job_file.file_id),
-
-            "file_name": upload.filename,
-
-            "preview": preview,
-
-            "page_count": analysis["page_count"],
-
-            "document_type": analysis["document_type"],
-
-            "recommended_print": analysis["recommended_print_type"].value,
-
-            "recommended_orientation": analysis["recommended_orientation"].value,
-
-            "recommended_duplex": analysis["recommended_duplex"]
+            "filename": job_file.original_filename,
+            "page_count": job_file.page_count,
+            "file_type": job_file.file_type
         })
 
+    # Update total files count on job
+    job.total_files = len(job.files or [])
     db.commit()
 
-    update_job_summary(
-        job.job_id,
-        db
-    )
-
-    await broadcast_job({
-
-        "event": "FILES_UPLOADED",
-
-        "job_id": str(job.job_id),
-
-        "files": uploaded_files
-    })
-
     return {
-
-        "success": True,
-
-        "message": "Files uploaded successfully.",
-
+        "message": "Files uploaded and analyzed successfully.",
         "job_id": str(job.job_id),
-
         "uploaded_files": uploaded_files
     }

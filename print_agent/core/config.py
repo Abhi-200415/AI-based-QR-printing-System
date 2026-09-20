@@ -1,12 +1,13 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-# ==========================================================
-# Load Environment Variables
-# ==========================================================
-
-load_dotenv()
-
+# Load .env file from PRINT_AGENT directory or parent
+env_path = Path(__file__).resolve().parent.parent / ".env"
+if env_path.exists():
+    load_dotenv(dotenv_path=env_path)
+else:
+    load_dotenv()
 
 # ==========================================================
 # Cloud Server Configuration
@@ -15,13 +16,14 @@ load_dotenv()
 CLOUD_API_URL = os.getenv(
     "CLOUD_API_URL",
     "http://localhost:8000"
-)
+).rstrip("/")
 
+# WebSocket URL: derives from CLOUD_API_URL if not explicitly provided
+default_ws = CLOUD_API_URL.replace("https://", "wss://").replace("http://", "ws://") + "/ws/printer"
 WEBSOCKET_URL = os.getenv(
     "WEBSOCKET_URL",
-    "ws://localhost:8000/ws/printer"
+    default_ws
 )
-
 
 # ==========================================================
 # Agent Configuration
@@ -37,7 +39,6 @@ SHOP_ID = os.getenv(
     ""
 )
 
-
 # ==========================================================
 # Download Configuration
 # ==========================================================
@@ -47,9 +48,8 @@ DOWNLOAD_FOLDER = os.getenv(
     "downloads"
 )
 
-
 # ==========================================================
-# Heartbeat Configuration
+# Heartbeat & Timing Configuration
 # ==========================================================
 
 HEARTBEAT_INTERVAL = int(
@@ -59,11 +59,6 @@ HEARTBEAT_INTERVAL = int(
     )
 )
 
-
-# ==========================================================
-# Retry Configuration
-# ==========================================================
-
 MAX_RETRY = int(
     os.getenv(
         "MAX_RETRY",
@@ -71,16 +66,12 @@ MAX_RETRY = int(
     )
 )
 
-
 RETRY_DELAY = int(
     os.getenv(
         "RETRY_DELAY",
         "5"
     )
 )
-# ==========================================================
-# Printer Synchronization
-# ==========================================================
 
 PRINTER_SYNC_INTERVAL = int(
     os.getenv(

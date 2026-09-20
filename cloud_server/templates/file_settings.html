@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 
 <head>
@@ -9,6 +9,8 @@
 
 <h2>Print Settings</h2>
 
+<p id="fileProgress" style="color: #555; font-style: italic;"></p>
+
 <p>
     File:
     <strong>{{ file_name }}</strong>
@@ -18,6 +20,27 @@
     Pages:
     <strong>{{ page_count }}</strong>
 </p>
+
+<script>
+// Show "File X of Y" progress
+const pending = JSON.parse(localStorage.getItem("pending_file_ids") || "[]");
+const remaining = pending.length;
+const total = remaining + 1; // +1 for current file
+
+// Calculate current file number
+// We don't store total separately, so we use sessionStorage
+const storedTotal = sessionStorage.getItem("total_files");
+if (!storedTotal) {
+    sessionStorage.setItem("total_files", total);
+}
+const grandTotal = parseInt(sessionStorage.getItem("total_files") || total);
+const currentIndex = grandTotal - remaining;
+
+if (grandTotal > 1) {
+    document.getElementById("fileProgress").innerText =
+        "File " + currentIndex + " of " + grandTotal;
+}
+</script>
 
 <hr>
 
@@ -250,9 +273,36 @@ form.addEventListener(
 
             }
 
+            // Check if there are more files waiting for settings
+            const pendingRaw = localStorage.getItem("pending_file_ids");
+            const pendingIds = pendingRaw ? JSON.parse(pendingRaw) : [];
 
-            window.location.href =
-                "/file/summary/{{ file_id }}";
+            if (pendingIds.length > 0) {
+
+                // More files to configure — go to next file settings page
+                const nextFileId = pendingIds.shift();
+                localStorage.setItem("pending_file_ids", JSON.stringify(pendingIds));
+
+                document.getElementById("message").innerText =
+                    "Settings saved. Opening next file...";
+
+                window.location.href =
+                    "/file/settings-page/" + nextFileId;
+
+            } else {
+
+                // All files configured — clear all storage, go to price summary
+                localStorage.removeItem("pending_file_ids");
+                localStorage.removeItem("job_id");
+                sessionStorage.removeItem("total_files");
+
+                document.getElementById("message").innerText =
+                    "All settings saved. Opening price summary...";
+
+                window.location.href =
+                    "/file/summary/{{ file_id }}";
+
+            }
 
         }
 

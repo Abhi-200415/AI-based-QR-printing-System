@@ -1,4 +1,4 @@
-﻿from enum import Enum
+from enum import Enum
 import uuid
 
 from sqlalchemy import (
@@ -575,8 +575,13 @@ class ActiveJob(Base):
         default=0
     )
 
- # Estimated Printing Time
-	
+    # Estimated Printing Time (seconds, updated by queue service)
+    estimated_seconds = Column(
+        Integer,
+        nullable=True,
+        default=0
+    )
+
     # Time Tracking
     created_at = Column(
         DateTime(timezone=True),
@@ -660,22 +665,24 @@ class JobFile(Base):
 
     stored_filename = Column(
         String(255),
-        nullable=False
+        nullable=True
     )
 
     file_path = Column(
         Text,
-        nullable=False
+        nullable=True
     )
 
     file_type = Column(
         String(20),
-        nullable=False
+        nullable=True,
+        default="PDF"
     )
 
     file_size = Column(
         Integer,
-        nullable=False
+        nullable=True,
+        default=0
     )
 
     # ==========================
@@ -839,12 +846,14 @@ class PricingRule(Base):
 
     page_from = Column(
         Integer,
-        nullable=False
+        nullable=False,
+        default=1
     )
 
     page_to = Column(
         Integer,
-        nullable=False
+        nullable=False,
+        default=9999
     )
 
     # ==========================

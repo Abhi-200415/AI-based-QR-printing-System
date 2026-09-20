@@ -19,7 +19,7 @@ class PrinterCreate(BaseModel):
 
     owner_id: UUID
 
-    agent_id: str
+    agent_id: Optional[str] = None
 
     # ------------------------------------------------------
     # Printer Information
@@ -43,7 +43,9 @@ class PrinterCreate(BaseModel):
     # Availability
     # ------------------------------------------------------
 
-    is_available: bool = False
+    status: Optional[str] = "Online"
+
+    is_available: bool = True
 
     # ------------------------------------------------------
     # Capabilities
@@ -64,6 +66,11 @@ class PrinterCreate(BaseModel):
     # ------------------------------------------------------
 
     is_default: bool = False
+
+
+# Alias for register endpoint
+class PrinterRegister(PrinterCreate):
+    pass
 
 
 # ==========================================================

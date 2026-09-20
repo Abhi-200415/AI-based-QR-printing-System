@@ -1,17 +1,18 @@
 import asyncio
 import json
-
 import websockets
+
+from core.logger import (
+    info,
+    error,
+    warn
+)
 
 from core.config import (
     WEBSOCKET_URL,
     AGENT_ID,
-    SHOP_ID
-)
-
-from core.logger import (
-    info,
-    error
+    SHOP_ID,
+    HEARTBEAT_INTERVAL
 )
 
 from services.job_handler import (
@@ -20,60 +21,62 @@ from services.job_handler import (
 
 
 # ==========================================================
-# Register Agent
+# Background Non-Blocking Print Execution
+# ==========================================================
+
+async def run_job_in_background(job: dict):
+    """
+    Runs the blocking physical print process in a background thread
+    so the WebSocket event loop, heartbeat, and ping/pong remain responsive.
+    """
+    try:
+        await asyncio.to_thread(handle_job, job)
+    except Exception as e:
+        error(f"Error in background job execution: {e}")
+
+
+# ==========================================================
+# Agent Registration
 # ==========================================================
 
 async def register(websocket):
+    info("Registering Print Agent with Cloud...")
 
     payload = {
-
         "type": "register",
-
         "agent_id": AGENT_ID,
-
         "shop_id": SHOP_ID
-
     }
 
-    await websocket.send(
-        json.dumps(payload)
-    )
+    await websocket.send(json.dumps(payload))
+    response = await websocket.recv()
+    data = json.loads(response)
 
-    info(
-        "Agent registration message sent."
-    )
+    if data.get("type") == "registered":
+        info(f"Agent Registered Successfully: {AGENT_ID}")
+        return True
+
+    error("Agent registration rejected by Cloud.")
+    return False
 
 
 # ==========================================================
-# Heartbeat
+# Heartbeat Loop
 # ==========================================================
 
-async def heartbeat(websocket):
-
+async def send_heartbeat(websocket):
     while True:
-
         try:
-
+            await asyncio.sleep(HEARTBEAT_INTERVAL)
             payload = {
-
                 "type": "heartbeat",
-
                 "agent_id": AGENT_ID
-
             }
-
-            await websocket.send(
-                json.dumps(payload)
-            )
-
-            await asyncio.sleep(30)
-
+            await websocket.send(json.dumps(payload))
+        except asyncio.CancelledError:
+            break
         except Exception as e:
-
-            error(
-                f"Heartbeat stopped: {e}"
-            )
-
+            warn(f"Heartbeat failed : {e}")
             break
 
 
@@ -82,185 +85,87 @@ async def heartbeat(websocket):
 # ==========================================================
 
 async def receive_messages(websocket):
-
     while True:
+        try:
+            message = await websocket.recv()
+            data = json.loads(message)
+            message_type = data.get("type")
 
-        message = await websocket.recv()
+            if message_type == "job":
+                job = data.get("data", data)
 
-        data = json.loads(message)
+                if job.get("event") == "FILES_UPLOADED":
+                    info(f"File upload notification for job: {job.get('job_id')}")
+                    continue
 
-        message_type = data.get("type")
+                # Validate job has minimum identifiers
+                job_id = job.get("job_id")
+                printer_name = job.get("printer_name")
 
-        # ==================================================
-        # Agent Registration Confirmation
-        # ==================================================
+                if not job_id or not printer_name:
+                    error("Received invalid job payload: missing job_id or printer_name.")
+                    continue
 
-        if message_type == "registered":
+                info(f"Received Print Job: {job_id} for printer '{printer_name}'")
 
-            info(
-                "Cloud registered agent: "
-                f"{data.get('agent_id')}"
-            )
+                # Send job receipt acknowledgement
+                try:
+                    await websocket.send(json.dumps({
+                        "type": "job_ack",
+                        "job_id": job_id,
+                        "agent_id": AGENT_ID
+                    }))
+                except Exception as e:
+                    warn(f"Failed to send job_ack: {e}")
 
-        # ==================================================
-        # Heartbeat Acknowledgement
-        # ==================================================
+                # Run job asynchronously in background thread
+                asyncio.create_task(run_job_in_background(job))
 
-        elif message_type == "heartbeat_ack":
+            elif message_type == "ping":
+                await websocket.send(json.dumps({"type": "pong", "agent_id": AGENT_ID}))
 
-            info(
-                "Heartbeat acknowledged by cloud."
-            )
+            elif message_type == "heartbeat_ack":
+                pass
 
-        # ==================================================
-        # Print Job
-        # ==================================================
+            else:
+                info(f"Received message: {data}")
 
-        elif message_type == "job":
-
-            # Cloud manager sends:
-            #
-            # {
-            #     "type": "job",
-            #     "data": {...}
-            # }
-            #
-            # But accepting both formats makes the
-            # agent more robust.
-
-            job = data.get(
-                "data",
-                data
-            )
-
-            job_id = job.get(
-                "job_id"
-            )
-
-            info(
-                f"Received Job: {job_id}"
-            )
-
-            handle_job(
-                job
-            )
-
-        # ==================================================
-        # Ping
-        # ==================================================
-
-        elif message_type == "ping":
-
-            await websocket.send(
-
-                json.dumps({
-
-                    "type": "pong",
-
-                    "agent_id": AGENT_ID
-
-                })
-
-            )
-
-            info(
-                "Ping received. Pong sent."
-            )
-
-        # ==================================================
-        # Unknown Message
-        # ==================================================
-
-        else:
-
-            info(
-                f"Unknown cloud message: {data}"
-            )
+        except websockets.exceptions.ConnectionClosed:
+            warn("WebSocket connection closed by server.")
+            break
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            error(f"Error receiving WebSocket message: {e}")
+            break
 
 
 # ==========================================================
-# Connect To Cloud
+# Connection Manager with Reconnection Logic
 # ==========================================================
 
 async def connect():
-
     while True:
-
         try:
+            info(f"Connecting to Cloud WebSocket: {WEBSOCKET_URL}")
+            async with websockets.connect(WEBSOCKET_URL, ping_interval=20, ping_timeout=20) as websocket:
+                registered = await register(websocket)
+                if not registered:
+                    await asyncio.sleep(5)
+                    continue
 
-            info(
-                f"Connecting to cloud: "
-                f"{WEBSOCKET_URL}"
-            )
+                heartbeat_task = asyncio.create_task(send_heartbeat(websocket))
+                receive_task = asyncio.create_task(receive_messages(websocket))
 
-            async with websockets.connect(
-
-                WEBSOCKET_URL
-
-            ) as websocket:
-
-                info(
-                    "Connected To Cloud"
+                done, pending = await asyncio.wait(
+                    [heartbeat_task, receive_task],
+                    return_when=asyncio.FIRST_COMPLETED
                 )
 
-                # ------------------------------------------
-                # Register Agent
-                # ------------------------------------------
-
-                await register(
-                    websocket
-                )
-
-                # ------------------------------------------
-                # Start Heartbeat
-                # ------------------------------------------
-
-                heartbeat_task = asyncio.create_task(
-
-                    heartbeat(
-                        websocket
-                    )
-
-                )
-
-                # ------------------------------------------
-                # Receive Cloud Messages
-                # ------------------------------------------
-
-                receive_task = asyncio.create_task(
-
-                    receive_messages(
-                        websocket
-                    )
-
-                )
-
-                try:
-
-                    await asyncio.gather(
-
-                        heartbeat_task,
-
-                        receive_task
-
-                    )
-
-                finally:
-
-                    heartbeat_task.cancel()
-
-                    receive_task.cancel()
+                for task in pending:
+                    task.cancel()
 
         except Exception as e:
+            error(f"WebSocket connection failed : {e}. Retrying in 5 seconds...")
 
-            error(
-                f"Connection Lost: {e}"
-            )
-
-            info(
-                "Reconnecting in 5 seconds..."
-            )
-
-            await asyncio.sleep(
-                5
-            )
+        await asyncio.sleep(5)

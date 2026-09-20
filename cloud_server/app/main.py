@@ -1,38 +1,41 @@
-﻿from fastapi import FastAPI
+import os
+from pathlib import Path
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.core.config import CORS_ORIGINS
 from app.websocket.printer_socket import router as printer_socket_router
+
 # ==========================================================
 # FastAPI Application
 # ==========================================================
 
 app = FastAPI(
     title="Cloud Based AI Smart Printing System",
-    description="Backend API",
+    description="Production-Ready AI QR Printing Backend API",
     version="1.0.0"
 )
 
+# Resolve and mount static files directory safely
+static_dir = Path(__file__).resolve().parent.parent / "static"
+static_dir.mkdir(parents=True, exist_ok=True)
 
 app.mount(
     "/static",
-    StaticFiles(directory="static"),
+    StaticFiles(directory=str(static_dir)),
     name="static"
 )
 
 # ==========================================================
-# CORS
+# Production CORS
 # ==========================================================
 
 app.add_middleware(
     CORSMiddleware,
-
-    allow_origins=["*"],
-
+    allow_origins=CORS_ORIGINS if CORS_ORIGINS != ["*"] else ["*"],
     allow_credentials=True,
-
     allow_methods=["*"],
-
     allow_headers=["*"]
 )
 
@@ -63,43 +66,31 @@ from app.api.session import router as session_router
 # ==========================================================
 
 app.include_router(owner_router)
-
 app.include_router(upload_router)
-
 app.include_router(file_settings_router)
-
 app.include_router(jobs_router)
-
 app.include_router(pricing_router)
-
 app.include_router(printer_router)
-
 app.include_router(queue_router)
-
 app.include_router(payment_router)
-
 app.include_router(analytics_router)
-
 app.include_router(ai_router)
-
 app.include_router(ai_document_search_router)
-
 app.include_router(download_router)
-
 app.include_router(agent_router)
-
 app.include_router(settings_router)
 app.include_router(session_router)
 
-
+# WebSocket Router
 app.include_router(printer_socket_router)
+
+
 # ==========================================================
-# Root Endpoint
+# Root & Health Endpoints
 # ==========================================================
 
 @app.get("/")
 def root():
-
     return {
         "project": "Cloud Based AI Smart Printing System",
         "status": "Running",
@@ -107,15 +98,10 @@ def root():
     }
 
 
-# ==========================================================
-# Health Check
-# ==========================================================
-
 @app.get("/health")
 def health():
-
     return {
         "status": "Healthy",
-        "database": "Connected"
+        "database": "Connected",
+        "service": "AI QR Printing Cloud Backend"
     }
-
