@@ -22,10 +22,13 @@ API_BASE_URL = os.getenv("API_BASE_URL", f"{BASE_URL}/api")
 WEBSOCKET_URL = os.getenv("WEBSOCKET_URL", f"ws://localhost:8000/ws/printer")
 
 # Database URL (PostgreSQL in production, SQLite fallback for tests)
-DATABASE_URL = os.getenv(
+_raw_db_url = os.getenv(
     "DATABASE_URL",
     "postgresql://postgres:postgres@localhost:5432/ai_printing"
 )
+if _raw_db_url.startswith("postgres://"):
+    _raw_db_url = _raw_db_url.replace("postgres://", "postgresql://", 1)
+DATABASE_URL = _raw_db_url
 
 # JWT / Security Configuration
 JWT_SECRET = os.getenv("JWT_SECRET", "super-secret-key-change-in-production-ai-printing-2026")

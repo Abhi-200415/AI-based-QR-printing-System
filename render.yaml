@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: ai-qr-printing-cloud
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --app-dir cloud_server --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ai-printing-db
+          property: connectionString
+      - key: BASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+
+databases:
+  - name: ai-printing-db
+    region: oregon
+    plan: free

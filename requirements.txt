@@ -1,5 +1,5 @@
 # ==========================================================
-# Cloud Server & API Production Dependencies
+# AI-Based QR Printing System - Production Dependencies
 # ==========================================================
 
 # FastAPI & ASGI Web Server
