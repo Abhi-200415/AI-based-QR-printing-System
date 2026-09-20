@@ -56,6 +56,49 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertIn("fallback_status", data)
         self.assertIn("feature_set", data)
 
+    def test_root_endpoint_leads_to_owner_dashboard(self):
+        from fastapi.testclient import TestClient
+        client = TestClient(app)
+        response = client.get("/", follow_redirects=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Shop Operations & Analytics Dashboard", response.text)
+        self.assertIn("text/html", response.headers.get("content-type", ""))
+
+    def test_customer_qr_scan_leads_to_customer_upload(self):
+        from fastapi.testclient import TestClient
+        from app.database.connection import SessionLocal
+        from app.database.models import ShopOwner
+        client = TestClient(app)
+        db = SessionLocal()
+        owner = db.query(ShopOwner).filter(ShopOwner.is_active == True).first()
+        if not owner:
+            owner = ShopOwner(shop_name="Auto Shop", owner_name="Owner", email="auto@shop.com", phone="9998887776", is_active=True)
+            db.add(owner)
+            db.commit()
+            db.refresh(owner)
+        
+        # Ensure owner has QR token
+        client.get(f"/owner/{owner.owner_id}/qr")
+        db.refresh(owner)
+
+        # Customer scans QR
+        res_scan = client.get(f"/qr/{owner.qr_token}", follow_redirects=True)
+        self.assertEqual(res_scan.status_code, 200)
+        self.assertIn("Upload Documents for Printing", res_scan.text)
+        self.assertIn("text/html", res_scan.headers.get("content-type", ""))
+        db.close()
+
+    def test_health_and_status_endpoints(self):
+        from fastapi.testclient import TestClient
+        client = TestClient(app)
+        res_health = client.get("/health")
+        self.assertEqual(res_health.status_code, 200)
+        self.assertEqual(res_health.json()["status"], "Healthy")
+
+        res_status = client.get("/api/status")
+        self.assertEqual(res_status.status_code, 200)
+        self.assertEqual(res_status.json()["status"], "Running")
+
 
 if __name__ == "__main__":
     unittest.main()

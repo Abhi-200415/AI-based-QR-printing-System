@@ -85,12 +85,56 @@ app.include_router(session_router)
 app.include_router(printer_socket_router)
 
 
+from fastapi import Request, Depends
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
+
+from app.database.connection import get_db
+from app.database.models import ShopOwner, ActiveJob
+from app.core.config import TEMPLATES_DIR, STATIC_DIR
+
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+
+
 # ==========================================================
 # Root & Health Endpoints
 # ==========================================================
 
-@app.get("/")
-def root():
+@app.get("/", response_class=HTMLResponse)
+async def root(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Owner Entrypoint (Option B Architecture):
+    Directs the shop owner/operator to the owner operations dashboard.
+    """
+    owner = db.query(ShopOwner).filter(ShopOwner.is_active == True).first()
+    if not owner:
+        owner = db.query(ShopOwner).first()
+
+    if not owner:
+        owner = ShopOwner(
+            shop_name="AI Smart Print Shop",
+            owner_name="Store Admin",
+            email="admin@printshop.local",
+            phone="9876543210",
+            is_active=True
+        )
+        db.add(owner)
+        db.commit()
+        db.refresh(owner)
+
+    return RedirectResponse(
+        url=f"/owner/{owner.owner_id}/dashboard",
+        status_code=303
+    )
+
+
+@app.get("/api/status")
+def api_status():
+    """Service status metadata endpoint."""
     return {
         "project": "Cloud Based AI Smart Printing System",
         "status": "Running",
@@ -100,6 +144,7 @@ def root():
 
 @app.get("/health")
 def health():
+    """Health check endpoint for Render and uptime monitoring."""
     return {
         "status": "Healthy",
         "database": "Connected",

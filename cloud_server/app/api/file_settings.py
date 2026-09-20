@@ -14,13 +14,15 @@ from app.schemas.file_settings import FileSettingsUpdate
 from app.services.pricing_engine import calculate_job_cost
 
 
+from app.core.config import TEMPLATES_DIR
+
 router = APIRouter(
     prefix="/file",
     tags=["File Settings"]
 )
 
 templates = Jinja2Templates(
-    directory="templates"
+    directory=str(TEMPLATES_DIR)
 )
 
 

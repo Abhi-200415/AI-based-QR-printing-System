@@ -35,8 +35,11 @@ JWT_SECRET = os.getenv("JWT_SECRET", "super-secret-key-change-in-production-ai-p
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 JWT_EXPIRATION_HOURS = int(os.getenv("JWT_EXPIRATION_HOURS", "24"))
 
-# Storage Configuration
-UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
+# Storage & Paths Configuration
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+STATIC_DIR = BASE_DIR / "static"
+TEMPLATES_DIR = BASE_DIR / "templates"
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", str(BASE_DIR / "uploads"))
 MAX_UPLOAD_SIZE_MB = int(os.getenv("MAX_UPLOAD_SIZE_MB", "50"))
 ALLOWED_EXTENSIONS = [".pdf", ".docx", ".doc", ".txt", ".png", ".jpg", ".jpeg"]
 

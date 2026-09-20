@@ -112,7 +112,10 @@
         <h1>Shop Operations & Analytics Dashboard</h1>
         <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Owner ID: <span id="ownerId">{{ owner_id }}</span></div>
     </div>
-    <div style="font-size: 13px; color: var(--text-muted);" id="liveClock"></div>
+    <div style="display: flex; align-items: center; gap: 16px;">
+        <a href="/owner/{{ owner_id }}/qr" style="background: var(--accent); color: white; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 600;">📱 View Shop QR Code</a>
+        <div style="font-size: 13px; color: var(--text-muted);" id="liveClock"></div>
+    </div>
 </div>
 
 <div class="stats-grid">

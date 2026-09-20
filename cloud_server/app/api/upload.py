@@ -24,7 +24,7 @@ from app.database.models import (
     Orientation
 )
 from app.services.preview_service import analyze_uploaded_file
-from app.core.config import UPLOAD_DIR, MAX_UPLOAD_SIZE_MB, ALLOWED_EXTENSIONS
+from app.core.config import UPLOAD_DIR, MAX_UPLOAD_SIZE_MB, ALLOWED_EXTENSIONS, TEMPLATES_DIR
 from app.utils.logger import logger
 
 router = APIRouter(
@@ -32,7 +32,7 @@ router = APIRouter(
 )
 
 templates = Jinja2Templates(
-    directory="templates"
+    directory=str(TEMPLATES_DIR)
 )
 
 
