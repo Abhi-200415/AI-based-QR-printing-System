@@ -251,7 +251,16 @@ async function handleLogin(e) {
             body: JSON.stringify({ email, password })
         });
 
-        const data = await res.json();
+        let data = {};
+        try {
+            data = await res.json();
+        } catch (jsonErr) {
+            showAlert(`Server error (${res.status}). Please check backend logs.`);
+            btn.disabled = false;
+            btn.innerText = "Log In to Dashboard";
+            return;
+        }
+
         if (res.ok && data.owner_id) {
             localStorage.setItem("owner_token", data.access_token);
             localStorage.setItem("owner_id", data.owner_id);
@@ -261,12 +270,18 @@ async function handleLogin(e) {
                 window.location.href = `/owner/${data.owner_id}/dashboard`;
             }, 500);
         } else {
-            showAlert(data.detail || "Login failed. Please check your email and password.");
+            let errorMsg = "Login failed. Please check your email and password.";
+            if (typeof data.detail === "string") {
+                errorMsg = data.detail;
+            } else if (Array.isArray(data.detail)) {
+                errorMsg = data.detail.map(d => d.msg || JSON.stringify(d)).join(", ");
+            }
+            showAlert(errorMsg);
             btn.disabled = false;
             btn.innerText = "Log In to Dashboard";
         }
     } catch (err) {
-        showAlert("Network connection error. Please try again.");
+        showAlert("Network connection error. Please verify your internet connection or server status.");
         btn.disabled = false;
         btn.innerText = "Log In to Dashboard";
     }
@@ -292,31 +307,50 @@ async function handleRegister(e) {
             body: JSON.stringify({ shop_name, owner_name, email, phone, password, upi_id })
         });
 
-        const data = await res.json();
+        let data = {};
+        try {
+            data = await res.json();
+        } catch (jsonErr) {
+            showAlert(`Server error (${res.status}). Please check database connectivity.`);
+            btn.disabled = false;
+            btn.innerText = "Create Shop & Launch";
+            return;
+        }
+
         if (res.ok && data.owner_id) {
             // Automatically log in
-            const loginRes = await fetch("/owner/login", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, password })
-            });
-            const loginData = await loginRes.json();
-            if (loginData.access_token) {
-                localStorage.setItem("owner_token", loginData.access_token);
-                localStorage.setItem("owner_id", data.owner_id);
-                localStorage.setItem("shop_name", data.shop_name);
+            try {
+                const loginRes = await fetch("/owner/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email, password })
+                });
+                const loginData = await loginRes.json();
+                if (loginData.access_token) {
+                    localStorage.setItem("owner_token", loginData.access_token);
+                    localStorage.setItem("owner_id", data.owner_id);
+                    localStorage.setItem("shop_name", data.shop_name);
+                }
+            } catch (loginErr) {
+                console.warn("Auto-login error:", loginErr);
             }
             showAlert("Shop registered successfully! Opening dashboard...", false);
             setTimeout(() => {
                 window.location.href = `/owner/${data.owner_id}/dashboard`;
             }, 600);
         } else {
-            showAlert(data.detail || "Registration failed. Please check your details.");
+            let errorMsg = "Registration failed. Please check your details.";
+            if (typeof data.detail === "string") {
+                errorMsg = data.detail;
+            } else if (Array.isArray(data.detail)) {
+                errorMsg = data.detail.map(d => d.msg || JSON.stringify(d)).join(", ");
+            }
+            showAlert(errorMsg);
             btn.disabled = false;
             btn.innerText = "Create Shop & Launch";
         }
     } catch (err) {
-        showAlert("Network connection error. Please try again.");
+        showAlert("Network connection error. Please verify your internet connection or server status.");
         btn.disabled = false;
         btn.innerText = "Create Shop & Launch";
     }
