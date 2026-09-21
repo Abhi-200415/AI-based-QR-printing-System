@@ -51,9 +51,9 @@ async def settings_page(
         )
 
     return templates.TemplateResponse(
-        "file_settings.html",
-        {
-            "request": request,
+        request=request,
+        name="file_settings.html",
+        context={
             "file_id": str(job_file.file_id),
             "job_id": str(job_file.job_id),
             "file_name": job_file.original_filename,
@@ -196,9 +196,9 @@ async def price_summary(
     job = job_file.job
 
     return templates.TemplateResponse(
-        "price_summary.html",
-        {
-            "request": request,
+        request=request,
+        name="price_summary.html",
+        context={
             "file_id": str(job_file.file_id),
             "job_id": str(job_file.job_id),
             "file_name": job_file.original_filename,

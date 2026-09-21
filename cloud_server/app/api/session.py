@@ -27,6 +27,9 @@ templates = Jinja2Templates(
 
 
 # ==========================================================
+from uuid import UUID
+
+# ==========================================================
 # Create / Get Owner QR Page
 # ==========================================================
 
@@ -36,7 +39,7 @@ templates = Jinja2Templates(
 )
 async def owner_qr(
     request: Request,
-    owner_id: str,
+    owner_id: UUID,
     db: Session = Depends(get_db)
 ):
     owner = (
@@ -76,9 +79,9 @@ async def owner_qr(
         db.commit()
 
     return templates.TemplateResponse(
-        "session.html",
-        {
-            "request": request,
+        request=request,
+        name="session.html",
+        context={
             "owner": owner,
             "qr_path": owner.qr_path,
             "upload_url": upload_url
@@ -96,7 +99,7 @@ async def owner_qr(
 )
 async def owner_dashboard_view(
     request: Request,
-    owner_id: str,
+    owner_id: UUID,
     db: Session = Depends(get_db)
 ):
     owner = db.query(ShopOwner).filter(ShopOwner.owner_id == owner_id).first()
@@ -104,9 +107,9 @@ async def owner_dashboard_view(
         raise HTTPException(status_code=404, detail="Owner not found.")
 
     return templates.TemplateResponse(
-        "dashboard.html",
-        {
-            "request": request,
+        request=request,
+        name="dashboard.html",
+        context={
             "owner_id": str(owner.owner_id),
             "shop_name": owner.shop_name,
             "owner_name": owner.owner_name
@@ -166,7 +169,7 @@ async def qr_scan(
 )
 async def job_tracker_view(
     request: Request,
-    job_id: str,
+    job_id: UUID,
     db: Session = Depends(get_db)
 ):
     job = db.query(ActiveJob).filter(ActiveJob.job_id == job_id).first()
@@ -174,9 +177,9 @@ async def job_tracker_view(
         raise HTTPException(status_code=404, detail="Job not found.")
 
     return templates.TemplateResponse(
-        "job_status.html",
-        {
-            "request": request,
+        request=request,
+        name="job_status.html",
+        context={
             "job_id": str(job.job_id)
         }
     )

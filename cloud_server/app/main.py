@@ -101,7 +101,7 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 # Root & Health Endpoints
 # ==========================================================
 
-@app.get("/", response_class=HTMLResponse)
+@app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def root(
     request: Request,
     db: Session = Depends(get_db)
@@ -115,11 +115,15 @@ async def root(
         owner = db.query(ShopOwner).first()
 
     if not owner:
+        from uuid import uuid4
+        from app.core.security import hash_password
         owner = ShopOwner(
+            owner_id=uuid4(),
             shop_name="AI Smart Print Shop",
             owner_name="Store Admin",
             email="admin@printshop.local",
             phone="9876543210",
+            password_hash=hash_password("admin123"),
             is_active=True
         )
         db.add(owner)
@@ -132,7 +136,7 @@ async def root(
     )
 
 
-@app.get("/api/status")
+@app.api_route("/api/status", methods=["GET", "HEAD"])
 def api_status():
     """Service status metadata endpoint."""
     return {
@@ -142,7 +146,7 @@ def api_status():
     }
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health():
     """Health check endpoint for Render and uptime monitoring."""
     return {

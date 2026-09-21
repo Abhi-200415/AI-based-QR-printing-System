@@ -36,6 +36,8 @@ templates = Jinja2Templates(
 )
 
 
+from uuid import UUID
+
 # ==========================================================
 # Upload Page
 # ==========================================================
@@ -43,7 +45,7 @@ templates = Jinja2Templates(
 @router.get("/upload/{job_id}", response_class=HTMLResponse)
 def upload_page(
     request: Request,
-    job_id: str,
+    job_id: UUID,
     db: Session = Depends(get_db)
 ):
     job = (
@@ -59,10 +61,10 @@ def upload_page(
         )
 
     return templates.TemplateResponse(
-        "upload.html",
-        {
-            "request": request,
-            "job_id": job_id
+        request=request,
+        name="upload.html",
+        context={
+            "job_id": str(job_id)
         }
     )
 
@@ -73,7 +75,7 @@ def upload_page(
 
 @router.post("/upload/{job_id}")
 async def upload_files(
-    job_id: str,
+    job_id: UUID,
     files: List[UploadFile] = File(...),
     db: Session = Depends(get_db)
 ):

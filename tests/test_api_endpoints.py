@@ -12,7 +12,54 @@ from app.api.ai import model_status
 from app.api.agent import agent_health
 from app.api.download import download_health
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from fastapi.testclient import TestClient
+
+from app.database.connection import Base, get_db
+from app.database.models import ShopOwner, ActiveJob
+
+from sqlalchemy.pool import StaticPool
+
+# Test in-memory DB fixture
+test_engine = create_engine(
+    "sqlite:///:memory:",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool
+)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+Base.metadata.create_all(bind=test_engine)
+
+def override_get_db():
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+app.dependency_overrides[get_db] = override_get_db
+
+
 class TestAPIEndpoints(unittest.TestCase):
+
+    def setUp(self):
+        Base.metadata.create_all(bind=test_engine)
+        db = TestingSessionLocal()
+        owner = db.query(ShopOwner).filter(ShopOwner.is_active == True).first()
+        if not owner:
+            from uuid import uuid4
+            owner = ShopOwner(
+                owner_id=uuid4(),
+                shop_name="Auto Test Shop",
+                owner_name="Test Owner",
+                email="test_owner@shop.local",
+                phone="9988776655",
+                password_hash="test_password_hash",
+                is_active=True
+            )
+            db.add(owner)
+            db.commit()
+        db.close()
 
     def test_routes_registered_without_shadowing(self):
         # Inspect all registered route paths in FastAPI app
@@ -57,7 +104,6 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertIn("feature_set", data)
 
     def test_root_endpoint_leads_to_owner_dashboard(self):
-        from fastapi.testclient import TestClient
         client = TestClient(app)
         response = client.get("/", follow_redirects=True)
         self.assertEqual(response.status_code, 200)
@@ -65,17 +111,9 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertIn("text/html", response.headers.get("content-type", ""))
 
     def test_customer_qr_scan_leads_to_customer_upload(self):
-        from fastapi.testclient import TestClient
-        from app.database.connection import SessionLocal
-        from app.database.models import ShopOwner
         client = TestClient(app)
-        db = SessionLocal()
+        db = TestingSessionLocal()
         owner = db.query(ShopOwner).filter(ShopOwner.is_active == True).first()
-        if not owner:
-            owner = ShopOwner(shop_name="Auto Shop", owner_name="Owner", email="auto@shop.com", phone="9998887776", is_active=True)
-            db.add(owner)
-            db.commit()
-            db.refresh(owner)
         
         # Ensure owner has QR token
         client.get(f"/owner/{owner.owner_id}/qr")
@@ -89,7 +127,6 @@ class TestAPIEndpoints(unittest.TestCase):
         db.close()
 
     def test_health_and_status_endpoints(self):
-        from fastapi.testclient import TestClient
         client = TestClient(app)
         res_health = client.get("/health")
         self.assertEqual(res_health.status_code, 200)
