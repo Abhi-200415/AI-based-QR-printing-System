@@ -86,9 +86,10 @@ app.include_router(printer_socket_router)
 
 
 from fastapi import Request, Depends
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
+from app.utils.logger import logger
 
 from app.database.connection import get_db, init_db
 from app.database.models import ShopOwner, ActiveJob
@@ -97,11 +98,20 @@ from app.core.config import TEMPLATES_DIR, STATIC_DIR
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
-
 @app.on_event("startup")
 async def startup_event():
     """Verify database connection and create tables on startup."""
     init_db()
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Global server error on {request.method} {request.url.path}: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal Server Error: {str(exc)}"}
+    )
+
 
 
 

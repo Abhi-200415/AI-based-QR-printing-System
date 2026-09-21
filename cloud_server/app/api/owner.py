@@ -52,71 +52,83 @@ class TokenResponse(BaseModel):
 # Owner Registration
 # ==========================================================
 
+from app.utils.logger import logger
+
 @router.post("/register")
 def register_owner(
     data: OwnerRegisterRequest,
     db: Session = Depends(get_db)
 ):
-    existing_owner = db.query(ShopOwner).filter(ShopOwner.email == data.email).first()
-    if existing_owner:
-        raise HTTPException(
-            status_code=400,
-            detail="An owner with this email already exists."
-        )
-
-    existing_phone = db.query(ShopOwner).filter(ShopOwner.phone == data.phone).first()
-    if existing_phone:
-        raise HTTPException(
-            status_code=400,
-            detail="An owner with this phone number already exists."
-        )
-
-    password_hash = hash_password(data.password)
-
-    owner = ShopOwner(
-        owner_id=uuid4(),
-        shop_name=data.shop_name,
-        owner_name=data.owner_name,
-        shop_logo=data.shop_logo,
-        email=data.email,
-        phone=data.phone,
-        password_hash=password_hash,
-        upi_id=data.upi_id or f"{data.phone}@upi",
-        address=data.address or "",
-        is_active=True
-    )
-
-    # Automatically create default shop settings for the new owner
-    settings = ShopSettings(
-        owner_id=owner.owner_id,
-        pricing_basis=PricingBasis.PER_SIDE,
-        max_file_size_mb=50,
-        tax_percentage=0.0
-    )
-
     try:
+        clean_email = data.email.strip().lower()
+        clean_phone = data.phone.strip()
+
+        existing_owner = db.query(ShopOwner).filter(ShopOwner.email == clean_email).first()
+        if existing_owner:
+            raise HTTPException(
+                status_code=400,
+                detail="An owner with this email already exists."
+            )
+
+        existing_phone = db.query(ShopOwner).filter(ShopOwner.phone == clean_phone).first()
+        if existing_phone:
+            raise HTTPException(
+                status_code=400,
+                detail="An owner with this phone number already exists."
+            )
+
+        password_hash = hash_password(data.password)
+
+        owner = ShopOwner(
+            owner_id=uuid4(),
+            shop_name=data.shop_name.strip(),
+            owner_name=data.owner_name.strip(),
+            shop_logo=data.shop_logo,
+            email=clean_email,
+            phone=clean_phone,
+            password_hash=password_hash,
+            upi_id=data.upi_id.strip() if data.upi_id else f"{clean_phone}@upi",
+            address=data.address or "",
+            is_active=True
+        )
+
+        settings = ShopSettings(
+            owner_id=owner.owner_id,
+            pricing_basis=PricingBasis.PER_SIDE,
+            max_file_size_mb=50,
+            tax_percentage=0.0
+        )
+
         db.add(owner)
         db.add(settings)
         db.commit()
         db.refresh(owner)
+
+        logger.info(f"Registered new shop owner: {owner.shop_name} ({owner.owner_id})")
+
+        return {
+            "message": "Owner registered successfully",
+            "owner_id": str(owner.owner_id),
+            "shop_name": owner.shop_name,
+            "owner_name": owner.owner_name,
+            "email": owner.email,
+            "phone": owner.phone,
+            "upi_id": owner.upi_id,
+            "address": owner.address,
+            "is_active": owner.is_active
+        }
+    except HTTPException:
+        raise
     except Exception as e:
-        db.rollback()
+        logger.error(f"Owner registration error: {e}", exc_info=True)
+        try:
+            db.rollback()
+        except Exception:
+            pass
         raise HTTPException(
             status_code=500,
-            detail=f"Owner registration failed: {str(e)}"
+            detail=f"Registration error: {str(e)}"
         )
-
-    return {
-        "message": "Owner registered successfully",
-        "owner_id": str(owner.owner_id),
-        "shop_name": owner.shop_name,
-        "owner_name": owner.owner_name,
-        "email": owner.email,
-        "phone": owner.phone,
-        "upi_id": owner.upi_id,
-        "address": owner.address,
-        "is_active": owner.is_active
-    }
 
 
 # ==========================================================
@@ -128,28 +140,39 @@ def login_owner(
     data: OwnerLoginRequest,
     db: Session = Depends(get_db)
 ):
-    owner = db.query(ShopOwner).filter(ShopOwner.email == data.email).first()
-    if not owner or not verify_password(data.password, owner.password_hash):
+    try:
+        clean_email = data.email.strip().lower()
+        owner = db.query(ShopOwner).filter(ShopOwner.email == clean_email).first()
+        if not owner or not verify_password(data.password, owner.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password."
+            )
+
+        if not owner.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account is inactive."
+            )
+
+        token = create_access_token({"sub": str(owner.owner_id), "role": "owner"})
+
+        return TokenResponse(
+            access_token=token,
+            token_type="bearer",
+            owner_id=str(owner.owner_id),
+            shop_name=owner.shop_name,
+            owner_name=owner.owner_name
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Owner login error: {e}", exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password."
+            status_code=500,
+            detail=f"Login error: {str(e)}"
         )
 
-    if not owner.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is inactive."
-        )
-
-    token = create_access_token({"sub": str(owner.owner_id), "role": "owner"})
-
-    return TokenResponse(
-        access_token=token,
-        token_type="bearer",
-        owner_id=str(owner.owner_id),
-        shop_name=owner.shop_name,
-        owner_name=owner.owner_name
-    )
 
 
 # ==========================================================

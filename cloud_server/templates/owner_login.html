@@ -251,14 +251,12 @@ async function handleLogin(e) {
             body: JSON.stringify({ email, password })
         });
 
+        const rawText = await res.text();
         let data = {};
         try {
-            data = await res.json();
+            data = JSON.parse(rawText);
         } catch (jsonErr) {
-            showAlert(`Server error (${res.status}). Please check backend logs.`);
-            btn.disabled = false;
-            btn.innerText = "Log In to Dashboard";
-            return;
+            data = { detail: rawText || `Server error (${res.status})` };
         }
 
         if (res.ok && data.owner_id) {
@@ -281,7 +279,7 @@ async function handleLogin(e) {
             btn.innerText = "Log In to Dashboard";
         }
     } catch (err) {
-        showAlert("Network connection error. Please verify your internet connection or server status.");
+        showAlert("Network connection error. Please verify your internet connection or server status: " + err.message);
         btn.disabled = false;
         btn.innerText = "Log In to Dashboard";
     }
@@ -307,14 +305,12 @@ async function handleRegister(e) {
             body: JSON.stringify({ shop_name, owner_name, email, phone, password, upi_id })
         });
 
+        const rawText = await res.text();
         let data = {};
         try {
-            data = await res.json();
+            data = JSON.parse(rawText);
         } catch (jsonErr) {
-            showAlert(`Server error (${res.status}). Please check database connectivity.`);
-            btn.disabled = false;
-            btn.innerText = "Create Shop & Launch";
-            return;
+            data = { detail: rawText || `Server error (${res.status})` };
         }
 
         if (res.ok && data.owner_id) {
@@ -325,7 +321,8 @@ async function handleRegister(e) {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ email, password })
                 });
-                const loginData = await loginRes.json();
+                const loginText = await loginRes.text();
+                const loginData = JSON.parse(loginText);
                 if (loginData.access_token) {
                     localStorage.setItem("owner_token", loginData.access_token);
                     localStorage.setItem("owner_id", data.owner_id);
@@ -350,7 +347,7 @@ async function handleRegister(e) {
             btn.innerText = "Create Shop & Launch";
         }
     } catch (err) {
-        showAlert("Network connection error. Please verify your internet connection or server status.");
+        showAlert("Network connection error. Please verify your internet connection or server status: " + err.message);
         btn.disabled = false;
         btn.innerText = "Create Shop & Launch";
     }

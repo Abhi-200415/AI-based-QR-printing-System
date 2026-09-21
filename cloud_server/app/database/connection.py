@@ -3,7 +3,8 @@ import logging
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-from app.core.config import DATABASE_URL
+from pathlib import Path
+from app.core.config import DATABASE_URL, BASE_DIR
 
 logger = logging.getLogger("cloud_server.database")
 Base = declarative_base()
@@ -15,9 +16,12 @@ def create_db_engine(db_url: str):
     If the primary database (e.g. remote PostgreSQL) is unreachable,
     gracefully falls back to local SQLite to ensure uninterrupted service.
     """
-    if db_url.startswith("sqlite"):
+    sqlite_path = Path(BASE_DIR) / "ai_printing.db"
+    sqlite_url = f"sqlite:///{sqlite_path.as_posix()}"
+
+    if not db_url or db_url.startswith("sqlite"):
         return create_engine(
-            db_url,
+            sqlite_url,
             connect_args={"check_same_thread": False},
             pool_pre_ping=True
         )
@@ -38,13 +42,14 @@ def create_db_engine(db_url: str):
     except Exception as e:
         logger.warning(
             f"Unable to connect to primary database ({DATABASE_URL.split('@')[-1] if '@' in DATABASE_URL else DATABASE_URL}): {e}. "
-            "Falling back to local persistent SQLite (sqlite:///./ai_printing.db) for high availability."
+            f"Falling back to local persistent SQLite ({sqlite_url}) for high availability."
         )
         return create_engine(
-            "sqlite:///./ai_printing.db",
+            sqlite_url,
             connect_args={"check_same_thread": False},
             pool_pre_ping=True
         )
+
 
 
 engine = create_db_engine(DATABASE_URL)
