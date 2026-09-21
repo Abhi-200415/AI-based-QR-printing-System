@@ -1,327 +1,321 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-    <title>Print Settings</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Smart Printing - Print Settings</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0b0f19;
+            --bg-card: #151e2e;
+            --accent: #6366f1;
+            --accent-hover: #4f46e5;
+            --success: #10b981;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #233044;
+            --input-bg: #0f172a;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text);
+            margin: 0;
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .container {
+            width: 100%;
+            max-width: 500px;
+        }
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 32px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        h2 {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 0 0 6px 0;
+            background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .file-info-badge {
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+        }
+        .file-title {
+            font-weight: 600;
+            color: var(--text);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 260px;
+        }
+        .pages-pill {
+            background: var(--accent);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 9999px;
+            font-weight: 700;
+            font-size: 12px;
+        }
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 12px 14px;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            font-size: 14px;
+            font-family: inherit;
+            outline: none;
+            transition: border 0.2s;
+        }
+        input:focus, select:focus {
+            border-color: var(--accent);
+        }
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            padding: 12px 14px;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 14px;
+            color: var(--text);
+        }
+        .checkbox-label input {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+        .btn-submit {
+            width: 100%;
+            padding: 14px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 10px;
+            font-family: inherit;
+        }
+        .btn-submit:hover {
+            background: var(--accent-hover);
+        }
+        .alert {
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-top: 16px;
+            display: none;
+        }
+        .alert.error {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            display: block;
+        }
+        .alert.info {
+            background: rgba(99, 102, 241, 0.15);
+            color: #a5b4fc;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            display: block;
+        }
+    </style>
 </head>
-
 <body>
 
-<h2>Print Settings</h2>
+<div class="container">
+    <div class="card">
+        <div class="header">
+            <h2>Configure Print Options</h2>
+            <div id="fileProgress" style="font-size: 13px; color: var(--text-muted); margin-top: 4px;"></div>
+        </div>
 
-<p id="fileProgress" style="color: #555; font-style: italic;"></p>
+        <div class="file-info-badge">
+            <div class="file-title">📑 {{ file_name }}</div>
+            <div class="pages-pill">{{ page_count }} Page(s)</div>
+        </div>
 
-<p>
-    File:
-    <strong>{{ file_name }}</strong>
-</p>
+        <form id="settingsForm">
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Number of Copies</label>
+                    <input type="number" id="copies" value="1" min="1" required>
+                </div>
+                <div class="form-group">
+                    <label>Paper Size</label>
+                    <select id="paper_size">
+                        <option value="A4" selected>A4 Standard</option>
+                        <option value="A3">A3 Large</option>
+                        <option value="LEGAL">Legal</option>
+                    </select>
+                </div>
+            </div>
 
-<p>
-    Pages:
-    <strong>{{ page_count }}</strong>
-</p>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Orientation</label>
+                    <select id="orientation">
+                        <option value="Portrait" selected>Portrait</option>
+                        <option value="Landscape">Landscape</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Color Mode</label>
+                    <select id="print_type">
+                        <option value="BW" selected>Black & White</option>
+                        <option value="COLOR">Full Color</option>
+                        <option value="MIXED">Mixed (Selective)</option>
+                    </select>
+                </div>
+            </div>
 
-<script>
-// Show "File X of Y" progress
-const pending = JSON.parse(localStorage.getItem("pending_file_ids") || "[]");
-const remaining = pending.length;
-const total = remaining + 1; // +1 for current file
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="duplex">
+                    <span>Print Both Sides (Duplex / Two-Sided)</span>
+                </label>
+            </div>
 
-// Calculate current file number
-// We don't store total separately, so we use sessionStorage
-const storedTotal = sessionStorage.getItem("total_files");
-if (!storedTotal) {
-    sessionStorage.setItem("total_files", total);
-}
-const grandTotal = parseInt(sessionStorage.getItem("total_files") || total);
-const currentIndex = grandTotal - remaining;
+            <div class="form-group">
+                <label>Page Range (Optional)</label>
+                <input type="text" id="page_ranges" placeholder="e.g. 1-5, 8, 10 (Leave blank for all)">
+            </div>
 
-if (grandTotal > 1) {
-    document.getElementById("fileProgress").innerText =
-        "File " + currentIndex + " of " + grandTotal;
-}
-</script>
+            <div class="form-group" id="mixedSection" style="display: none;">
+                <label>Color Pages Range (For Mixed Mode)</label>
+                <input type="text" id="color_page_ranges" placeholder="e.g. 2, 4, 7">
+            </div>
 
-<hr>
+            <button type="submit" class="btn-submit" id="saveBtn">
+                Save & Proceed to Price Summary →
+            </button>
+        </form>
 
-<form id="settingsForm">
-
-    <label>
-        Copies:
-    </label>
-
-    <input
-        type="number"
-        id="copies"
-        value="1"
-        min="1"
-        required
-    >
-
-    <br><br>
-
-    <label>
-        Paper Size:
-    </label>
-
-    <select id="paper_size">
-
-        <option value="A4">
-            A4
-        </option>
-
-        <option value="A3">
-            A3
-        </option>
-
-        <option value="LEGAL">
-            Legal
-        </option>
-
-    </select>
-
-    <br><br>
-
-    <label>
-        Orientation:
-    </label>
-
-    <select id="orientation">
-
-        <option value="Portrait">
-            Portrait
-        </option>
-
-        <option value="Landscape">
-            Landscape
-        </option>
-
-    </select>
-
-    <br><br>
-
-    <label>
-        Print Type:
-    </label>
-
-    <select id="print_type">
-
-        <option value="BW">
-            Black & White
-        </option>
-
-        <option value="COLOR">
-            Color
-        </option>
-
-        <option value="MIXED">
-            Mixed
-        </option>
-
-    </select>
-
-    <br><br>
-
-    <label>
-        Duplex:
-    </label>
-
-    <input
-        type="checkbox"
-        id="duplex"
-    >
-
-    <br><br>
-
-    <label>
-        Page Range:
-    </label>
-
-    <input
-        type="text"
-        id="page_ranges"
-        placeholder="Example: 1-5,8,10"
-    >
-
-    <br><br>
-
-    <div id="mixedSection" style="display:none;">
-
-        <label>
-            Color Page Range:
-        </label>
-
-        <input
-            type="text"
-            id="color_page_ranges"
-            placeholder="Example: 2-5,8"
-        >
-
-        <br><br>
-
+        <div id="statusAlert" class="alert"></div>
     </div>
-
-    <button type="submit">
-        Save Print Settings
-    </button>
-
-</form>
-
-<p id="message"></p>
+</div>
 
 <script>
+const fileId = "{{ file_id }}";
 
-const form =
-    document.getElementById("settingsForm");
+// Multi-file progress display
+const pending = JSON.parse(localStorage.getItem("pending_file_ids") || "[]");
+const grandTotal = parseInt(sessionStorage.getItem("total_files") || (pending.length + 1));
+const currentIdx = grandTotal - pending.length;
+if (grandTotal > 1) {
+    document.getElementById("fileProgress").innerText = `Document ${currentIdx} of ${grandTotal}`;
+}
 
-const printType =
-    document.getElementById("print_type");
+const printTypeSelect = document.getElementById("print_type");
+const mixedSection = document.getElementById("mixedSection");
+printTypeSelect.addEventListener("change", function() {
+    mixedSection.style.display = (this.value === "MIXED") ? "block" : "none";
+});
 
-const mixedSection =
-    document.getElementById("mixedSection");
+const alertBox = document.getElementById("statusAlert");
+function showAlert(msg, type = "info") {
+    alertBox.innerText = msg;
+    alertBox.className = "alert " + type;
+    alertBox.style.display = "block";
+}
 
+document.getElementById("settingsForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    const saveBtn = document.getElementById("saveBtn");
+    saveBtn.disabled = true;
+    saveBtn.innerText = "Calculating pricing...";
 
-printType.addEventListener(
-    "change",
-    function() {
+    const data = {
+        copies: parseInt(document.getElementById("copies").value) || 1,
+        paper_size: document.getElementById("paper_size").value,
+        orientation: document.getElementById("orientation").value,
+        print_type: document.getElementById("print_type").value,
+        duplex: document.getElementById("duplex").checked,
+        page_ranges: document.getElementById("page_ranges").value.trim() || null,
+        color_page_ranges: document.getElementById("color_page_ranges").value.trim() || null
+    };
 
-        if (this.value === "MIXED") {
+    try {
+        const response = await fetch(`/file/${fileId}/settings`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        });
 
-            mixedSection.style.display =
-                "block";
+        const result = await response.json();
+        if (!response.ok) {
+            showAlert(result.detail || "Unable to save print settings.", "error");
+            saveBtn.disabled = false;
+            saveBtn.innerText = "Save & Proceed to Price Summary →";
+            return;
+        }
 
+        const pendingIds = JSON.parse(localStorage.getItem("pending_file_ids") || "[]");
+        if (pendingIds.length > 0) {
+            const nextFileId = pendingIds.shift();
+            localStorage.setItem("pending_file_ids", JSON.stringify(pendingIds));
+            showAlert("Settings saved. Loading next document...", "info");
+            setTimeout(() => {
+                window.location.href = `/file/settings-page/${nextFileId}`;
+            }, 400);
         } else {
-
-            mixedSection.style.display =
-                "none";
-
+            localStorage.removeItem("pending_file_ids");
+            showAlert("All settings configured! Loading order summary...", "info");
+            setTimeout(() => {
+                window.location.href = `/file/summary/${fileId}`;
+            }, 400);
         }
-
+    } catch (err) {
+        showAlert("Server connection error. Please try again.", "error");
+        saveBtn.disabled = false;
+        saveBtn.innerText = "Save & Proceed to Price Summary →";
     }
-);
-
-
-form.addEventListener(
-    "submit",
-    async function(event) {
-
-        event.preventDefault();
-
-        const data = {
-
-            copies:
-                parseInt(
-                    document.getElementById("copies").value
-                ),
-
-            paper_size:
-                document.getElementById("paper_size").value,
-
-            orientation:
-                document.getElementById("orientation").value,
-
-            print_type:
-                document.getElementById("print_type").value,
-
-            duplex:
-                document.getElementById("duplex").checked,
-
-            page_ranges:
-                document.getElementById("page_ranges").value
-                || null,
-
-            color_page_ranges:
-                document.getElementById("color_page_ranges").value
-                || null
-
-        };
-
-
-        document.getElementById("message").innerText =
-            "Saving settings...";
-
-
-        try {
-
-            const response = await fetch(
-                "/file/{{ file_id }}/settings",
-                {
-                    method: "PUT",
-
-                    headers: {
-                        "Content-Type":
-                            "application/json"
-                    },
-
-                    body:
-                        JSON.stringify(data)
-                }
-            );
-
-
-            const result =
-                await response.json();
-
-
-            if (!response.ok) {
-
-                document.getElementById("message").innerText =
-                    result.detail ||
-                    "Unable to save settings.";
-
-                return;
-
-            }
-
-            // Check if there are more files waiting for settings
-            const pendingRaw = localStorage.getItem("pending_file_ids");
-            const pendingIds = pendingRaw ? JSON.parse(pendingRaw) : [];
-
-            if (pendingIds.length > 0) {
-
-                // More files to configure — go to next file settings page
-                const nextFileId = pendingIds.shift();
-                localStorage.setItem("pending_file_ids", JSON.stringify(pendingIds));
-
-                document.getElementById("message").innerText =
-                    "Settings saved. Opening next file...";
-
-                window.location.href =
-                    "/file/settings-page/" + nextFileId;
-
-            } else {
-
-                // All files configured — clear all storage, go to price summary
-                localStorage.removeItem("pending_file_ids");
-                localStorage.removeItem("job_id");
-                sessionStorage.removeItem("total_files");
-
-                document.getElementById("message").innerText =
-                    "All settings saved. Opening price summary...";
-
-                window.location.href =
-                    "/file/summary/{{ file_id }}";
-
-            }
-
-        }
-
-        catch(error) {
-
-            console.error(error);
-
-            document.getElementById("message").innerText =
-                "Unable to connect to server.";
-
-        }
-
-    }
-);
-
+});
 </script>
 
 </body>
-
 </html>
-
-

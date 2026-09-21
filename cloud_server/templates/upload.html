@@ -1,110 +1,288 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>AI Smart Printing - Upload</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Smart Printing - Document Upload</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0b0f19;
+            --bg-card: #151e2e;
+            --accent: #6366f1;
+            --accent-hover: #4f46e5;
+            --success: #10b981;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #233044;
+            --input-bg: #0f172a;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text);
+            margin: 0;
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .container {
+            width: 100%;
+            max-width: 500px;
+        }
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 32px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            text-align: center;
+        }
+        .logo-icon {
+            font-size: 36px;
+            margin-bottom: 12px;
+        }
+        h2 {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 0 0 6px 0;
+            background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .session-info {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 24px;
+        }
+        .dropzone {
+            border: 2px dashed var(--border);
+            background: var(--input-bg);
+            border-radius: 16px;
+            padding: 32px 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 20px;
+        }
+        .dropzone:hover, .dropzone.dragover {
+            border-color: var(--accent);
+            background: rgba(99, 102, 241, 0.05);
+        }
+        .dropzone-icon {
+            font-size: 40px;
+            color: var(--accent);
+            margin-bottom: 12px;
+        }
+        .dropzone-text {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+        .dropzone-sub {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        #fileInput {
+            display: none;
+        }
+        .file-list {
+            margin-bottom: 20px;
+            text-align: left;
+            display: none;
+        }
+        .file-item {
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 14px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+        }
+        .file-name {
+            font-weight: 500;
+            color: var(--text);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 280px;
+        }
+        .file-size {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+        .btn-upload {
+            width: 100%;
+            padding: 14px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-family: inherit;
+        }
+        .btn-upload:hover {
+            background: var(--accent-hover);
+        }
+        .btn-upload:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .alert {
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-top: 16px;
+            display: none;
+        }
+        .alert.error {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            display: block;
+        }
+        .alert.info {
+            background: rgba(99, 102, 241, 0.15);
+            color: #a5b4fc;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            display: block;
+        }
+    </style>
 </head>
-
 <body>
 
-<h2>Upload Documents for Printing</h2>
+<div class="container">
+    <div class="card">
+        <div class="logo-icon">📄</div>
+        <h2>Upload Your Documents</h2>
+        <div class="session-info">Job Session: <code id="jobIdLabel">{{ job_id[:8] }}...</code></div>
 
-<p>
-    Job ID: {{ job_id }}
-</p>
+        <form id="uploadForm">
+            <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+                <div class="dropzone-icon">☁️</div>
+                <div class="dropzone-text">Tap or Drop files here</div>
+                <div class="dropzone-sub">Supported: PDF, DOCX, DOC, TXT, PNG, JPG (Max 50MB)</div>
+            </div>
+            <input type="file" id="fileInput" multiple accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg">
 
-<form id="uploadForm" enctype="multipart/form-data">
+            <div class="file-list" id="fileList"></div>
 
-    <input
-        type="file"
-        name="files"
-        id="files"
-        multiple
-        required
-    >
+            <button type="submit" class="btn-upload" id="uploadBtn" disabled>
+                Upload & Configure Print Settings
+            </button>
+        </form>
 
-    <br><br>
-
-    <button type="submit">
-        Upload Documents
-    </button>
-
-</form>
-
-<p id="message"></p>
+        <div id="statusAlert" class="alert"></div>
+    </div>
+</div>
 
 <script>
+const jobId = "{{ job_id }}";
+const fileInput = document.getElementById("fileInput");
+const dropzone = document.getElementById("dropzone");
+const fileList = document.getElementById("fileList");
+const uploadBtn = document.getElementById("uploadBtn");
+const alertBox = document.getElementById("statusAlert");
 
-const form = document.getElementById("uploadForm");
+function showAlert(msg, type = "info") {
+    alertBox.innerText = msg;
+    alertBox.className = "alert " + type;
+    alertBox.style.display = "block";
+}
 
-form.addEventListener("submit", async function(event) {
-
-    event.preventDefault();
-
-    const files =
-        document.getElementById("files").files;
-
+function updateFileList() {
+    const files = fileInput.files;
     if (files.length === 0) {
+        fileList.style.display = "none";
+        uploadBtn.disabled = true;
         return;
     }
+    fileList.style.display = "block";
+    uploadBtn.disabled = false;
+    fileList.innerHTML = Array.from(files).map(f => `
+        <div class="file-item">
+            <div class="file-name">📑 ${f.name}</div>
+            <div class="file-size">${(f.size / (1024*1024)).toFixed(2)} MB</div>
+        </div>
+    `).join("");
+}
+
+fileInput.addEventListener("change", updateFileList);
+
+dropzone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropzone.classList.add("dragover");
+});
+
+dropzone.addEventListener("dragleave", () => {
+    dropzone.classList.remove("dragover");
+});
+
+dropzone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropzone.classList.remove("dragover");
+    if (e.dataTransfer.files.length > 0) {
+        fileInput.files = e.dataTransfer.files;
+        updateFileList();
+    }
+});
+
+document.getElementById("uploadForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    const files = fileInput.files;
+    if (files.length === 0) return;
 
     const formData = new FormData();
-
-    for (const file of files) {
-        formData.append("files", file);
+    for (const f of files) {
+        formData.append("files", f);
     }
 
-    document.getElementById("message").innerText =
-        "Uploading...";
+    uploadBtn.disabled = true;
+    uploadBtn.innerText = "Analyzing & Uploading Documents...";
+    showAlert("Processing and counting pages...", "info");
 
     try {
-
-        const response = await fetch(
-            "/upload/{{ job_id }}",
-            {
-                method: "POST",
-                body: formData
-            }
-        );
-
+        const response = await fetch(`/upload/${jobId}`, {
+            method: "POST",
+            body: formData
+        });
         const result = await response.json();
 
         if (!response.ok) {
-
-            document.getElementById("message").innerText =
-                result.detail || "Upload failed.";
-
+            showAlert(result.detail || "Upload failed. Please check your files.", "error");
+            uploadBtn.disabled = false;
+            uploadBtn.innerText = "Upload & Configure Print Settings";
             return;
         }
 
         if (result.uploaded_files && result.uploaded_files.length > 0) {
-
             const fileIds = result.uploaded_files.map(f => f.file_id);
-            localStorage.setItem("pending_file_ids", JSON.stringify(fileIds));
-            
             const firstFileId = fileIds.shift();
             localStorage.setItem("pending_file_ids", JSON.stringify(fileIds));
-
-            window.location.href = "/file/settings-page/" + firstFileId;
-
+            sessionStorage.setItem("total_files", result.uploaded_files.length);
+            showAlert("Upload successful! Loading print settings...", "info");
+            setTimeout(() => {
+                window.location.href = `/file/settings-page/${firstFileId}`;
+            }, 500);
         } else {
-
-            document.getElementById("message").innerText =
-                "No files were processed.";
-
+            showAlert("No files were processed.", "error");
+            uploadBtn.disabled = false;
         }
-
+    } catch (err) {
+        showAlert("Server connection error during upload.", "error");
+        uploadBtn.disabled = false;
+        uploadBtn.innerText = "Upload & Configure Print Settings";
     }
-    catch (error) {
-
-        console.error(error);
-
-        document.getElementById("message").innerText =
-            "Unable to connect to server.";
-
-    }
-
 });
-
 </script>
 
 </body>

@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.database.connection import get_db
 from app.database.models import ShopOwner, ActiveJob
 
-from app.core.config import TEMPLATES_DIR, STATIC_DIR, BASE_URL
+from app.core.config import TEMPLATES_DIR, STATIC_DIR, resolve_public_base_url
 
 router = APIRouter(
     tags=["QR Session"]
@@ -59,20 +59,17 @@ async def owner_qr(
         db.commit()
         db.refresh(owner)
 
-    # Determine public base URL safely for production QR generation
-    if BASE_URL and not ("localhost" in BASE_URL or "127.0.0.1" in BASE_URL):
-        base_url = BASE_URL
-    else:
-        base_url = str(request.base_url).rstrip("/")
+    # Determine public base URL dynamically (Render HTTPS / Domain / Forwarded Host)
+    base_url = resolve_public_base_url(request)
     upload_url = f"{base_url}/qr/{owner.qr_token}"
 
     os.makedirs(STATIC_DIR, exist_ok=True)
     qr_filename = f"{owner.qr_token}.png"
     qr_path = os.path.join(STATIC_DIR, qr_filename)
 
-    if not os.path.exists(qr_path):
-        qr = qrcode.make(upload_url)
-        qr.save(qr_path)
+    # Always generate/update QR code image with current public upload URL
+    qr = qrcode.make(upload_url)
+    qr.save(qr_path)
 
     if owner.qr_path != f"/static/{qr_filename}":
         owner.qr_path = f"/static/{qr_filename}"
@@ -83,7 +80,7 @@ async def owner_qr(
         name="session.html",
         context={
             "owner": owner,
-            "qr_path": owner.qr_path,
+            "qr_path": f"/static/{qr_filename}",
             "upload_url": upload_url
         }
     )

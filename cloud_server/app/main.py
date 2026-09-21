@@ -103,36 +103,28 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 @app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def root(
-    request: Request,
-    db: Session = Depends(get_db)
+    request: Request
 ):
     """
-    Owner Entrypoint (Option B Architecture):
-    Directs the shop owner/operator to the owner operations dashboard.
+    Shop Owner & Operator Entrypoint:
+    Renders the Owner Portal for login and multi-shop registration.
     """
-    owner = db.query(ShopOwner).filter(ShopOwner.is_active == True).first()
-    if not owner:
-        owner = db.query(ShopOwner).first()
+    return templates.TemplateResponse(
+        request=request,
+        name="owner_login.html",
+        context={}
+    )
 
-    if not owner:
-        from uuid import uuid4
-        from app.core.security import hash_password
-        owner = ShopOwner(
-            owner_id=uuid4(),
-            shop_name="AI Smart Print Shop",
-            owner_name="Store Admin",
-            email="admin@printshop.local",
-            phone="9876543210",
-            password_hash=hash_password("admin123"),
-            is_active=True
-        )
-        db.add(owner)
-        db.commit()
-        db.refresh(owner)
 
-    return RedirectResponse(
-        url=f"/owner/{owner.owner_id}/dashboard",
-        status_code=303
+@app.api_route("/login", methods=["GET", "HEAD"], response_class=HTMLResponse)
+@app.api_route("/register", methods=["GET", "HEAD"], response_class=HTMLResponse)
+@app.api_route("/owner/login-page", methods=["GET", "HEAD"], response_class=HTMLResponse)
+async def owner_login_page(request: Request):
+    """Explicit Owner Login & Registration view."""
+    return templates.TemplateResponse(
+        request=request,
+        name="owner_login.html",
+        context={}
     )
 
 

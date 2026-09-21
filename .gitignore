@@ -36,5 +36,7 @@ cloud_server/app_backup_printer/
 # Cloud uploaded user files
 cloud_server/uploads/*
 !cloud_server/uploads/.gitkeep
+cloud_server/static/*.png
 
 combined_project.txt
+

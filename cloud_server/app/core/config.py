@@ -16,10 +16,42 @@ else:
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 DEBUG = os.getenv("DEBUG", "false").lower() in ("true", "1", "yes")
 
-# Base URL for public API access (used for download links and callbacks)
-BASE_URL = os.getenv("BASE_URL", "http://localhost:8000").rstrip("/")
+# Base URL for public API access (used for download links, QR codes, and callbacks)
+_render_url = os.getenv("RENDER_EXTERNAL_URL")
+if _render_url:
+    _default_base = _render_url.rstrip("/")
+else:
+    _default_base = os.getenv("BASE_URL", "http://localhost:8000").rstrip("/")
+
+BASE_URL = os.getenv("BASE_URL", _default_base).rstrip("/")
 API_BASE_URL = os.getenv("API_BASE_URL", f"{BASE_URL}/api")
 WEBSOCKET_URL = os.getenv("WEBSOCKET_URL", f"ws://localhost:8000/ws/printer")
+
+
+def resolve_public_base_url(request=None) -> str:
+    """
+    Intelligently determines the public reachable base URL for the server.
+    Priority:
+    1. Explicit non-localhost BASE_URL or RENDER_EXTERNAL_URL
+    2. Reverse proxy headers (X-Forwarded-Proto, X-Forwarded-Host, Host)
+    3. request.base_url fallback
+    """
+    # Check if BASE_URL is an explicit production URL (not localhost/127.0.0.1/0.0.0.0)
+    if BASE_URL and not any(h in BASE_URL for h in ("localhost", "127.0.0.1", "0.0.0.0")):
+        return BASE_URL.rstrip("/")
+
+    if request:
+        # Check standard reverse-proxy headers from Render, Cloudflare, Nginx, AWS
+        proto = request.headers.get("x-forwarded-proto", request.url.scheme or "https")
+        host = request.headers.get("x-forwarded-host") or request.headers.get("host")
+        if host and not any(h in host for h in ("localhost", "127.0.0.1", "0.0.0.0")):
+            return f"{proto}://{host}".rstrip("/")
+        if host:
+            return f"{proto}://{host}".rstrip("/")
+        return str(request.base_url).rstrip("/")
+
+    return BASE_URL.rstrip("/")
+
 
 # Database URL (PostgreSQL in production, SQLite fallback for tests)
 _raw_db_url = os.getenv(
