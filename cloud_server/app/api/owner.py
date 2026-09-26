@@ -40,6 +40,12 @@ class OwnerLoginRequest(BaseModel):
     password: str
 
 
+class OwnerResetPasswordRequest(BaseModel):
+    email: str
+    phone: str
+    new_password: str
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -171,6 +177,66 @@ def login_owner(
         raise HTTPException(
             status_code=500,
             detail=f"Login error: {str(e)}"
+        )
+
+
+# ==========================================================
+# Owner Password Reset (Forgot Password)
+# ==========================================================
+
+@router.post("/reset-password")
+def reset_owner_password(
+    data: OwnerResetPasswordRequest,
+    db: Session = Depends(get_db)
+):
+    try:
+        clean_email = data.email.strip().lower()
+        clean_phone = data.phone.strip()
+
+        if len(data.new_password) < 6:
+            raise HTTPException(
+                status_code=400,
+                detail="Password must be at least 6 characters long."
+            )
+
+        owner = db.query(ShopOwner).filter(
+            ShopOwner.email == clean_email,
+            ShopOwner.phone == clean_phone
+        ).first()
+
+        if not owner:
+            raise HTTPException(
+                status_code=404,
+                detail="No account found matching this email and phone number."
+            )
+
+        if not owner.is_active:
+            raise HTTPException(
+                status_code=403,
+                detail="Account is inactive."
+            )
+
+        owner.password_hash = hash_password(data.new_password)
+        db.commit()
+        db.refresh(owner)
+
+        logger.info(f"Password reset successfully for owner: {owner.shop_name} ({owner.email})")
+
+        return {
+            "message": "Password reset successfully. You can now log in with your new password.",
+            "email": owner.email
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Password reset error: {e}", exc_info=True)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=500,
+            detail=f"Reset error: {str(e)}"
         )
 
 
