@@ -159,7 +159,7 @@ async def upload_files(
             stored_filename=unique_name,
             file_path=file_path,
             file_type=extension.replace(".", "").upper(),
-            file_size_bytes=len(contents),
+            file_size=len(contents),
             page_count=page_count,
             copies=1,
             paper_size=PaperSize.A4,
