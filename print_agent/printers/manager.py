@@ -163,21 +163,13 @@ def register_printer(
         )
 
         if response.status_code == 200:
-
-            info(
-                f"Synchronized: "
-                f"{printer_name}"
-            )
-
+            info(f"Synchronized: {printer_name}")
             return True
 
-        error(
-            f"Synchronization failed: "
-            f"{printer_name} "
-            f"({response.status_code}) "
-            f"{response.text}"
-        )
-
+        err_detail = response.text
+        if err_detail and err_detail.strip().startswith("<"):
+            err_detail = "Server temporarily unavailable / gateway error"
+        error(f"Synchronization failed: {printer_name} ({response.status_code}): {err_detail[:120]}")
         return False
 
     except Exception as e:

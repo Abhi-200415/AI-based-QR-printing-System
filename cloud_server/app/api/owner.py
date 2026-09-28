@@ -1,3 +1,4 @@
+import re
 from uuid import uuid4, UUID
 from typing import Optional
 from fastapi import (
@@ -13,6 +14,7 @@ from app.database.connection import get_db
 from app.database.models import ShopOwner, ShopSettings, PricingBasis
 from app.core.security import hash_password, verify_password, create_access_token, get_current_owner
 from app.services.analytics_service import get_dashboard_statistics
+from app.services.pricing_engine import seed_default_pricing_rules
 
 router = APIRouter(
     prefix="/owner",
@@ -110,6 +112,9 @@ def register_owner(
         db.commit()
         db.refresh(owner)
 
+        # Automatically seed baseline pricing rules so the shop works out of the box
+        seed_default_pricing_rules(owner.owner_id, db)
+
         logger.info(f"Registered new shop owner: {owner.shop_name} ({owner.owner_id})")
 
         return {
@@ -200,14 +205,26 @@ def reset_owner_password(
             )
 
         owner = db.query(ShopOwner).filter(
-            ShopOwner.email == clean_email,
-            ShopOwner.phone == clean_phone
+            ShopOwner.email == clean_email
         ).first()
 
         if not owner:
             raise HTTPException(
                 status_code=404,
-                detail="No account found matching this email and phone number."
+                detail="No account found matching this email address."
+            )
+
+        # Check phone match (exact or stripped digits)
+        def _digits(p: str) -> str:
+            return re.sub(r"\D", "", p)[-10:] if p else ""
+
+        stored_phone_digits = _digits(owner.phone)
+        input_phone_digits = _digits(clean_phone)
+
+        if owner.phone != clean_phone and (not stored_phone_digits or stored_phone_digits != input_phone_digits):
+            raise HTTPException(
+                status_code=400,
+                detail="The phone number provided does not match the registered record for this email."
             )
 
         if not owner.is_active:

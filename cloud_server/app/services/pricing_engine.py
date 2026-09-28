@@ -1,3 +1,4 @@
+import uuid
 from decimal import Decimal
 from typing import Optional
 from sqlalchemy.orm import Session
@@ -16,6 +17,78 @@ from app.utils.logger import logger
 
 
 # ==========================================================
+# Default Pricing Rules Seeder
+# ==========================================================
+
+def seed_default_pricing_rules(owner_id, db: Session):
+    """
+    Seeds standard baseline pricing rules for a newly registered or existing shop.
+    A4 BW: Rs 2.00, A4 Color: Rs 10.00, A3 BW: Rs 5.00, A3 Color: Rs 20.00
+    """
+    try:
+        existing = db.query(PricingRule).filter(PricingRule.owner_id == owner_id).first()
+        if existing:
+            return
+
+        default_rules = [
+            PricingRule(
+                pricing_id=uuid.uuid4(),
+                owner_id=owner_id,
+                paper_size=PaperSize.A4,
+                print_type=PrintType.BW,
+                duplex=False,
+                page_from=1,
+                page_to=9999,
+                price_per_page=Decimal("2.00"),
+                is_active=True
+            ),
+            PricingRule(
+                pricing_id=uuid.uuid4(),
+                owner_id=owner_id,
+                paper_size=PaperSize.A4,
+                print_type=PrintType.COLOR,
+                duplex=False,
+                page_from=1,
+                page_to=9999,
+                price_per_page=Decimal("10.00"),
+                is_active=True
+            ),
+            PricingRule(
+                pricing_id=uuid.uuid4(),
+                owner_id=owner_id,
+                paper_size=PaperSize.A3,
+                print_type=PrintType.BW,
+                duplex=False,
+                page_from=1,
+                page_to=9999,
+                price_per_page=Decimal("5.00"),
+                is_active=True
+            ),
+            PricingRule(
+                pricing_id=uuid.uuid4(),
+                owner_id=owner_id,
+                paper_size=PaperSize.A3,
+                print_type=PrintType.COLOR,
+                duplex=False,
+                page_from=1,
+                page_to=9999,
+                price_per_page=Decimal("20.00"),
+                is_active=True
+            ),
+        ]
+        for r in default_rules:
+            db.add(r)
+        db.commit()
+        logger.info(f"Seeded default pricing rules for shop owner {owner_id}")
+    except Exception as e:
+        logger.warning(f"Could not seed default pricing rules for owner {owner_id}: {e}")
+        try:
+            db.rollback()
+        except Exception:
+            pass
+
+
+# ==========================================================
 # Get Matching Pricing Rule
 # ==========================================================
 
@@ -27,56 +100,64 @@ def get_pricing_rule(
     """
     Finds the most specific active pricing rule for this file.
     Tries exact page range match first, then falls back to general rule.
+    Auto-seeds default rules if none exist.
     """
     page_count = file.page_count or 1
     paper_size = file.paper_size or PaperSize.A4
     print_type = file.print_type or PrintType.BW
     duplex = bool(file.duplex)
 
-    # 1. Exact match with page range
-    rule = (
-        db.query(PricingRule)
-        .filter(
-            PricingRule.owner_id == job.owner_id,
-            PricingRule.paper_size == paper_size,
-            PricingRule.print_type == print_type,
-            PricingRule.duplex == duplex,
-            PricingRule.page_from <= page_count,
-            PricingRule.page_to >= page_count,
-            PricingRule.is_active == True
+    def _find():
+        # 1. Exact match with page range
+        r = (
+            db.query(PricingRule)
+            .filter(
+                PricingRule.owner_id == job.owner_id,
+                PricingRule.paper_size == paper_size,
+                PricingRule.print_type == print_type,
+                PricingRule.duplex == duplex,
+                PricingRule.page_from <= page_count,
+                PricingRule.page_to >= page_count,
+                PricingRule.is_active == True
+            )
+            .first()
         )
-        .first()
-    )
+        if r:
+            return r
 
-    if rule:
-        return rule
-
-    # 2. Match without duplex constraint if no specific duplex rule
-    rule = (
-        db.query(PricingRule)
-        .filter(
-            PricingRule.owner_id == job.owner_id,
-            PricingRule.paper_size == paper_size,
-            PricingRule.print_type == print_type,
-            PricingRule.is_active == True
+        # 2. Match without duplex constraint
+        r = (
+            db.query(PricingRule)
+            .filter(
+                PricingRule.owner_id == job.owner_id,
+                PricingRule.paper_size == paper_size,
+                PricingRule.print_type == print_type,
+                PricingRule.is_active == True
+            )
+            .order_by(PricingRule.price_per_page.asc())
+            .first()
         )
-        .order_by(PricingRule.price_per_page.asc())
-        .first()
-    )
+        if r:
+            return r
 
-    if rule:
-        return rule
-
-    # 3. Match any active rule for this owner and print type
-    rule = (
-        db.query(PricingRule)
-        .filter(
-            PricingRule.owner_id == job.owner_id,
-            PricingRule.print_type == print_type,
-            PricingRule.is_active == True
+        # 3. Match any active rule for this owner and print type
+        r = (
+            db.query(PricingRule)
+            .filter(
+                PricingRule.owner_id == job.owner_id,
+                PricingRule.print_type == print_type,
+                PricingRule.is_active == True
+            )
+            .first()
         )
-        .first()
-    )
+        return r
+
+    rule = _find()
+
+    # If no rule found, auto-seed default rules and re-query
+    if not rule and job.owner_id:
+        seed_default_pricing_rules(job.owner_id, db)
+        rule = _find()
 
     return rule
 

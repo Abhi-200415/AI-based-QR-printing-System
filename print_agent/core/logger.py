@@ -49,16 +49,17 @@ def info(message: str):
     logger.info(message)
 
 
-def warning(message: str):
+def warn(message: str):
+    logger.warning(message)
 
+
+def warning(message: str):
     logger.warning(message)
 
 
 def error(message: str):
-
     logger.error(message)
 
 
 def critical(message: str):
-
     logger.critical(message)

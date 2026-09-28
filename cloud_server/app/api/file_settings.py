@@ -86,25 +86,29 @@ def update_file_settings(
             detail="File not found."
         )
 
-    job_file.copies = data.copies
+    job_file.copies = max(data.copies or 1, 1)
+    job_file.duplex = bool(data.duplex)
 
-    job_file.duplex = data.duplex
-
-    job_file.print_type = PrintType(
-        data.print_type.upper()
-    )
+    if isinstance(data.print_type, PrintType):
+        job_file.print_type = data.print_type
+    elif isinstance(data.print_type, str):
+        job_file.print_type = PrintType(data.print_type.strip().upper())
 
     if data.paper_size:
-
-        job_file.paper_size = PaperSize(
-            data.paper_size.upper()
-        )
+        if isinstance(data.paper_size, PaperSize):
+            job_file.paper_size = data.paper_size
+        elif isinstance(data.paper_size, str):
+            job_file.paper_size = PaperSize(data.paper_size.strip().upper())
 
     if data.orientation:
-
-        job_file.orientation = Orientation(
-            data.orientation
-        )
+        if isinstance(data.orientation, Orientation):
+            job_file.orientation = data.orientation
+        elif isinstance(data.orientation, str):
+            val = data.orientation.strip().capitalize()
+            if val in ("Portrait", "Landscape"):
+                job_file.orientation = Orientation(val)
+            else:
+                job_file.orientation = Orientation.PORTRAIT
 
     job_file.page_ranges = data.page_ranges
 
