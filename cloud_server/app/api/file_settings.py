@@ -1,3 +1,5 @@
+import uuid
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -26,6 +28,15 @@ templates = Jinja2Templates(
 )
 
 
+def _parse_uuid(val) -> UUID:
+    if isinstance(val, UUID):
+        return val
+    try:
+        return UUID(str(val))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid UUID format")
+
+
 # ==========================================================
 # Print Settings Page
 # ==========================================================
@@ -33,13 +44,14 @@ templates = Jinja2Templates(
 @router.get("/settings-page/{file_id}")
 async def settings_page(
     request: Request,
-    file_id: str,
+    file_id: UUID,
     db: Session = Depends(get_db)
 ):
 
+    parsed_id = _parse_uuid(file_id)
     job_file = (
         db.query(JobFile)
-        .filter(JobFile.file_id == file_id)
+        .filter(JobFile.file_id == parsed_id)
         .first()
     )
 
@@ -68,14 +80,15 @@ async def settings_page(
 
 @router.put("/{file_id}/settings")
 def update_file_settings(
-    file_id: str,
+    file_id: UUID,
     data: FileSettingsUpdate,
     db: Session = Depends(get_db)
 ):
 
+    parsed_id = _parse_uuid(file_id)
     job_file = (
         db.query(JobFile)
-        .filter(JobFile.file_id == file_id)
+        .filter(JobFile.file_id == parsed_id)
         .first()
     )
 
@@ -180,13 +193,14 @@ def update_file_settings(
 @router.get("/summary/{file_id}")
 async def price_summary(
     request: Request,
-    file_id: str,
+    file_id: UUID,
     db: Session = Depends(get_db)
 ):
 
+    parsed_id = _parse_uuid(file_id)
     job_file = (
         db.query(JobFile)
-        .filter(JobFile.file_id == file_id)
+        .filter(JobFile.file_id == parsed_id)
         .first()
     )
 
