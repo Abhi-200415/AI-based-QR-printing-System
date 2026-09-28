@@ -154,10 +154,15 @@ def login_owner(
     try:
         clean_email = data.email.strip().lower()
         owner = db.query(ShopOwner).filter(ShopOwner.email == clean_email).first()
-        if not owner or not verify_password(data.password, owner.password_hash):
+        if not owner:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid email or password."
+                detail="No registered shop found matching this email address. Please verify your email or register."
+            )
+        if not verify_password(data.password, owner.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect password. Please verify your password or use 'Forgot Password'."
             )
 
         if not owner.is_active:
