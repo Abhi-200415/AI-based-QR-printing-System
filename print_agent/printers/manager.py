@@ -298,6 +298,20 @@ def get_cloud_printers(
         return None
 
 
+def delete_cloud_printer(
+    printer_id: str
+):
+    try:
+        response = requests.delete(
+            f"{CLOUD_API_URL}/printer/{printer_id}",
+            timeout=10
+        )
+        return response.status_code in (200, 204)
+    except Exception as e:
+        error(f"Failed to delete cloud printer {printer_id}: {e}")
+        return False
+
+
 # ==========================================================
 # Synchronize Printers
 # ==========================================================
@@ -307,16 +321,16 @@ def sync_printers(
 ):
 
     info(
-        "Synchronizing printers..."
+        "Synchronizing physical printers..."
     )
 
     # ------------------------------------------------------
     # Discover Current Windows Printers
     # ------------------------------------------------------
 
-    printers = discover_printers()
+    all_printers = discover_printers()
 
-    if not printers:
+    if not all_printers:
 
         error(
             "Printer discovery returned no "
@@ -326,8 +340,14 @@ def sync_printers(
 
         return False
 
+    # Filter out virtual printers (OneNote, Print to PDF, Fax, etc.)
+    printers = [p for p in all_printers if not p.get("is_virtual", False)]
+
+    if not printers:
+        info("No physical printers detected (only virtual/software printers found).")
+
     # ------------------------------------------------------
-    # Register / Update Current Printers
+    # Register / Update Current Physical Printers
     # ------------------------------------------------------
 
     success = 0
@@ -379,7 +399,7 @@ def sync_printers(
         return False
 
     # ------------------------------------------------------
-    # Detect Removed Printers
+    # Detect & Remove Virtual / Stale Printers from Cloud
     # ------------------------------------------------------
 
     for cloud_printer in cloud_printers:
@@ -396,6 +416,8 @@ def sync_printers(
             "agent_id"
         )
 
+        is_virt = cloud_printer.get("is_virtual", False)
+
         if not printer_id:
 
             continue
@@ -409,25 +431,22 @@ def sync_printers(
             continue
 
         # --------------------------------------------------
-        # Printer no longer detected locally
+        # Printer is virtual or no longer detected locally
         # --------------------------------------------------
 
-        if cloud_name not in current_names:
+        if cloud_name not in current_names or is_virt:
 
             info(
-                f"Printer no longer detected: "
-                f"{cloud_name}"
+                f"Cleaning up virtual/stale printer from Cloud: {cloud_name}"
             )
 
-            update_printer_status(
-
-                printer_id,
-
-                "Offline",
-
-                0
-
-            )
+            deleted = delete_cloud_printer(printer_id)
+            if not deleted:
+                update_printer_status(
+                    printer_id,
+                    "Offline",
+                    0
+                )
 
     # ------------------------------------------------------
     # Summary
@@ -435,7 +454,7 @@ def sync_printers(
 
     info(
         f"Printer synchronization complete: "
-        f"{success}/{len(printers)}"
+        f"{success}/{len(printers)} physical printer(s) active."
     )
 
     return success == len(printers)

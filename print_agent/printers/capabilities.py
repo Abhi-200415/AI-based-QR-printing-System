@@ -10,7 +10,7 @@ except ImportError:
 
 def is_virtual_printer(printer_name: str) -> bool:
 
-    name = printer_name.lower()
+    name = printer_name.lower().strip()
 
     virtual_keywords = (
         "microsoft print to pdf",
@@ -19,7 +19,19 @@ def is_virtual_printer(printer_name: str) -> bool:
         "xps document writer",
         "send to kindle",
         "pdf",
-        "onenote desktop"
+        "onenote desktop",
+        "anydesk printer",
+        "cuteftp",
+        "root print queue",
+        "print to pdf",
+        "adobe pdf",
+        "foxit",
+        "nitro",
+        "pdfcreator",
+        "bullzip",
+        "do_pdf",
+        "dopdf",
+        "pdf24"
     )
 
     return any(
@@ -58,10 +70,16 @@ def get_printer_status(printer_name: str):
             )
 
             # ------------------------------------------------
-            # Windows Status Flags
+            # Windows Status Flags & Attributes
             # ------------------------------------------------
 
+            # PRINTER_ATTRIBUTE_WORK_OFFLINE = 0x00000400 (1024)
+            is_work_offline = bool(attributes & 0x00000400)
+
             status_flags = {
+
+                "work_offline":
+                    is_work_offline,
 
                 "paused":
                     bool(
@@ -97,7 +115,7 @@ def get_printer_status(printer_name: str):
                     bool(
                         status &
                         win32print.PRINTER_STATUS_OFFLINE
-                    ),
+                    ) or is_work_offline,
 
                 "busy":
                     bool(
@@ -149,6 +167,7 @@ def get_printer_status(printer_name: str):
                 or status_flags["offline"]
                 or status_flags["not_available"]
                 or status_flags["output_bin_full"]
+                or is_work_offline
             )
 
             busy = (

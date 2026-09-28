@@ -203,21 +203,25 @@ async function loadDashboard() {
             document.getElementById("statRevenue").innerText = "₹" + (stats.total_revenue || 0).toFixed(2);
             document.getElementById("statAvgTime").innerText = (stats.average_completion_seconds || 0) + "s";
 
-            // Populate printers
+            // Populate printers (Physical only)
             const pTable = document.getElementById("printersTable");
-            const printers = data.printer_utilization || [];
-            if (printers.length > 0) {
-                pTable.innerHTML = printers.map(p => `
+            const allPrinters = data.printer_utilization || [];
+            const physicalPrinters = allPrinters.filter(p => p.is_physical !== false && !p.is_virtual);
+            if (physicalPrinters.length > 0) {
+                pTable.innerHTML = physicalPrinters.map(p => `
                     <tr>
-                        <td><strong>${p.printer_name}</strong></td>
+                        <td>
+                            <strong>${p.printer_name}</strong>
+                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">${p.printer_model || 'Standard'}</div>
+                        </td>
                         <td><span class="badge ${p.status.toLowerCase()}">${p.status}</span></td>
                         <td>${p.current_queue || 0} jobs</td>
-                        <td>B/W, Color, Duplex</td>
+                        <td><span style="font-size: 12px; color: #cbd5e1;">${p.capabilities || 'B/W'}</span></td>
                         <td>${p.jobs_printed || 0}</td>
                     </tr>
                 `).join("");
             } else {
-                pTable.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-muted);">No printers registered yet.</td></tr>`;
+                pTable.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-muted); padding: 24px;">No physical printers connected. (Virtual software printers are filtered out).</td></tr>`;
             }
         }
 

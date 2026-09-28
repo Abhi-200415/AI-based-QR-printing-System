@@ -158,13 +158,27 @@ def printer_utilization(
 
     result = []
     for printer in printers:
+        caps = []
+        if printer.supports_bw:
+            caps.append("B/W")
+        if printer.supports_color:
+            caps.append("Color")
+        if printer.supports_duplex:
+            caps.append("Duplex")
+        if printer.supports_a3:
+            caps.append("A3")
+
         result.append({
             "printer_id": str(printer.printer_id),
             "printer_name": printer.printer_name,
+            "printer_model": printer.printer_model or "Standard",
             "jobs_printed": printer.total_jobs_printed or 0,
             "current_queue": printer.current_queue or 0,
             "status": printer.status.value,
-            "is_available": printer.is_available
+            "is_available": printer.is_available,
+            "is_physical": printer.is_physical,
+            "is_virtual": printer.is_virtual,
+            "capabilities": ", ".join(caps) if caps else "B/W"
         })
 
     return result
