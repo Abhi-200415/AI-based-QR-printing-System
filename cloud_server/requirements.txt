@@ -28,8 +28,9 @@ scikit-learn>=1.3.2
 numpy>=1.26.0
 joblib>=1.3.2
 
-# Authentication & Security
+# Authentication & Application-Level Cryptography
 bcrypt>=4.0.1
+cryptography>=41.0.0
 
 # HTTP Client (Payment Gateway Integration & Webhooks)
 requests>=2.31.0
