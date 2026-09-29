@@ -54,6 +54,17 @@ class PricingRuleUpdate(BaseModel):
 
 
 # ==========================================================
+# Quick Pricing Update
+# ==========================================================
+
+class QuickPricingUpdate(BaseModel):
+    a4_bw: Decimal = Decimal("2.00")
+    a4_color: Decimal = Decimal("10.00")
+    a3_bw: Decimal = Decimal("5.00")
+    a3_color: Decimal = Decimal("20.00")
+
+
+# ==========================================================
 # Pricing Rule Response
 # ==========================================================
 
@@ -77,9 +88,7 @@ class PricingRuleResponse(BaseModel):
 
     is_active: bool
 
-    created_at: datetime
-
-    updated_at: datetime
+    created_at: Optional[datetime] = None
 
     model_config = ConfigDict(
         from_attributes=True

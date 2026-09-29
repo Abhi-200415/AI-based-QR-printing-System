@@ -345,6 +345,90 @@
             margin-right: 4px;
         }
 
+        /* Pricing Manager Section */
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .pricing-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .pricing-card label {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .pricing-input-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .pricing-input-group span {
+            font-size: 18px;
+            font-weight: 700;
+            color: #a5b4fc;
+        }
+        .pricing-input {
+            background: var(--bg-card);
+            border: 1px solid var(--border-light);
+            color: var(--text);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            font-family: inherit;
+            width: 100%;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .pricing-input:focus {
+            border-color: var(--accent);
+        }
+        .custom-rule-form {
+            background: rgba(11, 16, 29, 0.6);
+            border: 1px dashed var(--border-light);
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 16px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)) auto;
+            gap: 12px;
+            align-items: end;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .form-group label {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+        .form-select, .form-control {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: inherit;
+            outline: none;
+        }
+        .form-select:focus, .form-control:focus {
+            border-color: var(--accent);
+        }
+
         .toast {
             position: fixed;
             bottom: 24px;
@@ -372,10 +456,12 @@
             <span style="margin-left: 12px; color: #10b981; font-weight: 500;">● Live Sync Active</span>
         </div>
     </div>
-    <div style="display: flex; align-items: center; gap: 12px;">
-        <button class="btn" onclick="loadDashboard()" style="background: rgba(255,255,255,0.08); border: 1px solid var(--border);">🔄 Refresh Now</button>
-        <a href="/owner/{{ owner_id }}/qr" class="btn" target="_blank">📱 View Customer QR</a>
-        <div style="font-size: 13px; color: var(--text-muted); background: var(--bg-card); padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border);" id="liveClock">--:--:--</div>
+    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <button id="btnAudioToggle" class="btn btn-sm" onclick="toggleAudioAlerts()" style="background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3); color: #a5b4fc;">🔔 Sound Alerts: ON</button>
+        <a href="#pricingSection" class="btn btn-sm" style="background: rgba(255,255,255,0.08); border: 1px solid var(--border);">⚙️ Pricing Rules</a>
+        <button class="btn btn-sm" onclick="loadDashboard()" style="background: rgba(255,255,255,0.08); border: 1px solid var(--border);">🔄 Refresh</button>
+        <a href="/owner/{{ owner_id }}/qr" class="btn btn-sm" target="_blank">📱 Customer QR</a>
+        <div style="font-size: 13px; color: var(--text-muted); background: var(--bg-card); padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border);" id="liveClock">--:--:--</div>
     </div>
 </div>
 
@@ -613,6 +699,127 @@
             <tr><td colspan="5" style="text-align:center; color: var(--text-muted); padding: 20px;">No active jobs in queue.</td></tr>
         </tbody>
     </table>
+</div>
+
+<!-- Shop Pricing & Rate Card Manager -->
+<div class="section-header" id="pricingSection">
+    <h3 class="section-title">
+        <span>⚙️</span> Shop Pricing & Rate Card Manager
+    </h3>
+    <span style="font-size: 12px; color: var(--text-muted);">Configure standard page rates & custom volume discount tiers</span>
+</div>
+<div class="table-card" style="padding: 24px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 12px;">
+        <div>
+            <strong style="font-size: 16px; color: #ffffff;">Standard Page Rate Card</strong>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px;">Adjust standard per-page printing rates. Changes apply immediately when customers upload files.</div>
+        </div>
+        <button class="btn btn-success" onclick="saveQuickRates()" id="btnSaveRates">
+            <span>💾</span> Save Base Rates
+        </button>
+    </div>
+
+    <!-- Quick Rates Grid -->
+    <div class="pricing-grid">
+        <div class="pricing-card">
+            <label>A4 Black & White (B/W)</label>
+            <div class="pricing-input-group">
+                <span>₹</span>
+                <input type="number" step="0.50" min="0.50" id="rateA4Bw" class="pricing-input" value="2.00">
+            </div>
+            <span style="font-size: 11px; color: var(--text-muted);">per page (Standard)</span>
+        </div>
+        <div class="pricing-card">
+            <label>A4 Color</label>
+            <div class="pricing-input-group">
+                <span>₹</span>
+                <input type="number" step="1.00" min="1.00" id="rateA4Color" class="pricing-input" value="10.00">
+            </div>
+            <span style="font-size: 11px; color: var(--text-muted);">per page (Standard)</span>
+        </div>
+        <div class="pricing-card">
+            <label>A3 Black & White (B/W)</label>
+            <div class="pricing-input-group">
+                <span>₹</span>
+                <input type="number" step="0.50" min="0.50" id="rateA3Bw" class="pricing-input" value="5.00">
+            </div>
+            <span style="font-size: 11px; color: var(--text-muted);">per page (Large Format)</span>
+        </div>
+        <div class="pricing-card">
+            <label>A3 Color</label>
+            <div class="pricing-input-group">
+                <span>₹</span>
+                <input type="number" step="1.00" min="1.00" id="rateA3Color" class="pricing-input" value="20.00">
+            </div>
+            <span style="font-size: 11px; color: var(--text-muted);">per page (Large Format)</span>
+        </div>
+    </div>
+
+    <!-- Granular Active Rules Table & Custom Tier Form -->
+    <div style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+            <strong style="font-size: 14px; color: #ffffff;">Active Granular Pricing Rules & Bulk Tiers</strong>
+            <button class="btn btn-sm" onclick="toggleAddRuleForm()" style="background: rgba(255,255,255,0.08); border: 1px solid var(--border);">➕ Add Custom Tier</button>
+        </div>
+
+        <!-- Add Custom Rule Form (collapsible) -->
+        <div id="addRuleForm" class="custom-rule-form" style="display: none;">
+            <div class="form-group">
+                <label>Paper Size</label>
+                <select id="newRulePaperSize" class="form-select">
+                    <option value="A4">A4</option>
+                    <option value="A3">A3</option>
+                    <option value="LETTER">Letter</option>
+                    <option value="LEGAL">Legal</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Print Type</label>
+                <select id="newRulePrintType" class="form-select">
+                    <option value="BW">Black & White (B/W)</option>
+                    <option value="COLOR">Full Color</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Duplex (2-Sided)</label>
+                <select id="newRuleDuplex" class="form-select">
+                    <option value="false">Single-Sided</option>
+                    <option value="true">Double-Sided (Duplex)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Page Range (From)</label>
+                <input type="number" id="newRuleFrom" class="form-control" value="1" min="1">
+            </div>
+            <div class="form-group">
+                <label>Page Range (To)</label>
+                <input type="number" id="newRuleTo" class="form-control" value="9999" min="1">
+            </div>
+            <div class="form-group">
+                <label>Price / Page (₹)</label>
+                <input type="number" step="0.25" id="newRulePrice" class="form-control" placeholder="2.00">
+            </div>
+            <div>
+                <button class="btn btn-sm btn-success" onclick="createCustomRule()" style="height: 38px;">Add Tier Rule</button>
+            </div>
+        </div>
+
+        <table style="margin-top: 14px;">
+            <thead>
+                <tr>
+                    <th>Paper Size</th>
+                    <th>Color / Mode</th>
+                    <th>Duplex</th>
+                    <th>Page Tier Range</th>
+                    <th>Rate per Page</th>
+                    <th style="text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody id="pricingRulesTable">
+                <tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 14px;">Loading pricing rules...</td></tr>
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <!-- Recent Transactions Log -->
@@ -856,6 +1063,224 @@ function renderCharts(chartData) {
 
 let chartsInitialized = false;
 let pollInterval = null;
+let audioAlertsEnabled = true;
+let knownCashJobIds = new Set();
+let isFirstLoad = true;
+
+// ==========================================================
+// Audio & Desktop Cash Notification System
+// ==========================================================
+
+function toggleAudioAlerts() {
+    audioAlertsEnabled = !audioAlertsEnabled;
+    const btn = document.getElementById("btnAudioToggle");
+    if (audioAlertsEnabled) {
+        btn.innerText = "🔔 Sound Alerts: ON";
+        btn.style.color = "#a5b4fc";
+        playCashAlertChime();
+        showToast("Audio alert enabled. Testing chime...");
+        if ("Notification" in window && Notification.permission === "default") {
+            Notification.requestPermission();
+        }
+    } else {
+        btn.innerText = "🔕 Sound Alerts: OFF";
+        btn.style.color = "var(--text-muted)";
+        showToast("Audio alerts muted.");
+    }
+}
+
+function playCashAlertChime() {
+    if (!audioAlertsEnabled) return;
+    try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        if (ctx.state === 'suspended') {
+            ctx.resume();
+        }
+        const now = ctx.currentTime;
+        // Cashier melody chord (D5 -> F#5 -> A5 -> D6)
+        const notes = [587.33, 739.99, 880.00, 1174.66];
+        notes.forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(freq, now + idx * 0.09);
+            gain.gain.setValueAtTime(0.4, now + idx * 0.09);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.09 + 0.45);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now + idx * 0.09);
+            osc.stop(now + idx * 0.09 + 0.5);
+        });
+    } catch (e) {
+        console.warn("Audio chime failed:", e);
+    }
+}
+
+// Request desktop notification permission on first user click anywhere
+document.addEventListener("click", () => {
+    if ("Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission();
+    }
+}, { once: true });
+
+
+// ==========================================================
+// Pricing Rules Management
+// ==========================================================
+
+async function loadPricingRules() {
+    try {
+        const res = await fetch(`/pricing/owner/${ownerId}`);
+        if (!res.ok) return;
+        const rules = await res.json();
+
+        // Populate Quick Inputs
+        rules.forEach(r => {
+            if (r.paper_size === "A4" && r.print_type === "BW" && !r.duplex && r.page_from === 1) {
+                document.getElementById("rateA4Bw").value = r.price_per_page.toFixed(2);
+            } else if (r.paper_size === "A4" && r.print_type === "COLOR" && !r.duplex && r.page_from === 1) {
+                document.getElementById("rateA4Color").value = r.price_per_page.toFixed(2);
+            } else if (r.paper_size === "A3" && r.print_type === "BW" && !r.duplex && r.page_from === 1) {
+                document.getElementById("rateA3Bw").value = r.price_per_page.toFixed(2);
+            } else if (r.paper_size === "A3" && r.print_type === "COLOR" && !r.duplex && r.page_from === 1) {
+                document.getElementById("rateA3Color").value = r.price_per_page.toFixed(2);
+            }
+        });
+
+        // Populate Rules Table
+        const table = document.getElementById("pricingRulesTable");
+        if (rules.length === 0) {
+            table.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 14px;">No custom rules found. Standard rates apply.</td></tr>`;
+            return;
+        }
+
+        table.innerHTML = rules.map(r => `
+            <tr>
+                <td><strong>${r.paper_size}</strong></td>
+                <td>
+                    <span class="tag" style="background: ${r.print_type === 'COLOR' ? 'rgba(236,72,153,0.15); color:#f472b6' : 'rgba(56,189,248,0.15); color:#38bdf8'}">
+                        ${r.print_type === 'COLOR' ? '🎨 Full Color' : '📄 Black & White'}
+                    </span>
+                </td>
+                <td>${r.duplex ? '<span class="badge" style="background:rgba(99,102,241,0.2); color:#a5b4fc;">2-Sided</span>' : 'Single-Sided'}</td>
+                <td>${r.page_from} to ${r.page_to >= 9000 ? '∞' : r.page_to} pages</td>
+                <td><strong style="color: #10b981; font-size: 15px;">₹${r.price_per_page.toFixed(2)}</strong> <span style="font-size: 11px; color: var(--text-muted);">/ page</span></td>
+                <td style="text-align: right;">
+                    <button class="btn btn-sm btn-danger" onclick="deletePricingRule('${r.pricing_id}')" title="Disable Rule">✕ Remove</button>
+                </td>
+            </tr>
+        `).join("");
+
+    } catch (e) {
+        console.error("Error loading pricing rules:", e);
+    }
+}
+
+async function saveQuickRates() {
+    const btn = document.getElementById("btnSaveRates");
+    const originalText = btn.innerHTML;
+    btn.innerHTML = "⏳ Saving...";
+    btn.disabled = true;
+
+    try {
+        const payload = {
+            a4_bw: parseFloat(document.getElementById("rateA4Bw").value) || 2.00,
+            a4_color: parseFloat(document.getElementById("rateA4Color").value) || 10.00,
+            a3_bw: parseFloat(document.getElementById("rateA3Bw").value) || 5.00,
+            a3_color: parseFloat(document.getElementById("rateA3Color").value) || 20.00
+        };
+
+        const res = await fetch(`/pricing/quick-update/${ownerId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+            showToast("✓ Standard printing rates updated successfully!");
+            loadPricingRules();
+        } else {
+            showToast(data.detail || "Failed to update rates.", true);
+        }
+    } catch (e) {
+        showToast("Network error updating rates.", true);
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+function toggleAddRuleForm() {
+    const form = document.getElementById("addRuleForm");
+    form.style.display = form.style.display === "none" ? "grid" : "none";
+}
+
+async function createCustomRule() {
+    const paperSize = document.getElementById("newRulePaperSize").value;
+    const printType = document.getElementById("newRulePrintType").value;
+    const duplex = document.getElementById("newRuleDuplex").value === "true";
+    const pageFrom = parseInt(document.getElementById("newRuleFrom").value) || 1;
+    const pageTo = parseInt(document.getElementById("newRuleTo").value) || 9999;
+    const price = parseFloat(document.getElementById("newRulePrice").value);
+
+    if (isNaN(price) || price <= 0) {
+        showToast("Please enter a valid price per page.", true);
+        return;
+    }
+
+    try {
+        const payload = {
+            owner_id: ownerId,
+            paper_size: paperSize,
+            print_type: printType,
+            duplex: duplex,
+            page_from: pageFrom,
+            page_to: pageTo,
+            price_per_page: price
+        };
+
+        const res = await fetch(`/pricing/rule`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+            showToast("✓ Custom pricing tier added successfully!");
+            document.getElementById("newRulePrice").value = "";
+            toggleAddRuleForm();
+            loadPricingRules();
+        } else {
+            showToast(data.detail || "Error adding rule.", true);
+        }
+    } catch (e) {
+        showToast("Network error creating rule.", true);
+    }
+}
+
+async function deletePricingRule(pricingId) {
+    if (!confirm("Are you sure you want to disable this pricing rule?")) return;
+    try {
+        const res = await fetch(`/pricing/rule/${pricingId}`, { method: "DELETE" });
+        if (res.ok) {
+            showToast("Pricing rule removed.");
+            loadPricingRules();
+        } else {
+            showToast("Could not remove pricing rule.", true);
+        }
+    } catch (e) {
+        showToast("Network error deleting rule.", true);
+    }
+}
+
+
+// ==========================================================
+// Dashboard Polling & Live Updates
+// ==========================================================
 
 async function loadDashboard() {
     try {
@@ -894,7 +1319,7 @@ async function loadDashboard() {
                 chartsInitialized = true;
             }
 
-            // Cash Approvals Section
+            // Cash Approvals Section & Real-Time Alert Trigger
             const cashJobs = data.pending_cash_approvals || [];
             const cashBanner = document.getElementById("cashAlertBanner");
             const cashBadge = document.getElementById("pendingCashBadge");
@@ -905,6 +1330,29 @@ async function loadDashboard() {
                 document.getElementById("cashAlertCount").innerText = cashJobs.length;
                 cashBadge.innerText = `${cashJobs.length} Pending`;
                 cashBadge.style.display = "inline-flex";
+
+                // Check for newly arrived cash requests
+                let hasNewCash = false;
+                let newestJob = null;
+                for (const c of cashJobs) {
+                    if (!knownCashJobIds.has(c.job_id)) {
+                        hasNewCash = true;
+                        newestJob = c;
+                    }
+                }
+
+                if (hasNewCash && !isFirstLoad) {
+                    playCashAlertChime();
+                    showToast(`🔔 New Cash Order: ₹${newestJob.total_amount.toFixed(2)} from ${newestJob.customer_name}!`, false);
+                    if ("Notification" in window && Notification.permission === "granted") {
+                        new Notification("💵 New Cash Print Order", {
+                            body: `₹${newestJob.total_amount.toFixed(2)} from ${newestJob.customer_name} (${newestJob.total_pages} pages). Click to confirm on dashboard.`,
+                            icon: "/static/favicon.ico"
+                        });
+                    }
+                }
+
+                knownCashJobIds = new Set(cashJobs.map(c => c.job_id));
 
                 cashTable.innerHTML = cashJobs.map(c => `
                     <tr style="background: rgba(245, 158, 11, 0.04);">
@@ -926,10 +1374,12 @@ async function loadDashboard() {
                     </tr>
                 `).join("");
             } else {
+                knownCashJobIds.clear();
                 cashBanner.style.display = "none";
                 cashBadge.innerText = "0 Pending";
                 cashTable.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 20px;">✓ No pending counter cash approvals. All caught up!</td></tr>`;
             }
+            isFirstLoad = false;
 
             // Populate Physical Printers
             const pTable = document.getElementById("printersTable");
@@ -1005,7 +1455,9 @@ async function loadDashboard() {
     }
 }
 
+// Initial loads
 loadDashboard();
+loadPricingRules();
 pollInterval = setInterval(loadDashboard, 3000);
 </script>
 
