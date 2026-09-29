@@ -855,10 +855,16 @@ function renderCharts(chartData) {
 }
 
 let chartsInitialized = false;
+let pollInterval = null;
 
 async function loadDashboard() {
     try {
         const statsRes = await fetch(`/analytics/dashboard/${ownerId}`);
+        if (statsRes.status === 404 || statsRes.status === 401) {
+            console.warn("Owner not found or session expired. Halting polling.");
+            if (pollInterval) clearInterval(pollInterval);
+            return;
+        }
         if (statsRes.ok) {
             const data = await statsRes.json();
             const stats = data.statistics || {};
@@ -1000,7 +1006,7 @@ async function loadDashboard() {
 }
 
 loadDashboard();
-setInterval(loadDashboard, 3000);
+pollInterval = setInterval(loadDashboard, 3000);
 </script>
 
 </body>

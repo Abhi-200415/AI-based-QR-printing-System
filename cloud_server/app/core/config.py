@@ -59,7 +59,9 @@ _raw_db_url = os.getenv(
     "postgresql://postgres:postgres@localhost:5432/ai_printing"
 )
 if _raw_db_url.startswith("postgres://"):
-    _raw_db_url = _raw_db_url.replace("postgres://", "postgresql://", 1)
+    _raw_db_url = _raw_db_url.replace("postgres://", "postgresql+psycopg2://", 1)
+elif _raw_db_url.startswith("postgresql://") and not _raw_db_url.startswith("postgresql+"):
+    _raw_db_url = _raw_db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
 DATABASE_URL = _raw_db_url
 
 # JWT / Security Configuration
