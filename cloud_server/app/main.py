@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -38,6 +38,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Adds essential production security headers to all responses."""
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    # Enable HSTS on TLS requests
+    if request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
 
 
 # ==========================================================
@@ -98,10 +112,34 @@ from app.core.config import TEMPLATES_DIR, STATIC_DIR
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
+import asyncio
+from app.database.connection import SessionLocal
+from app.services.cleanup_service import cleanup_abandoned_jobs
+
+async def _periodic_cleanup_runner(interval_seconds: int = 3600):
+    """Background periodic task to clean up abandoned QR print sessions."""
+    while True:
+        try:
+            await asyncio.sleep(interval_seconds)
+            db = SessionLocal()
+            try:
+                cleaned = cleanup_abandoned_jobs(db, max_age_hours=2)
+                if cleaned > 0:
+                    logger.info(f"Periodic background worker cleaned {cleaned} abandoned jobs.")
+            finally:
+                db.close()
+        except asyncio.CancelledError:
+            logger.info("Background cleanup task cancelled.")
+            break
+        except Exception as e:
+            logger.error(f"Error in background cleanup runner: {e}", exc_info=True)
+
+
 @app.on_event("startup")
 async def startup_event():
-    """Verify database connection and create tables on startup."""
+    """Verify database connection, create tables, and start background workers on startup."""
     init_db()
+    asyncio.create_task(_periodic_cleanup_runner(interval_seconds=3600))
 
 
 @app.exception_handler(Exception)

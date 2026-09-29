@@ -14,8 +14,13 @@ from app.utils.logger import logger
 def delete_uploaded_file(file_path: Optional[str]):
     if file_path and os.path.exists(file_path):
         try:
+            # Overwrite file content before unlinking (application-level data scrubbing)
+            size = os.path.getsize(file_path)
+            if size > 0:
+                with open(file_path, "wb") as f:
+                    f.write(os.urandom(size))
             os.remove(file_path)
-            logger.info(f"Deleted file: {file_path}")
+            logger.info(f"Securely deleted file: {file_path}")
         except Exception as e:
             logger.error(f"Error deleting file {file_path}: {e}")
 
@@ -28,10 +33,10 @@ def cleanup_file(
     job_file: JobFile,
     db: Session
 ):
-    if job_file.file_path:
+    if job_file.file_path and job_file.file_path != "[DELETED]":
         delete_uploaded_file(job_file.file_path)
-        job_file.file_path = None
-        job_file.stored_filename = None
+        job_file.file_path = "[DELETED]"
+        job_file.stored_filename = "[DELETED]"
         db.commit()
         db.refresh(job_file)
     return job_file

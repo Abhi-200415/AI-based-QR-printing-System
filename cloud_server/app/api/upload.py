@@ -2,6 +2,7 @@ import os
 import uuid
 from pathlib import Path
 from typing import List
+from uuid import UUID
 
 from fastapi import (
     APIRouter,
@@ -23,7 +24,8 @@ from app.database.models import (
     PaperSize,
     Orientation
 )
-from app.services.preview_service import analyze_uploaded_file
+from app.services.preview_service import analyze_uploaded_bytes
+from app.core.crypto import encrypt_document
 from app.core.config import UPLOAD_DIR, MAX_UPLOAD_SIZE_MB, ALLOWED_EXTENSIONS, TEMPLATES_DIR
 from app.utils.logger import logger
 
@@ -35,8 +37,6 @@ templates = Jinja2Templates(
     directory=str(TEMPLATES_DIR)
 )
 
-
-from uuid import UUID
 
 # ==========================================================
 # Upload Page
@@ -70,7 +70,7 @@ def upload_page(
 
 
 # ==========================================================
-# Upload Files
+# Upload Files (With AES-256-GCM Envelope Encryption)
 # ==========================================================
 
 @router.post("/upload/{job_id}")
@@ -102,8 +102,12 @@ async def upload_files(
     uploaded_files = []
 
     for upload in files:
-        # Sanitize filename
-        safe_original_name = os.path.basename(upload.filename or "document")
+        # Sanitize filename (prevent path traversal like ../../)
+        raw_name = upload.filename or "document.pdf"
+        safe_original_name = os.path.basename(raw_name).replace("\\", "/").split("/")[-1]
+        if not safe_original_name or safe_original_name in (".", ".."):
+            safe_original_name = "document.pdf"
+
         extension = Path(safe_original_name).suffix.lower()
 
         # Validate extension
@@ -112,9 +116,6 @@ async def upload_files(
                 status_code=400,
                 detail=f"Unsupported file format '{extension}'. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
             )
-
-        unique_name = f"{uuid.uuid4()}{extension}"
-        file_path = os.path.join(UPLOAD_DIR, unique_name)
 
         # Read content and enforce file size limit
         contents = await upload.read()
@@ -130,27 +131,37 @@ async def upload_files(
                 detail=f"File '{safe_original_name}' is empty."
             )
 
-        # Save to disk
+        # In-Memory Analysis (page counting + magic bytes validation)
         try:
-            with open(file_path, "wb") as f:
-                f.write(contents)
-        except Exception as e:
-            logger.error(f"Error saving uploaded file: {e}")
-            raise HTTPException(status_code=500, detail="Failed to save uploaded file.")
-
-        # Analyze file (page counting + format check) with exception handling
-        try:
-            analysis = analyze_uploaded_file(file_path)
+            analysis = analyze_uploaded_bytes(contents, safe_original_name)
             page_count = max(analysis.get("page_count", 1), 1)
         except Exception as e:
-            logger.warning(f"Error analyzing uploaded file {file_path}: {e}")
-            # If corrupted or unsupported, cleanup file and return HTTP 400
-            if os.path.exists(file_path):
-                os.remove(file_path)
+            logger.warning(f"Error analyzing uploaded file {safe_original_name}: {e}")
             raise HTTPException(
                 status_code=400,
                 detail=f"Unable to process file '{safe_original_name}': {str(e)}"
             )
+
+        # AES-256-GCM Envelope Encryption before cloud storage
+        try:
+            encrypted_payload = encrypt_document(contents)
+        except Exception as e:
+            logger.error(f"Encryption failed for {safe_original_name}: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail="Security fault: failed to encrypt document for storage."
+            )
+
+        # Write ONLY encrypted ciphertext to disk
+        unique_name = f"{uuid.uuid4()}.enc"
+        file_path = os.path.join(UPLOAD_DIR, unique_name)
+
+        try:
+            with open(file_path, "wb") as f:
+                f.write(encrypted_payload)
+        except Exception as e:
+            logger.error(f"Error saving encrypted file: {e}")
+            raise HTTPException(status_code=500, detail="Failed to save encrypted file.")
 
         # Create JobFile record in DB
         job_file = JobFile(
@@ -185,7 +196,7 @@ async def upload_files(
     db.commit()
 
     return {
-        "message": "Files uploaded and analyzed successfully.",
+        "message": "Files uploaded, encrypted (AES-256-GCM), and analyzed successfully.",
         "job_id": str(job.job_id),
         "uploaded_files": uploaded_files
     }

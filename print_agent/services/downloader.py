@@ -5,7 +5,8 @@ import requests
 from core.config import (
     DOWNLOAD_FOLDER,
     MAX_RETRY,
-    RETRY_DELAY
+    RETRY_DELAY,
+    AGENT_ID
 )
 
 from core.logger import (
@@ -66,14 +67,12 @@ def download_file(job: dict):
                 f"Downloading file: {stored_filename}"
             )
 
+            headers = {"X-Agent-Token": AGENT_ID}
             response = requests.get(
-
                 download_url,
-
+                headers=headers,
                 stream=True,
-
                 timeout=60
-
             )
 
             response.raise_for_status()

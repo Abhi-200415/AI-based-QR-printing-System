@@ -38,15 +38,14 @@ def override_get_db():
     finally:
         db.close()
 
-app.dependency_overrides[get_db] = override_get_db
-
 
 class TestAPIEndpoints(unittest.TestCase):
 
     def setUp(self):
+        app.dependency_overrides[get_db] = override_get_db
         Base.metadata.create_all(bind=test_engine)
         db = TestingSessionLocal()
-        owner = db.query(ShopOwner).filter(ShopOwner.is_active == True).first()
+        owner = db.query(ShopOwner).filter(ShopOwner.email == "test_owner@shop.local").first()
         if not owner:
             from uuid import uuid4
             from app.core.security import hash_password
@@ -62,6 +61,9 @@ class TestAPIEndpoints(unittest.TestCase):
             db.add(owner)
             db.commit()
         db.close()
+
+    def tearDown(self):
+        app.dependency_overrides.clear()
 
     def test_routes_registered_without_shadowing(self):
         # Inspect all registered route paths in FastAPI app
@@ -129,12 +131,12 @@ class TestAPIEndpoints(unittest.TestCase):
         # 2. View owner dashboard
         dash_res = client.get(f"/owner/{owner_id}/dashboard")
         self.assertEqual(dash_res.status_code, 200)
-        self.assertIn("Shop Operations & Analytics Dashboard", dash_res.text)
+        self.assertIn("Shop Operations & Operator Dashboard", dash_res.text)
 
     def test_owner_qr_and_customer_scan(self):
         client = TestClient(app)
         db = TestingSessionLocal()
-        owner = db.query(ShopOwner).filter(ShopOwner.is_active == True).first()
+        owner = db.query(ShopOwner).filter(ShopOwner.email == "test_owner@shop.local").first()
         
         # 1. Owner views QR page
         qr_page_res = client.get(
@@ -168,6 +170,35 @@ class TestAPIEndpoints(unittest.TestCase):
         # Verify HEAD / health check support
         res_head = client.head("/")
         self.assertEqual(res_head.status_code, 200)
+
+    def test_password_security_and_hashing_edge_cases(self):
+        from app.core.security import hash_password, verify_password
+        # 1. Standard password
+        p_std = "securePass123!"
+        h_std = hash_password(p_std)
+        self.assertTrue(verify_password(p_std, h_std))
+        self.assertFalse(verify_password("wrongPass", h_std))
+
+        # 2. Exactly 72-byte ASCII password
+        p_72 = "a" * 72
+        h_72 = hash_password(p_72)
+        self.assertTrue(verify_password(p_72, h_72))
+        self.assertFalse(verify_password(p_72[:-1] + "b", h_72))
+
+        # 3. Greater than 72-byte password (no collision between different long passwords)
+        p_long_a = "a" * 72 + "XYZ12345"
+        p_long_b = "a" * 72 + "XYZ12346"
+        h_long_a = hash_password(p_long_a)
+        h_long_b = hash_password(p_long_b)
+        self.assertTrue(verify_password(p_long_a, h_long_a))
+        self.assertTrue(verify_password(p_long_b, h_long_b))
+        self.assertFalse(verify_password(p_long_b, h_long_a))  # Must not collide!
+
+        # 4. Multibyte UTF-8 password
+        p_utf8 = "Password🔐印プリント12345"
+        h_utf8 = hash_password(p_utf8)
+        self.assertTrue(verify_password(p_utf8, h_utf8))
+        self.assertFalse(verify_password(p_utf8 + "x", h_utf8))
 
 
 if __name__ == "__main__":

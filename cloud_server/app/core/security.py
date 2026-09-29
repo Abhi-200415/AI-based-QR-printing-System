@@ -21,19 +21,38 @@ security_bearer = HTTPBearer(auto_error=False)
 
 
 # ==========================================================
-# Password Hashing (Direct bcrypt with UTF-8 byte truncation)
+# Password Hashing (Direct bcrypt with collision-safe pre-hash)
 # ==========================================================
 
+def _prepare_password_bytes(password: str) -> bytes:
+    """
+    Encodes password for bcrypt safely.
+    For passwords <= 72 bytes, uses UTF-8 bytes directly (standard bcrypt).
+    For passwords > 72 bytes, uses SHA-256 hex digest (64 ASCII bytes)
+    to completely prevent truncation collisions.
+    """
+    raw_bytes = password.encode('utf-8')
+    if len(raw_bytes) > 72:
+        return hashlib.sha256(raw_bytes).hexdigest().encode('ascii')
+    return raw_bytes
+
+
 def hash_password(password: str) -> str:
-    pwd_bytes = password.encode('utf-8')[:72]
-    salt = bcrypt.gensalt()
+    pwd_bytes = _prepare_password_bytes(password)
+    salt = bcrypt.gensalt(rounds=12)
     return bcrypt.hashpw(pwd_bytes, salt).decode('utf-8')
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     try:
-        pwd_bytes = plain_password.encode('utf-8')[:72]
-        return bcrypt.checkpw(pwd_bytes, hashed_password.encode('utf-8'))
+        # First verify with prepared bytes
+        pwd_bytes = _prepare_password_bytes(plain_password)
+        if bcrypt.checkpw(pwd_bytes, hashed_password.encode('utf-8')):
+            return True
+
+        # Backwards-compatibility fallback for legacy 72-byte raw truncated hashes
+        legacy_bytes = plain_password.encode('utf-8')[:72]
+        return bcrypt.checkpw(legacy_bytes, hashed_password.encode('utf-8'))
     except Exception:
         return False
 
@@ -51,9 +70,12 @@ def _base64url_decode(data_str: str) -> bytes:
     return base64.urlsafe_b64decode((data_str + padding).encode('utf-8'))
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(data: Any, expires_delta: Optional[timedelta] = None) -> str:
     header = {"alg": "HS256", "typ": "JWT"}
-    payload = data.copy()
+    if isinstance(data, dict):
+        payload = data.copy()
+    else:
+        payload = {"sub": str(data)}
 
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -70,6 +92,14 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     signature_b64 = _base64url_encode(signature)
 
     return f"{header_b64}.{payload_b64}.{signature_b64}"
+
+
+def verify_access_token(token: str) -> Optional[str]:
+    """Decodes token and returns subject (owner_id string) if valid and not expired."""
+    payload = decode_access_token(token)
+    if payload:
+        return payload.get("sub")
+    return None
 
 
 def decode_access_token(token: str) -> Optional[dict]:
