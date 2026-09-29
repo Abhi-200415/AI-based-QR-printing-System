@@ -17,6 +17,8 @@ from app.services.analytics_service import (
     predict_revenue,
     predict_busy_hour,
     get_ai_recommendation,
+    get_ai_revenue_forecast,
+    get_chart_analytics_data,
     analytics_dashboard
 )
 
@@ -35,7 +37,6 @@ def dashboard(
     owner_id: UUID,
     db: Session = Depends(get_db)
 ):
-
     owner = (
         db.query(ShopOwner)
         .filter(
@@ -45,7 +46,6 @@ def dashboard(
     )
 
     if not owner:
-
         raise HTTPException(
             status_code=404,
             detail="Owner not found."
@@ -58,6 +58,40 @@ def dashboard(
 
 
 # ==========================================================
+# Chart & Visual Analytics Data Endpoint
+# ==========================================================
+
+@router.get("/charts/{owner_id}")
+def chart_analytics(
+    owner_id: UUID,
+    db: Session = Depends(get_db)
+):
+    """Returns structured datasets for Chart.js interactive graphs."""
+    owner = db.query(ShopOwner).filter(ShopOwner.owner_id == owner_id).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="Owner not found.")
+
+    return get_chart_analytics_data(owner_id, db)
+
+
+# ==========================================================
+# AI Future Revenue Forecast Endpoint
+# ==========================================================
+
+@router.get("/forecast/{owner_id}")
+def revenue_forecast(
+    owner_id: UUID,
+    db: Session = Depends(get_db)
+):
+    """Returns AI time-series regression revenue forecast for 7-day and 30-day horizons."""
+    owner = db.query(ShopOwner).filter(ShopOwner.owner_id == owner_id).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="Owner not found.")
+
+    return get_ai_revenue_forecast(owner_id, db)
+
+
+# ==========================================================
 # Statistics
 # ==========================================================
 
@@ -66,7 +100,6 @@ def statistics(
     owner_id: UUID,
     db: Session = Depends(get_db)
 ):
-
     return get_dashboard_statistics(
         owner_id,
         db
@@ -82,7 +115,6 @@ def printers(
     owner_id: UUID,
     db: Session = Depends(get_db)
 ):
-
     return printer_utilization(
         owner_id,
         db
@@ -98,12 +130,8 @@ def revenue_prediction(
     owner_id: UUID,
     db: Session = Depends(get_db)
 ):
-
     return {
-
-        "predicted_monthly_revenue":
-
-        predict_revenue(
+        "predicted_monthly_revenue": predict_revenue(
             owner_id,
             db
         )
@@ -119,12 +147,8 @@ def busy_hour_prediction(
     owner_id: UUID,
     db: Session = Depends(get_db)
 ):
-
     return {
-
-        "predicted_busy_hour":
-
-        predict_busy_hour(
+        "predicted_busy_hour": predict_busy_hour(
             owner_id,
             db
         )
@@ -140,12 +164,8 @@ def recommendation(
     owner_id: UUID,
     db: Session = Depends(get_db)
 ):
-
     return {
-
-        "recommendation":
-
-        get_ai_recommendation(
+        "recommendation": get_ai_recommendation(
             owner_id,
             db
         )
