@@ -300,7 +300,9 @@ btnCash.addEventListener("click", async () => {
     btnOnline.disabled = true;
     btnCash.disabled = true;
     modal.style.display = "block";
-    modalStatus.innerText = "Recording Cash Request...";
+    btnSimulate.style.display = "none";
+    modalStatus.innerText = "Requesting Cash Payment...";
+    modalDetails.innerText = "Contacting shop system...";
 
     try {
         const res = await fetch(`/payment/cash/${jobId}`, {
@@ -309,19 +311,21 @@ btnCash.addEventListener("click", async () => {
         const data = await res.json();
 
         if (res.ok) {
-            modalStatus.innerText = "✓ Cash Payment Recorded";
-            modalDetails.innerText = "Operator confirmed. Redirecting to tracker...";
-            setTimeout(() => {
-                window.location.href = `/job/tracker/${jobId}`;
-            }, 1500);
+            modalStatus.innerText = "💵 Cash Payment Requested";
+            modalDetails.innerHTML = `Please pay <strong>₹${document.getElementById('total').innerText}</strong> at the shop counter.<br><span style="color:#fbbf24; display:inline-block; margin-top:6px;">⏳ Waiting for shop operator to confirm on dashboard...</span>`;
+            
+            // Start polling for operator cash confirmation
+            if (pollInterval) clearInterval(pollInterval);
+            pollInterval = setInterval(pollJobStatus, 2000);
         } else {
-            modalStatus.innerText = "Cash Payment Error";
-            modalDetails.innerText = data.detail || "Could not record cash payment.";
+            modalStatus.innerText = "Cash Request Failed";
+            modalDetails.innerText = data.detail || "Could not request cash payment.";
             btnOnline.disabled = false;
             btnCash.disabled = false;
         }
     } catch (err) {
         modalStatus.innerText = "Network Error";
+        modalDetails.innerText = "Unable to connect to server.";
         btnOnline.disabled = false;
         btnCash.disabled = false;
     }

@@ -59,10 +59,21 @@
             color: #a5b4fc;
             border: 1px solid rgba(99, 102, 241, 0.4);
         }
-        .status-badge.queued { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border-color: rgba(245, 158, 11, 0.4); }
-        .status-badge.printing { background: rgba(99, 102, 241, 0.2); color: #818cf8; border-color: rgba(99, 102, 241, 0.4); }
+        .status-badge.pending { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border-color: rgba(245, 158, 11, 0.4); }
+        .status-badge.queued { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border-color: rgba(99, 102, 241, 0.4); }
+        .status-badge.printing { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border-color: rgba(56, 189, 248, 0.4); }
         .status-badge.completed { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.4); }
         .status-badge.failed { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border-color: rgba(239, 68, 68, 0.4); }
+        
+        .cash-alert-box {
+            display: none;
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.1) 100%);
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            border-radius: 14px;
+            padding: 16px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
         
         .progress-steps {
             display: flex;
@@ -101,6 +112,12 @@
             background: var(--accent);
             color: white;
             box-shadow: 0 0 15px rgba(99, 102, 241, 0.6);
+        }
+        .step.pending-active {
+            border-color: var(--warning);
+            background: var(--warning);
+            color: #1e1b4b;
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.6);
         }
         .step.done {
             border-color: var(--success);
@@ -153,14 +170,27 @@
 
 <div class="container">
     <h2>Live Print Status</h2>
-    <div id="statusBadge" class="status-badge queued">Queued</div>
+    <div id="statusBadge" class="status-badge pending">Awaiting Payment</div>
+
+    <!-- Cash Confirmation Notice -->
+    <div id="cashNoticeBox" class="cash-alert-box">
+        <div style="display: flex; align-items: flex-start; gap: 10px;">
+            <span style="font-size: 24px;">💵</span>
+            <div>
+                <strong style="color: #fbbf24; font-size: 14px;">Cash Payment Required at Counter</strong>
+                <div style="font-size: 13px; color: #cbd5e1; margin-top: 3px;">
+                    Please pay <strong>₹<span id="cashAmount">0.00</span></strong> to the shop operator. Once confirmed on the dashboard, your print job will be queued.
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div class="progress-steps">
-        <div class="step done" id="stepPaid">
+        <div class="step pending-active" id="stepPaid">
             1
-            <span class="step-label">Paid</span>
+            <span class="step-label" id="stepPaidLabel">Payment</span>
         </div>
-        <div class="step active" id="stepQueued">
+        <div class="step" id="stepQueued">
             2
             <span class="step-label">In Queue</span>
         </div>
@@ -177,11 +207,11 @@
     <div class="details-grid">
         <div class="detail-box">
             <div class="title">Assigned Printer</div>
-            <div class="value" id="printerName">Detecting...</div>
+            <div class="value" id="printerName">Pending Payment...</div>
         </div>
         <div class="detail-box">
             <div class="title">Queue Position</div>
-            <div class="value" id="queuePos">-</div>
+            <div class="value" id="queuePos">Waiting Confirmation</div>
         </div>
         <div class="detail-box">
             <div class="title">Estimated Wait</div>
@@ -210,24 +240,47 @@ async function fetchStatus() {
         const data = await res.json();
 
         // Update UI fields
-        document.getElementById("printerName").innerText = data.assigned_printer_name || "AI Assigning...";
-        document.getElementById("queuePos").innerText = data.queue_position !== null ? `#${data.queue_position}` : "Active";
-        document.getElementById("estWait").innerText = (data.estimated_seconds || 0) + "s";
         document.getElementById("totalPages").innerText = data.total_pages || "1";
+        document.getElementById("cashAmount").innerText = (data.total_amount || 0).toFixed(2);
 
         const badge = document.getElementById("statusBadge");
-        badge.innerText = data.status;
-        badge.className = "status-badge " + data.status.toLowerCase();
-
+        const cashBox = document.getElementById("cashNoticeBox");
         const s1 = document.getElementById("stepPaid");
+        const s1Label = document.getElementById("stepPaidLabel");
         const s2 = document.getElementById("stepQueued");
         const s3 = document.getElementById("stepPrinting");
         const s4 = document.getElementById("stepCompleted");
 
-        s1.className = "step done";
+        // Reset step classes
+        s1.className = "step";
         s2.className = "step";
         s3.className = "step";
         s4.className = "step";
+
+        const isCashPending = (data.payment_status === "Pending" && (data.payment_method === "Cash" || data.status === "Pending"));
+
+        if (isCashPending) {
+            badge.innerText = "⏳ Awaiting Cash Confirmation";
+            badge.className = "status-badge pending";
+            cashBox.style.display = "block";
+            s1.className = "step pending-active";
+            s1Label.innerText = "Awaiting Cash";
+            document.getElementById("printerName").innerText = "Waiting for Operator";
+            document.getElementById("queuePos").innerText = "Pending Cash";
+            document.getElementById("estWait").innerText = "--";
+            return;
+        }
+
+        // When payment is completed
+        cashBox.style.display = "none";
+        s1.className = "step done";
+        s1Label.innerText = "Paid ✓";
+        document.getElementById("printerName").innerText = data.assigned_printer_name || "AI Assigning...";
+        document.getElementById("queuePos").innerText = data.queue_position !== null ? `#${data.queue_position}` : "Active";
+        document.getElementById("estWait").innerText = (data.estimated_seconds || 0) + "s";
+
+        badge.innerText = data.status;
+        badge.className = "status-badge " + data.status.toLowerCase();
 
         if (data.status === "Queued" || data.status === "Assigned") {
             s2.className = "step active";

@@ -7,15 +7,23 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-primary: #0b0f19;
-            --bg-card: #151e2e;
+            --bg-primary: #0a0f1d;
+            --bg-card: #131b2e;
+            --bg-card-hover: #18233a;
             --accent: #6366f1;
+            --accent-glow: rgba(99, 102, 241, 0.3);
             --success: #10b981;
+            --success-glow: rgba(16, 185, 129, 0.2);
             --warning: #f59e0b;
+            --warning-glow: rgba(245, 158, 11, 0.2);
             --danger: #ef4444;
             --text: #f8fafc;
             --text-muted: #94a3b8;
-            --border: #233044;
+            --border: #223049;
+            --border-light: #2d3f5d;
+        }
+        * {
+            box-sizing: border-box;
         }
         body {
             font-family: 'Outfit', sans-serif;
@@ -23,53 +31,183 @@
             color: var(--text);
             margin: 0;
             padding: 24px;
+            background-image: radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.05) 0%, transparent 40%),
+                              radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.05) 0%, transparent 40%);
+            min-height: 100vh;
         }
         .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 24px;
-            padding-bottom: 16px;
+            padding-bottom: 20px;
             border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+            gap: 16px;
         }
         h1 {
-            font-size: 24px;
+            font-size: 26px;
             font-weight: 700;
             margin: 0;
             background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
+        .btn {
+            background: var(--accent);
+            color: white;
+            padding: 9px 18px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+        .btn:hover {
+            opacity: 0.92;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px var(--accent-glow);
+        }
+        .btn-success {
+            background: #10b981;
+        }
+        .btn-success:hover {
+            box-shadow: 0 4px 12px var(--success-glow);
+        }
+        .btn-danger {
+            background: #ef4444;
+        }
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 8px;
+        }
+        
+        /* Stats Grid */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 16px;
-            margin-bottom: 28px;
+            margin-bottom: 24px;
         }
         .stat-card {
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: 14px;
-            padding: 20px;
+            padding: 18px;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--border-light);
         }
         .stat-card .label {
-            font-size: 13px;
+            font-size: 12px;
+            font-weight: 500;
             color: var(--text-muted);
-            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
         }
         .stat-card .value {
-            font-size: 28px;
+            font-size: 26px;
             font-weight: 700;
             color: var(--text);
         }
         .stat-card.revenue .value { color: #34d399; }
         .stat-card.active .value { color: #818cf8; }
         .stat-card.failed .value { color: #f87171; }
-        
-        .section-title {
-            font-size: 18px;
+        .stat-card.pending .value { color: #fbbf24; }
+
+        /* Revenue Breakdown Section */
+        .revenue-panel {
+            background: linear-gradient(180deg, rgba(19, 27, 46, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 28px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        }
+        .revenue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+        }
+        .revenue-header h3 {
+            margin: 0;
+            font-size: 16px;
             font-weight: 600;
-            margin: 24px 0 12px 0;
+            color: #a5b4fc;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .revenue-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 14px;
+        }
+        .rev-item {
+            background: rgba(10, 15, 29, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+        }
+        .rev-item .title {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .rev-item .amount {
+            font-size: 20px;
+            font-weight: 700;
+            color: #f8fafc;
+        }
+        .rev-item.cash .amount { color: #fbbf24; }
+        .rev-item.online .amount { color: #60a5fa; }
+        .rev-item.today .amount { color: #34d399; }
+
+        /* Cash Approval Alert Banner & Section */
+        .cash-alert-box {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(217, 119, 6, 0.08) 100%);
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            border-radius: 14px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            display: none;
+            animation: pulse-glow 2s infinite alternate;
+        }
+        @keyframes pulse-glow {
+            from { box-shadow: 0 0 10px rgba(245, 158, 11, 0.1); }
+            to { box-shadow: 0 0 20px rgba(245, 158, 11, 0.25); }
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 28px 0 12px 0;
+        }
+        .section-title {
+            font-size: 17px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
         }
         .table-card {
             background: var(--bg-card);
@@ -77,47 +215,120 @@
             border-radius: 14px;
             overflow: hidden;
             margin-bottom: 24px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
         }
         table {
             width: 100%;
             border-collapse: collapse;
             text-align: left;
-            font-size: 14px;
+            font-size: 13.5px;
         }
         th, td {
-            padding: 14px 18px;
+            padding: 13px 18px;
             border-bottom: 1px solid var(--border);
         }
         th {
-            background: rgba(15, 23, 42, 0.8);
+            background: rgba(11, 16, 29, 0.9);
             color: var(--text-muted);
             font-weight: 600;
+            font-size: 12.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
+        tbody tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        
+        /* Badges & Indicators */
         .badge {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
             padding: 4px 10px;
             border-radius: 9999px;
-            font-size: 12px;
+            font-size: 11.5px;
             font-weight: 600;
         }
-        .badge.online { background: rgba(16, 185, 129, 0.2); color: #34d399; }
-        .badge.offline { background: rgba(239, 68, 68, 0.2); color: #f87171; }
-        .badge.busy { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+        .badge.online { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .badge.offline { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .badge.busy { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .badge.pending { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .badge.paid { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .badge.queued { background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); }
+        .badge.printing { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+        .badge.completed { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+        
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .pulse-dot.online { background: #10b981; box-shadow: 0 0 8px #10b981; }
+        .pulse-dot.offline { background: #ef4444; }
+        .pulse-dot.busy { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
+
+        .tag {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border);
+            padding: 2px 7px;
+            border-radius: 6px;
+            font-size: 11px;
+            color: #cbd5e1;
+            margin-right: 4px;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 14px 22px;
+            background: #1e293b;
+            color: white;
+            border-radius: 12px;
+            border: 1px solid #4f46e5;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            display: none;
+            z-index: 1000;
+            font-size: 14px;
+            font-weight: 500;
+        }
     </style>
 </head>
 <body>
 
 <div class="header">
     <div>
-        <h1>Shop Operations & Analytics Dashboard</h1>
-        <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Owner ID: <span id="ownerId">{{ owner_id }}</span></div>
+        <h1>Shop Operations & Operator Dashboard</h1>
+        <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">
+            Shop Owner ID: <code style="color: #a5b4fc; background: rgba(99,102,241,0.1); padding: 2px 6px; border-radius: 4px;" id="ownerId">{{ owner_id }}</code>
+            <span style="margin-left: 12px; color: #10b981; font-weight: 500;">● Live Sync Active</span>
+        </div>
     </div>
-    <div style="display: flex; align-items: center; gap: 16px;">
-        <a href="/owner/{{ owner_id }}/qr" style="background: var(--accent); color: white; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 600;">📱 View Shop QR Code</a>
-        <div style="font-size: 13px; color: var(--text-muted);" id="liveClock"></div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+        <button class="btn" onclick="loadDashboard()" style="background: rgba(255,255,255,0.08); border: 1px solid var(--border);">🔄 Refresh Now</button>
+        <a href="/owner/{{ owner_id }}/qr" class="btn" target="_blank">📱 View Customer QR</a>
+        <div style="font-size: 13px; color: var(--text-muted); background: var(--bg-card); padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border);" id="liveClock">--:--:--</div>
     </div>
 </div>
 
+<!-- Pending Cash Alert Box -->
+<div id="cashAlertBanner" class="cash-alert-box">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 24px;">💵</span>
+            <div>
+                <strong style="color: #fbbf24; font-size: 15px;">Pending Cash Payments at Counter</strong>
+                <div style="font-size: 13px; color: #fde68a; margin-top: 2px;">
+                    <span id="cashAlertCount">0</span> customer(s) are waiting to pay cash. Please collect payment and click Confirm below.
+                </div>
+            </div>
+        </div>
+        <a href="#pendingCashSection" class="btn btn-sm btn-success" style="background: #f59e0b; color: #1e1b4b; font-weight: 700;">Review Cash Requests ↓</a>
+    </div>
+</div>
+
+<!-- Primary Stats Grid -->
 <div class="stats-grid">
     <div class="stat-card">
         <div class="label">Total Print Jobs</div>
@@ -127,7 +338,7 @@
         <div class="label">Completed Jobs</div>
         <div class="value" id="statCompletedJobs">-</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card pending">
         <div class="label">Active Queue</div>
         <div class="value" id="statActiveQueue">-</div>
     </div>
@@ -145,25 +356,102 @@
     </div>
 </div>
 
-<div class="section-title">Connected Physical Printers</div>
+<!-- Comprehensive Revenue Breakdown Panel -->
+<div class="revenue-panel">
+    <div class="revenue-header">
+        <h3>💰 Detailed Revenue & Financial Breakdown</h3>
+        <span style="font-size: 12px; color: var(--text-muted);">Real-time Payment Method & Time Analysis</span>
+    </div>
+    <div class="revenue-grid">
+        <div class="rev-item cash">
+            <div class="title">💵 Cash Collected (Counter)</div>
+            <div class="amount" id="revCash">₹0.00</div>
+        </div>
+        <div class="rev-item online">
+            <div class="title">📱 Online / UPI Revenue</div>
+            <div class="amount" id="revOnline">₹0.00</div>
+        </div>
+        <div class="rev-item today">
+            <div class="title">📅 Today's Revenue</div>
+            <div class="amount" id="revToday">₹0.00</div>
+        </div>
+        <div class="rev-item">
+            <div class="title">📆 This Month's Revenue</div>
+            <div class="amount" id="revMonth">₹0.00</div>
+        </div>
+        <div class="rev-item">
+            <div class="title">📄 B/W Print Revenue</div>
+            <div class="amount" id="revBw">₹0.00</div>
+        </div>
+        <div class="rev-item">
+            <div class="title">🎨 Color Print Revenue</div>
+            <div class="amount" id="revColor">₹0.00</div>
+        </div>
+        <div class="rev-item">
+            <div class="title">🏷️ Avg Order Value (AOV)</div>
+            <div class="amount" id="revAov">₹0.00</div>
+        </div>
+        <div class="rev-item">
+            <div class="title">⏳ Pending Cash to Collect</div>
+            <div class="amount" id="revPendingCash" style="color: #f59e0b;">₹0.00</div>
+        </div>
+    </div>
+</div>
+
+<!-- Pending Cash Approvals Table Section -->
+<div id="pendingCashSection">
+    <div class="section-header">
+        <h3 class="section-title">
+            <span>💵</span> Counter Cash Confirmation Queue
+            <span class="badge pending" id="pendingCashBadge" style="margin-left: 8px;">0 Pending</span>
+        </h3>
+    </div>
+    <div class="table-card">
+        <table>
+            <thead>
+                <tr>
+                    <th>Job ID</th>
+                    <th>Customer / Details</th>
+                    <th>Files & Pages</th>
+                    <th>Amount Due</th>
+                    <th>Time</th>
+                    <th style="text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody id="cashTable">
+                <tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 20px;">No pending cash requests.</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Connected Physical Printers -->
+<div class="section-header">
+    <h3 class="section-title"><span>🖨️</span> Connected Physical Printers</h3>
+    <span style="font-size: 12px; color: var(--text-muted);">Synced from local Windows Print Agent</span>
+</div>
 <div class="table-card">
     <table>
         <thead>
             <tr>
                 <th>Printer Name</th>
-                <th>Status</th>
-                <th>Queue</th>
-                <th>Capabilities</th>
-                <th>Total Printed</th>
+                <th>Hardware Status</th>
+                <th>Current Queue</th>
+                <th>Supported Capabilities</th>
+                <th>Total Pages Printed</th>
             </tr>
         </thead>
         <tbody id="printersTable">
-            <tr><td colspan="5" style="text-align:center; color: var(--text-muted);">Loading printers...</td></tr>
+            <tr><td colspan="5" style="text-align:center; color: var(--text-muted); padding: 20px;">Scanning for connected physical printers...</td></tr>
         </tbody>
     </table>
 </div>
 
-<div class="section-title">Live Print Queue</div>
+<!-- Live Print Queue -->
+<div class="section-header">
+    <h3 class="section-title"><span>⚡</span> Live Print Queue</h3>
+    <span style="font-size: 12px; color: var(--text-muted);">Automated AI Dispatch Schedule</span>
+</div>
 <div class="table-card">
     <table>
         <thead>
@@ -176,13 +464,47 @@
             </tr>
         </thead>
         <tbody id="queueTable">
-            <tr><td colspan="5" style="text-align:center; color: var(--text-muted);">No active jobs in queue.</td></tr>
+            <tr><td colspan="5" style="text-align:center; color: var(--text-muted); padding: 20px;">No active jobs in queue.</td></tr>
         </tbody>
     </table>
 </div>
 
+<!-- Recent Transactions Log -->
+<div class="section-header">
+    <h3 class="section-title"><span>📜</span> Recent Transactions & Orders</h3>
+</div>
+<div class="table-card">
+    <table>
+        <thead>
+            <tr>
+                <th>Job ID</th>
+                <th>Customer</th>
+                <th>Amount</th>
+                <th>Payment Type</th>
+                <th>Payment Status</th>
+                <th>Job Status</th>
+                <th>Date & Time</th>
+            </tr>
+        </thead>
+        <tbody id="transactionsTable">
+            <tr><td colspan="7" style="text-align:center; color: var(--text-muted); padding: 20px;">Loading recent transactions...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Feedback Toast -->
+<div id="toast" class="toast"></div>
+
 <script>
 const ownerId = "{{ owner_id }}";
+
+function showToast(msg, isError = false) {
+    const toast = document.getElementById("toast");
+    toast.innerText = msg;
+    toast.style.borderColor = isError ? "#ef4444" : "#10b981";
+    toast.style.display = "block";
+    setTimeout(() => { toast.style.display = "none"; }, 3500);
+}
 
 function updateClock() {
     document.getElementById("liveClock").innerText = new Date().toLocaleTimeString();
@@ -190,38 +512,149 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 
+// Confirm Cash Action
+async function confirmCash(jobId) {
+    try {
+        const res = await fetch(`/payment/cash-confirm/${jobId}`, { method: "POST" });
+        const data = await res.json();
+        if (res.ok) {
+            showToast(`✓ Cash confirmed for job ${jobId.slice(0, 8)}! Added to queue.`);
+            loadDashboard();
+        } else {
+            showToast(data.detail || "Error confirming cash payment.", true);
+        }
+    } catch (e) {
+        showToast("Network error confirming cash payment.", true);
+    }
+}
+
+// Reject Cash Action
+async function rejectCash(jobId) {
+    if (!confirm("Are you sure you want to reject this cash payment request?")) return;
+    try {
+        const res = await fetch(`/payment/cash-reject/${jobId}`, { method: "POST" });
+        const data = await res.json();
+        if (res.ok) {
+            showToast(`Cash request rejected for job ${jobId.slice(0, 8)}.`);
+            loadDashboard();
+        } else {
+            showToast(data.detail || "Error rejecting cash payment.", true);
+        }
+    } catch (e) {
+        showToast("Network error rejecting cash payment.", true);
+    }
+}
+
 async function loadDashboard() {
     try {
         const statsRes = await fetch(`/analytics/dashboard/${ownerId}`);
         if (statsRes.ok) {
             const data = await statsRes.json();
             const stats = data.statistics || {};
+            const rev = data.revenue_breakdown || {};
+
+            // Primary KPI Stats
             document.getElementById("statTotalJobs").innerText = stats.total_jobs || "0";
             document.getElementById("statCompletedJobs").innerText = stats.completed_jobs || "0";
             document.getElementById("statActiveQueue").innerText = (stats.pending_jobs || 0) + (stats.printing_jobs || 0);
             document.getElementById("statFailedJobs").innerText = stats.failed_jobs || "0";
-            document.getElementById("statRevenue").innerText = "₹" + (stats.total_revenue || 0).toFixed(2);
+            document.getElementById("statRevenue").innerText = "₹" + (rev.total_revenue || stats.total_revenue || 0).toFixed(2);
             document.getElementById("statAvgTime").innerText = (stats.average_completion_seconds || 0) + "s";
 
-            // Populate printers (Physical only)
+            // Revenue Breakdown
+            document.getElementById("revCash").innerText = "₹" + (rev.cash_revenue || 0).toFixed(2);
+            document.getElementById("revOnline").innerText = "₹" + (rev.online_revenue || 0).toFixed(2);
+            document.getElementById("revToday").innerText = "₹" + (rev.today_revenue || 0).toFixed(2);
+            document.getElementById("revMonth").innerText = "₹" + (rev.month_revenue || 0).toFixed(2);
+            document.getElementById("revBw").innerText = "₹" + (rev.bw_revenue || 0).toFixed(2);
+            document.getElementById("revColor").innerText = "₹" + (rev.color_revenue || 0).toFixed(2);
+            document.getElementById("revAov").innerText = "₹" + (rev.average_order_value || 0).toFixed(2);
+            document.getElementById("revPendingCash").innerText = "₹" + (rev.pending_cash_amount || 0).toFixed(2);
+
+            // Cash Approvals Section
+            const cashJobs = data.pending_cash_approvals || [];
+            const cashBanner = document.getElementById("cashAlertBanner");
+            const cashBadge = document.getElementById("pendingCashBadge");
+            const cashTable = document.getElementById("cashTable");
+
+            if (cashJobs.length > 0) {
+                cashBanner.style.display = "block";
+                document.getElementById("cashAlertCount").innerText = cashJobs.length;
+                cashBadge.innerText = `${cashJobs.length} Pending`;
+                cashBadge.style.display = "inline-flex";
+
+                cashTable.innerHTML = cashJobs.map(c => `
+                    <tr style="background: rgba(245, 158, 11, 0.04);">
+                        <td><code>${c.job_id.slice(0, 8)}...</code></td>
+                        <td>
+                            <strong>${c.customer_name}</strong>
+                            <div style="font-size: 11px; color: var(--text-muted);">${c.customer_phone}</div>
+                        </td>
+                        <td>
+                            <div>${c.total_files} file(s), <strong>${c.total_pages} page(s)</strong> (${c.total_copies} copy)</div>
+                            <div style="font-size: 11px; color: var(--text-muted);">${c.files.join(", ").slice(0, 30)}</div>
+                        </td>
+                        <td><strong style="color: #fbbf24; font-size: 16px;">₹${c.total_amount.toFixed(2)}</strong></td>
+                        <td style="color: var(--text-muted); font-size: 12px;">${c.created_at}</td>
+                        <td style="text-align: right;">
+                            <button class="btn btn-sm btn-success" onclick="confirmCash('${c.job_id}')">✓ Confirm Cash & Print</button>
+                            <button class="btn btn-sm btn-danger" style="margin-left: 6px;" onclick="rejectCash('${c.job_id}')">✕</button>
+                        </td>
+                    </tr>
+                `).join("");
+            } else {
+                cashBanner.style.display = "none";
+                cashBadge.innerText = "0 Pending";
+                cashTable.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 20px;">✓ No pending counter cash approvals. All caught up!</td></tr>`;
+            }
+
+            // Populate Physical Printers
             const pTable = document.getElementById("printersTable");
             const allPrinters = data.printer_utilization || [];
             const physicalPrinters = allPrinters.filter(p => p.is_physical !== false && !p.is_virtual);
             if (physicalPrinters.length > 0) {
-                pTable.innerHTML = physicalPrinters.map(p => `
+                pTable.innerHTML = physicalPrinters.map(p => {
+                    const st = (p.status || "Offline").toLowerCase();
+                    return `
                     <tr>
                         <td>
-                            <strong>${p.printer_name}</strong>
-                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">${p.printer_model || 'Standard'}</div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span class="pulse-dot ${st}"></span>
+                                <strong>${p.printer_name}</strong>
+                            </div>
+                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px; padding-left: 16px;">Model: ${p.printer_model || 'Hardware MFP'}</div>
                         </td>
-                        <td><span class="badge ${p.status.toLowerCase()}">${p.status}</span></td>
-                        <td>${p.current_queue || 0} jobs</td>
-                        <td><span style="font-size: 12px; color: #cbd5e1;">${p.capabilities || 'B/W'}</span></td>
-                        <td>${p.jobs_printed || 0}</td>
+                        <td><span class="badge ${st}">${p.status}</span></td>
+                        <td><strong>${p.current_queue || 0}</strong> jobs</td>
+                        <td>
+                            ${(p.capabilities || 'B/W').split(',').map(c => `<span class="tag">${c.trim()}</span>`).join('')}
+                        </td>
+                        <td><strong>${p.jobs_printed || 0}</strong> pages</td>
                     </tr>
-                `).join("");
+                `}).join("");
             } else {
-                pTable.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-muted); padding: 24px;">No physical printers connected. (Virtual software printers are filtered out).</td></tr>`;
+                pTable.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-muted); padding: 24px;">No physical printers detected yet. Run <code>python agent.py</code> to connect your printer.</td></tr>`;
+            }
+
+            // Populate Recent Transactions
+            const tTable = document.getElementById("transactionsTable");
+            const txns = data.recent_transactions || [];
+            if (txns.length > 0) {
+                tTable.innerHTML = txns.map(t => {
+                    const isCash = t.payment_method.toUpperCase() === "CASH";
+                    return `
+                    <tr>
+                        <td><code>${t.job_id.slice(0, 8)}...</code></td>
+                        <td>${t.customer_name}</td>
+                        <td><strong>₹${t.amount.toFixed(2)}</strong></td>
+                        <td><span class="badge ${isCash ? 'pending' : 'paid'}">${isCash ? '💵 Cash' : '📱 Online'}</span></td>
+                        <td><span class="badge ${t.payment_status.toLowerCase()}">${t.payment_status}</span></td>
+                        <td><span class="badge ${t.job_status.toLowerCase()}">${t.job_status}</span></td>
+                        <td style="font-size: 12px; color: var(--text-muted);">${t.created_at}</td>
+                    </tr>
+                `}).join("");
+            } else {
+                tTable.innerHTML = `<tr><td colspan="7" style="text-align:center; color: var(--text-muted); padding: 20px;">No transactions recorded yet.</td></tr>`;
             }
         }
 
@@ -236,12 +669,12 @@ async function loadDashboard() {
                         <td><strong>#${q.queue_position || 1}</strong></td>
                         <td><code>${q.job_id.slice(0, 8)}...</code></td>
                         <td><span class="badge ${q.status.toLowerCase()}">${q.status}</span></td>
-                        <td>${q.assigned_printer_id ? q.assigned_printer_id.slice(0, 8) + "..." : "Auto"}</td>
+                        <td>${q.assigned_printer_id ? q.assigned_printer_id.slice(0, 8) + "..." : "Auto Selected"}</td>
                         <td>${q.estimated_seconds || 0}s</td>
                     </tr>
                 `).join("");
             } else {
-                qTable.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-muted);">No active jobs in queue.</td></tr>`;
+                qTable.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-muted); padding: 20px;">No active jobs in queue.</td></tr>`;
             }
         }
     } catch (err) {

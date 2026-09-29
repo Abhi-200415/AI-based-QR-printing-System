@@ -202,14 +202,18 @@ async def payment_webhook(
 
 
 # ==========================================================
-# Cash Payment (Operator / Counter Confirmation)
+# Cash Payment Request (Customer requests Cash at counter)
 # ==========================================================
 
 @router.post("/cash/{job_id}")
-async def cash_payment(
+async def cash_payment_request(
     job_id: UUID,
     db: Session = Depends(get_db)
 ):
+    """
+    Customer selects 'Pay Cash at Counter'.
+    Creates a pending cash payment waiting for operator dashboard confirmation.
+    """
     job = db.query(ActiveJob).filter(ActiveJob.job_id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found.")
@@ -217,6 +221,60 @@ async def cash_payment(
     if not job.total_amount or job.total_amount <= 0:
         prepare_job(job.job_id, db)
         db.refresh(job)
+
+    payment = job.payment
+    if not payment:
+        payment = Payment(
+            job_id=job.job_id,
+            provider=PaymentProvider.MANUAL,
+            payment_method=PaymentMethod.CASH,
+            amount=job.total_amount or Decimal("0.00"),
+            status=PaymentStatus.PENDING,
+            currency="INR",
+            verified=False
+        )
+        db.add(payment)
+    else:
+        payment.provider = PaymentProvider.MANUAL
+        payment.payment_method = PaymentMethod.CASH
+        payment.amount = job.total_amount or Decimal("0.00")
+        payment.status = PaymentStatus.PENDING
+        payment.verified = False
+
+    job.payment_status = PaymentStatus.PENDING
+    job.status = JobStatus.PENDING
+
+    db.commit()
+    db.refresh(payment)
+    db.refresh(job)
+
+    return {
+        "success": True,
+        "payment_id": str(payment.payment_id),
+        "job_id": str(job.job_id),
+        "payment_status": payment.status.value,
+        "job_status": job.status.value,
+        "amount": float(payment.amount),
+        "message": "Cash payment requested. Please pay at counter. Waiting for operator confirmation."
+    }
+
+
+# ==========================================================
+# Operator Confirm Cash Payment & Queue Job
+# ==========================================================
+
+@router.post("/cash-confirm/{job_id}")
+async def confirm_cash_payment(
+    job_id: UUID,
+    db: Session = Depends(get_db)
+):
+    """
+    Operator confirms cash receipt on Dashboard.
+    Marks payment as PAID, assigns printer, and queues job for printing.
+    """
+    job = db.query(ActiveJob).filter(ActiveJob.job_id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found.")
 
     payment = job.payment
     if not payment:
@@ -238,7 +296,7 @@ async def cash_payment(
         db=db
     )
 
-    # Assign printer and queue
+    # Assign printer and queue job
     prepared_job = assign_paid_job(job.job_id, db)
     if prepared_job and prepared_job.assigned_printer_id and prepared_job.queue_position == 1:
         await dispatch_job_to_agent(prepared_job)
@@ -249,9 +307,86 @@ async def cash_payment(
         "job_id": str(job.job_id),
         "payment_status": payment.status.value,
         "job_status": prepared_job.status.value if prepared_job else job.status.value,
+        "assigned_printer": str(prepared_job.assigned_printer_id) if prepared_job and prepared_job.assigned_printer_id else None,
         "queue_position": prepared_job.queue_position if prepared_job else None,
-        "message": "Cash payment recorded. Job added to queue."
+        "message": "Cash payment confirmed. Job queued for printing."
     }
+
+
+# ==========================================================
+# Operator Reject Cash Payment / Cancel Request
+# ==========================================================
+
+@router.post("/cash-reject/{job_id}")
+def reject_cash_payment(
+    job_id: UUID,
+    db: Session = Depends(get_db)
+):
+    """
+    Operator rejects cash request or cancels invalid order.
+    """
+    job = db.query(ActiveJob).filter(ActiveJob.job_id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found.")
+
+    if job.payment:
+        PaymentService.process_failed_payment(
+            job.payment,
+            failure_reason="Cash payment rejected or cancelled by shop operator.",
+            db=db
+        )
+
+    job.status = JobStatus.CANCELLED
+    db.commit()
+
+    return {
+        "success": True,
+        "job_id": str(job.job_id),
+        "message": "Cash payment request rejected and job cancelled."
+    }
+
+
+# ==========================================================
+# Pending Cash Payments for Shop Owner
+# ==========================================================
+
+@router.get("/pending-cash/{owner_id}")
+def get_pending_cash_jobs(
+    owner_id: UUID,
+    db: Session = Depends(get_db)
+):
+    """
+    Returns list of jobs waiting for counter cash confirmation.
+    """
+    jobs = (
+        db.query(ActiveJob)
+        .join(Payment, ActiveJob.job_id == Payment.job_id)
+        .filter(
+            ActiveJob.owner_id == owner_id,
+            ActiveJob.status == JobStatus.PENDING,
+            Payment.payment_method == PaymentMethod.CASH,
+            Payment.status == PaymentStatus.PENDING
+        )
+        .order_by(ActiveJob.created_at.desc())
+        .all()
+    )
+
+    results = []
+    for j in jobs:
+        filenames = [f.original_filename for f in (j.files or [])]
+        results.append({
+            "job_id": str(j.job_id),
+            "customer_name": j.customer_name or "Walk-in Customer",
+            "customer_phone": j.customer_phone or "-",
+            "total_files": j.total_files or len(filenames),
+            "total_pages": j.total_pages or 0,
+            "total_copies": j.total_copies or 1,
+            "total_amount": float(j.total_amount or 0.0),
+            "created_at": j.created_at.isoformat() if j.created_at else None,
+            "files": filenames
+        })
+
+    return results
 
 
 # ==========================================================

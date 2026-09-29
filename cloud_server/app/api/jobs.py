@@ -186,6 +186,7 @@ def get_job_status(
         "job_id": str(job.job_id),
         "status": job.status.value,
         "payment_status": job.payment_status.value,
+        "payment_method": job.payment.payment_method.value if job.payment else None,
         "assigned_printer": str(job.assigned_printer_id) if job.assigned_printer_id else None,
         "assigned_printer_name": job.assigned_printer.printer_name if job.assigned_printer else None,
         "queue_position": job.queue_position,
