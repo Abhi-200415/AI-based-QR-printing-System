@@ -27,6 +27,9 @@ from services.file_validator import (
 )
 
 
+CURRENT_PROCESSING_JOBS = set()
+
+
 # ==========================================================
 # Handle Multi-File / Single-File Print Job
 # ==========================================================
@@ -36,8 +39,17 @@ def handle_job(job: dict) -> bool:
     Executes a print job containing one or more files.
     Downloads, validates, applies per-file print settings, prints, and cleans up.
     """
-    downloaded_files: List[str] = []
     job_id = job.get("job_id")
+    if not job_id:
+        error("Cannot process job without job_id.")
+        return False
+
+    if job_id in CURRENT_PROCESSING_JOBS:
+        warn(f"Job {job_id} is already currently being processed. Ignoring duplicate dispatch event.")
+        return True
+
+    CURRENT_PROCESSING_JOBS.add(job_id)
+    downloaded_files: List[str] = []
 
     try:
         info(f"Processing Print Job: {job_id}")
@@ -52,6 +64,7 @@ def handle_job(job: dict) -> bool:
                 "file_id": job.get("file_id"),
                 "download_url": job.get("download_url"),
                 "stored_filename": job.get("stored_filename"),
+                "original_filename": job.get("original_filename"),
                 "file_type": job.get("file_type"),
                 "page_count": job.get("page_count", 1),
                 "copies": job.get("copies", 1),
@@ -76,16 +89,21 @@ def handle_job(job: dict) -> bool:
         # Process each file sequentially
         # --------------------------------------
         for idx, file_info in enumerate(files, start=1):
-            info(f"Downloading file {idx}/{total_files} ({file_info.get('stored_filename')})...")
+            stored_name = file_info.get('stored_filename') or file_info.get('original_filename') or f"file_{idx}"
+            info(f"Downloading file {idx}/{total_files} ({stored_name})...")
 
             file_download_payload = {
+                "file_id": file_info.get("file_id"),
                 "download_url": file_info.get("download_url"),
-                "stored_filename": file_info.get("stored_filename")
+                "stored_filename": file_info.get("stored_filename"),
+                "original_filename": file_info.get("original_filename"),
+                "file_type": file_info.get("file_type")
             }
 
             file_path = download_file(file_download_payload)
             if not file_path or not verify_download(file_path):
-                raise Exception(f"Download verification failed for file {idx} ({file_info.get('stored_filename')})")
+                raise Exception(f"Download verification failed for file {idx} ({stored_name})")
+
 
             downloaded_files.append(file_path)
 
@@ -136,3 +154,5 @@ def handle_job(job: dict) -> bool:
                 secure_delete(fp)
 
         return False
+    finally:
+        CURRENT_PROCESSING_JOBS.discard(job_id)

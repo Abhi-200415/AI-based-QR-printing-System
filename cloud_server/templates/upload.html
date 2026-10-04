@@ -3,185 +3,110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Smart Printing - Document Upload</title>
+    <title>Upload Documents - AI Smart Printing</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
     <style>
-        :root {
-            --bg-primary: #0b0f19;
-            --bg-card: #151e2e;
-            --accent: #6366f1;
-            --accent-hover: #4f46e5;
-            --success: #10b981;
-            --text: #f8fafc;
-            --text-muted: #94a3b8;
-            --border: #233044;
-            --input-bg: #0f172a;
-        }
-        * { box-sizing: border-box; }
         body {
-            font-family: 'Outfit', sans-serif;
-            background-color: var(--bg-primary);
-            color: var(--text);
-            margin: 0;
-            padding: 24px;
             display: flex;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
+            padding: 24px;
         }
-        .container {
+        .upload-container {
             width: 100%;
-            max-width: 500px;
+            max-width: 520px;
         }
-        .card {
+        .upload-card {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 32px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            border-radius: var(--radius-xl);
+            padding: 36px 28px;
+            box-shadow: var(--shadow-lg);
             text-align: center;
         }
-        .logo-icon {
-            font-size: 36px;
-            margin-bottom: 12px;
-        }
-        h2 {
-            font-size: 24px;
-            font-weight: 700;
-            margin: 0 0 6px 0;
-            background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .session-info {
-            font-size: 13px;
-            color: var(--text-muted);
-            margin-bottom: 24px;
-        }
-        .dropzone {
-            border: 2px dashed var(--border);
-            background: var(--input-bg);
-            border-radius: 16px;
-            padding: 32px 20px;
+        .dropzone-box {
+            border: 2px dashed var(--border-light);
+            background: var(--bg-surface);
+            border-radius: var(--radius-lg);
+            padding: 36px 20px;
             cursor: pointer;
-            transition: all 0.2s;
-            margin-bottom: 20px;
+            transition: all var(--transition-fast);
+            margin: 20px 0;
         }
-        .dropzone:hover, .dropzone.dragover {
+        .dropzone-box:hover, .dropzone-box.dragover {
             border-color: var(--accent);
-            background: rgba(99, 102, 241, 0.05);
+            background: var(--accent-subtle);
         }
-        .dropzone-icon {
-            font-size: 40px;
-            color: var(--accent);
-            margin-bottom: 12px;
-        }
-        .dropzone-text {
-            font-size: 15px;
-            font-weight: 600;
-            color: var(--text);
-            margin-bottom: 4px;
-        }
-        .dropzone-sub {
-            font-size: 12px;
-            color: var(--text-muted);
-        }
-        #fileInput {
-            display: none;
-        }
-        .file-list {
-            margin-bottom: 20px;
-            text-align: left;
-            display: none;
-        }
-        .file-item {
-            background: var(--input-bg);
+        .file-item-card {
+            background: var(--bg-surface);
             border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 10px 14px;
+            border-radius: var(--radius-md);
+            padding: 12px 16px;
             margin-bottom: 8px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 13px;
+            font-size: 13.5px;
+            text-align: left;
         }
-        .file-name {
-            font-weight: 500;
-            color: var(--text);
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            max-width: 280px;
+        .step-progress-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 24px;
         }
-        .file-size {
-            font-size: 11px;
-            color: var(--text-muted);
+        .step-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--border-light);
         }
-        .btn-upload {
-            width: 100%;
-            padding: 14px;
+        .step-dot.active {
             background: var(--accent);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s;
-            font-family: inherit;
-        }
-        .btn-upload:hover {
-            background: var(--accent-hover);
-        }
-        .btn-upload:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-        .alert {
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 13px;
-            margin-top: 16px;
-            display: none;
-        }
-        .alert.error {
-            background: rgba(239, 68, 68, 0.15);
-            color: #f87171;
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            display: block;
-        }
-        .alert.info {
-            background: rgba(99, 102, 241, 0.15);
-            color: #a5b4fc;
-            border: 1px solid rgba(99, 102, 241, 0.3);
-            display: block;
+            box-shadow: 0 0 10px var(--accent);
         }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="card">
-        <div class="logo-icon">📄</div>
-        <h2>Upload Your Documents</h2>
-        <div class="session-info">Job Session: <code id="jobIdLabel">{{ job_id[:8] }}...</code></div>
+<div class="upload-container">
+    <div class="upload-card">
+        <div class="step-progress-bar">
+            <div class="step-dot active" title="Upload"></div>
+            <div class="step-dot" title="Print Settings"></div>
+            <div class="step-dot" title="Payment"></div>
+            <div class="step-dot" title="Live Print"></div>
+        </div>
+
+        <div style="font-size: 38px; margin-bottom: 8px;">📄</div>
+        <h2 style="font-size: 24px; font-weight: 700; margin-bottom: 4px;">Upload Your Documents</h2>
+        <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 18px;">
+            Print Session ID: <code style="color: #a5b4fc; background: var(--accent-subtle); padding: 2px 6px; border-radius: 4px;">{{ job_id[:8] }}...</code>
+        </div>
 
         <form id="uploadForm">
-            <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
-                <div class="dropzone-icon">☁️</div>
-                <div class="dropzone-text">Tap or Drop files here</div>
-                <div class="dropzone-sub">Supported: PDF, DOCX, TXT, PNG, JPG (Max 50MB)</div>
+            <div class="dropzone-box" id="dropzone" onclick="document.getElementById('fileInput').click()">
+                <div style="font-size: 42px; margin-bottom: 10px;">☁️</div>
+                <div style="font-size: 16px; font-weight: 600; color: var(--text-main); margin-bottom: 4px;">
+                    Tap or Drop Files Here
+                </div>
+                <div style="font-size: 12.5px; color: var(--text-muted);">
+                    Supports PDF, DOCX, TXT, PNG, JPG (Max 50MB)
+                </div>
             </div>
-            <input type="file" id="fileInput" multiple accept=".pdf,.docx,.txt,.png,.jpg,.jpeg">
+            <input type="file" id="fileInput" multiple accept=".pdf,.docx,.txt,.png,.jpg,.jpeg" style="display: none;">
 
-            <div class="file-list" id="fileList"></div>
+            <div id="fileList" style="margin-bottom: 20px; display: none;"></div>
 
-            <button type="submit" class="btn-upload" id="uploadBtn" disabled>
-                Upload & Configure Print Settings
+            <button type="submit" class="btn btn-lg" id="uploadBtn" style="width: 100%;" disabled>
+                Upload & Configure Settings →
             </button>
         </form>
 
-        <div id="statusAlert" class="alert"></div>
+        <div id="uploadStatusMsg" style="margin-top: 16px; font-size: 13.5px; display: none;"></div>
     </div>
 </div>
 
@@ -191,13 +116,7 @@ const fileInput = document.getElementById("fileInput");
 const dropzone = document.getElementById("dropzone");
 const fileList = document.getElementById("fileList");
 const uploadBtn = document.getElementById("uploadBtn");
-const alertBox = document.getElementById("statusAlert");
-
-function showAlert(msg, type = "info") {
-    alertBox.innerText = msg;
-    alertBox.className = "alert " + type;
-    alertBox.style.display = "block";
-}
+const statusMsg = document.getElementById("uploadStatusMsg");
 
 function updateFileList() {
     const files = fileInput.files;
@@ -209,9 +128,13 @@ function updateFileList() {
     fileList.style.display = "block";
     uploadBtn.disabled = false;
     fileList.innerHTML = Array.from(files).map(f => `
-        <div class="file-item">
-            <div class="file-name">📑 ${f.name}</div>
-            <div class="file-size">${(f.size / (1024*1024)).toFixed(2)} MB</div>
+        <div class="file-item-card">
+            <div style="font-weight: 500; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 280px;">
+                📑 ${f.name}
+            </div>
+            <div style="font-size: 12px; color: var(--text-muted);">
+                ${(f.size / (1024*1024)).toFixed(2)} MB
+            </div>
         </div>
     `).join("");
 }
@@ -248,7 +171,9 @@ document.getElementById("uploadForm").addEventListener("submit", async function(
 
     uploadBtn.disabled = true;
     uploadBtn.innerText = "Analyzing & Uploading Documents...";
-    showAlert("Processing and counting pages...", "info");
+    statusMsg.style.display = "block";
+    statusMsg.style.color = "#a5b4fc";
+    statusMsg.innerText = "Processing document pages & securing with AES-256...";
 
     try {
         const response = await fetch(`/upload/${jobId}`, {
@@ -258,9 +183,10 @@ document.getElementById("uploadForm").addEventListener("submit", async function(
         const result = await response.json();
 
         if (!response.ok) {
-            showAlert(result.detail || "Upload failed. Please check your files.", "error");
+            statusMsg.style.color = "#f87171";
+            statusMsg.innerText = result.detail || "Upload failed. Please check your files.";
             uploadBtn.disabled = false;
-            uploadBtn.innerText = "Upload & Configure Print Settings";
+            uploadBtn.innerText = "Upload & Configure Settings →";
             return;
         }
 
@@ -269,18 +195,21 @@ document.getElementById("uploadForm").addEventListener("submit", async function(
             const firstFileId = fileIds.shift();
             localStorage.setItem("pending_file_ids", JSON.stringify(fileIds));
             sessionStorage.setItem("total_files", result.uploaded_files.length);
-            showAlert("Upload successful! Loading print settings...", "info");
+            statusMsg.style.color = "#34d399";
+            statusMsg.innerText = "✓ Upload successful! Opening print options...";
             setTimeout(() => {
                 window.location.href = `/file/settings-page/${firstFileId}`;
-            }, 500);
+            }, 400);
         } else {
-            showAlert("No files were processed.", "error");
+            statusMsg.style.color = "#f87171";
+            statusMsg.innerText = "No files were processed.";
             uploadBtn.disabled = false;
         }
     } catch (err) {
-        showAlert("Server connection error during upload.", "error");
+        statusMsg.style.color = "#f87171";
+        statusMsg.innerText = "Server connection error during upload.";
         uploadBtn.disabled = false;
-        uploadBtn.innerText = "Upload & Configure Print Settings";
+        uploadBtn.innerText = "Upload & Configure Settings →";
     }
 });
 </script>

@@ -8,13 +8,7 @@ from core.logger import (
     warn
 )
 
-from core.config import (
-    WEBSOCKET_URL,
-    AGENT_ID,
-    SHOP_ID,
-    HEARTBEAT_INTERVAL
-)
-
+from core import config
 from services.job_handler import (
     handle_job
 )
@@ -44,8 +38,8 @@ async def register(websocket):
 
     payload = {
         "type": "register",
-        "agent_id": AGENT_ID,
-        "shop_id": SHOP_ID
+        "agent_id": config.AGENT_ID,
+        "shop_id": config.SHOP_ID
     }
 
     await websocket.send(json.dumps(payload))
@@ -53,7 +47,7 @@ async def register(websocket):
     data = json.loads(response)
 
     if data.get("type") == "registered":
-        info(f"Agent Registered Successfully: {AGENT_ID}")
+        info(f"Agent Registered Successfully: {config.AGENT_ID}")
         return True
 
     error("Agent registration rejected by Cloud.")
@@ -67,10 +61,10 @@ async def register(websocket):
 async def send_heartbeat(websocket):
     while True:
         try:
-            await asyncio.sleep(HEARTBEAT_INTERVAL)
+            await asyncio.sleep(config.HEARTBEAT_INTERVAL)
             payload = {
                 "type": "heartbeat",
-                "agent_id": AGENT_ID
+                "agent_id": config.AGENT_ID
             }
             await websocket.send(json.dumps(payload))
         except asyncio.CancelledError:
@@ -113,7 +107,7 @@ async def receive_messages(websocket):
                     await websocket.send(json.dumps({
                         "type": "job_ack",
                         "job_id": job_id,
-                        "agent_id": AGENT_ID
+                        "agent_id": config.AGENT_ID
                     }))
                 except Exception as e:
                     warn(f"Failed to send job_ack: {e}")
@@ -122,7 +116,7 @@ async def receive_messages(websocket):
                 asyncio.create_task(run_job_in_background(job))
 
             elif message_type == "ping":
-                await websocket.send(json.dumps({"type": "pong", "agent_id": AGENT_ID}))
+                await websocket.send(json.dumps({"type": "pong", "agent_id": config.AGENT_ID}))
 
             elif message_type == "heartbeat_ack":
                 pass
@@ -147,8 +141,8 @@ async def receive_messages(websocket):
 async def connect():
     while True:
         try:
-            info(f"Connecting to Cloud WebSocket: {WEBSOCKET_URL}")
-            async with websockets.connect(WEBSOCKET_URL, ping_interval=20, ping_timeout=20) as websocket:
+            info(f"Connecting to Cloud WebSocket: {config.WEBSOCKET_URL}")
+            async with websockets.connect(config.WEBSOCKET_URL, ping_interval=20, ping_timeout=20) as websocket:
                 registered = await register(websocket)
                 if not registered:
                     await asyncio.sleep(5)

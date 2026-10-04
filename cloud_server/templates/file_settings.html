@@ -3,191 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Smart Printing - Print Settings</title>
+    <title>Print Settings - AI Smart Printing</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
     <style>
-        :root {
-            --bg-primary: #0b0f19;
-            --bg-card: #151e2e;
-            --accent: #6366f1;
-            --accent-hover: #4f46e5;
-            --success: #10b981;
-            --text: #f8fafc;
-            --text-muted: #94a3b8;
-            --border: #233044;
-            --input-bg: #0f172a;
-        }
-        * { box-sizing: border-box; }
         body {
-            font-family: 'Outfit', sans-serif;
-            background-color: var(--bg-primary);
-            color: var(--text);
-            margin: 0;
-            padding: 24px;
             display: flex;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
+            padding: 24px;
         }
-        .container {
+        .settings-container {
             width: 100%;
-            max-width: 500px;
+            max-width: 520px;
         }
-        .card {
+        .settings-card {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 32px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            border-radius: var(--radius-xl);
+            padding: 36px 28px;
+            box-shadow: var(--shadow-lg);
         }
-        .header {
-            text-align: center;
-            margin-bottom: 24px;
-        }
-        h2 {
-            font-size: 24px;
-            font-weight: 700;
-            margin: 0 0 6px 0;
-            background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .file-info-badge {
-            background: rgba(99, 102, 241, 0.1);
-            border: 1px solid rgba(99, 102, 241, 0.25);
-            border-radius: 12px;
+        .file-manifest-pill {
+            background: var(--accent-subtle);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: var(--radius-md);
             padding: 12px 16px;
             margin-bottom: 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 13px;
+            font-size: 13.5px;
         }
-        .file-title {
-            font-weight: 600;
-            color: var(--text);
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            max-width: 260px;
-        }
-        .pages-pill {
-            background: var(--accent);
-            color: white;
-            padding: 3px 10px;
-            border-radius: 9999px;
-            font-weight: 700;
-            font-size: 12px;
-        }
-        .grid-2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 14px;
-        }
-        .form-group {
-            margin-bottom: 16px;
-        }
-        label {
-            display: block;
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--text-muted);
-            margin-bottom: 6px;
-        }
-        input[type="text"], input[type="number"], select {
-            width: 100%;
-            padding: 12px 14px;
-            background: var(--input-bg);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            color: var(--text);
-            font-size: 14px;
-            font-family: inherit;
-            outline: none;
-            transition: border 0.2s;
-        }
-        input:focus, select:focus {
-            border-color: var(--accent);
-        }
-        .checkbox-label {
+        .step-progress-bar {
             display: flex;
+            justify-content: center;
             align-items: center;
-            gap: 10px;
-            cursor: pointer;
-            padding: 12px 14px;
-            background: var(--input-bg);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            font-size: 14px;
-            color: var(--text);
+            gap: 8px;
+            margin-bottom: 24px;
         }
-        .checkbox-label input {
-            width: 18px;
-            height: 18px;
-            accent-color: var(--accent);
-            cursor: pointer;
+        .step-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--border-light);
         }
-        .btn-submit {
-            width: 100%;
-            padding: 14px;
+        .step-dot.done {
+            background: var(--success);
+        }
+        .step-dot.active {
             background: var(--accent);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s;
-            margin-top: 10px;
-            font-family: inherit;
-        }
-        .btn-submit:hover {
-            background: var(--accent-hover);
-        }
-        .alert {
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 13px;
-            margin-top: 16px;
-            display: none;
-        }
-        .alert.error {
-            background: rgba(239, 68, 68, 0.15);
-            color: #f87171;
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            display: block;
-        }
-        .alert.info {
-            background: rgba(99, 102, 241, 0.15);
-            color: #a5b4fc;
-            border: 1px solid rgba(99, 102, 241, 0.3);
-            display: block;
+            box-shadow: 0 0 10px var(--accent);
         }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="card">
-        <div class="header">
-            <h2>Configure Print Options</h2>
-            <div id="fileProgress" style="font-size: 13px; color: var(--text-muted); margin-top: 4px;"></div>
+<div class="settings-container">
+    <div class="settings-card">
+        <div class="step-progress-bar">
+            <div class="step-dot done" title="Upload"></div>
+            <div class="step-dot active" title="Print Settings"></div>
+            <div class="step-dot" title="Payment"></div>
+            <div class="step-dot" title="Live Print"></div>
         </div>
 
-        <div class="file-info-badge">
-            <div class="file-title">📑 {{ file_name }}</div>
-            <div class="pages-pill">{{ page_count }} Page(s)</div>
+        <div style="text-align: center; margin-bottom: 20px;">
+            <h2 style="font-size: 24px; font-weight: 700; margin-bottom: 4px;">Configure Print Options</h2>
+            <div id="fileProgress" style="font-size: 13px; color: var(--text-muted);"></div>
+        </div>
+
+        <div class="file-manifest-pill">
+            <div style="font-weight: 600; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 280px;">
+                📑 {{ file_name }}
+            </div>
+            <span class="badge" style="background: var(--accent); color: white;">
+                {{ page_count }} Page(s)
+            </span>
         </div>
 
         <form id="settingsForm">
-            <div class="grid-2">
-                <div class="form-group">
-                    <label>Number of Copies</label>
-                    <input type="number" id="copies" value="1" min="1" required>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Copies</label>
+                    <input type="number" id="copies" class="form-control" value="1" min="1" required>
                 </div>
-                <div class="form-group">
-                    <label>Paper Size</label>
-                    <select id="paper_size">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Paper Size</label>
+                    <select id="paper_size" class="form-select">
                         <option value="A4" selected>A4 Standard</option>
                         <option value="A3">A3 Large</option>
                         <option value="LEGAL">Legal</option>
@@ -195,17 +99,17 @@
                 </div>
             </div>
 
-            <div class="grid-2">
-                <div class="form-group">
-                    <label>Orientation</label>
-                    <select id="orientation">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Orientation</label>
+                    <select id="orientation" class="form-select">
                         <option value="Portrait" selected>Portrait</option>
                         <option value="Landscape">Landscape</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label>Color Mode</label>
-                    <select id="print_type">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Color Mode</label>
+                    <select id="print_type" class="form-select">
                         <option value="BW" selected>Black & White</option>
                         <option value="COLOR">Full Color</option>
                         <option value="MIXED">Mixed (Selective)</option>
@@ -213,41 +117,40 @@
                 </div>
             </div>
 
-            <div class="form-group">
-                <label class="checkbox-label">
-                    <input type="checkbox" id="duplex">
-                    <span>Print Both Sides (Duplex / Two-Sided)</span>
+            <div class="form-group" style="margin-bottom: 14px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 12px 14px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 13.5px;">
+                    <input type="checkbox" id="duplex" style="width: 18px; height: 18px; accent-color: var(--accent);">
+                    <span>Print Both Sides (Duplex / 2-Sided)</span>
                 </label>
             </div>
 
             <div class="form-group">
-                <label>Page Range (Optional)</label>
-                <input type="text" id="page_ranges" placeholder="e.g. 1-5, 8, 10 (Leave blank for all)">
+                <label class="form-label">Page Selection (Optional)</label>
+                <input type="text" id="page_ranges" class="form-control" placeholder="e.g. 1-5, 8, 10 (Leave blank for all pages)">
             </div>
 
             <div class="form-group" id="mixedSection" style="display: none;">
-                <label>Color Pages Range (For Mixed Mode)</label>
-                <input type="text" id="color_page_ranges" placeholder="e.g. 2, 4, 7">
+                <label class="form-label">Color Pages Range (For Mixed Mode)</label>
+                <input type="text" id="color_page_ranges" class="form-control" placeholder="e.g. 2, 4, 7">
             </div>
 
-            <button type="submit" class="btn-submit" id="saveBtn">
-                Save & Proceed to Price Summary →
+            <button type="submit" class="btn btn-lg" id="saveBtn" style="width: 100%; margin-top: 10px;">
+                Save & Proceed to Order Summary →
             </button>
         </form>
 
-        <div id="statusAlert" class="alert"></div>
+        <div id="settingsStatusMsg" style="margin-top: 14px; font-size: 13.5px; text-align: center; display: none;"></div>
     </div>
 </div>
 
 <script>
 const fileId = "{{ file_id }}";
 
-// Multi-file progress display
 const pending = JSON.parse(localStorage.getItem("pending_file_ids") || "[]");
 const grandTotal = parseInt(sessionStorage.getItem("total_files") || (pending.length + 1));
 const currentIdx = grandTotal - pending.length;
 if (grandTotal > 1) {
-    document.getElementById("fileProgress").innerText = `Document ${currentIdx} of ${grandTotal}`;
+    document.getElementById("fileProgress").innerText = `Configuring document ${currentIdx} of ${grandTotal}`;
 }
 
 const printTypeSelect = document.getElementById("print_type");
@@ -256,18 +159,18 @@ printTypeSelect.addEventListener("change", function() {
     mixedSection.style.display = (this.value === "MIXED") ? "block" : "none";
 });
 
-const alertBox = document.getElementById("statusAlert");
-function showAlert(msg, type = "info") {
-    alertBox.innerText = msg;
-    alertBox.className = "alert " + type;
-    alertBox.style.display = "block";
+const statusMsg = document.getElementById("settingsStatusMsg");
+function showStatus(msg, isError = false) {
+    statusMsg.innerText = msg;
+    statusMsg.style.color = isError ? "#f87171" : "#a5b4fc";
+    statusMsg.style.display = "block";
 }
 
 document.getElementById("settingsForm").addEventListener("submit", async function(e) {
     e.preventDefault();
     const saveBtn = document.getElementById("saveBtn");
     saveBtn.disabled = true;
-    saveBtn.innerText = "Calculating pricing...";
+    saveBtn.innerText = "Calculating pricing rates...";
 
     const data = {
         copies: parseInt(document.getElementById("copies").value) || 1,
@@ -288,9 +191,9 @@ document.getElementById("settingsForm").addEventListener("submit", async functio
 
         const result = await response.json();
         if (!response.ok) {
-            showAlert(result.detail || "Unable to save print settings.", "error");
+            showStatus(result.detail || "Unable to save print settings.", true);
             saveBtn.disabled = false;
-            saveBtn.innerText = "Save & Proceed to Price Summary →";
+            saveBtn.innerText = "Save & Proceed to Order Summary →";
             return;
         }
 
@@ -298,21 +201,21 @@ document.getElementById("settingsForm").addEventListener("submit", async functio
         if (pendingIds.length > 0) {
             const nextFileId = pendingIds.shift();
             localStorage.setItem("pending_file_ids", JSON.stringify(pendingIds));
-            showAlert("Settings saved. Loading next document...", "info");
+            showStatus("Settings saved. Loading next document...");
             setTimeout(() => {
                 window.location.href = `/file/settings-page/${nextFileId}`;
-            }, 400);
+            }, 350);
         } else {
             localStorage.removeItem("pending_file_ids");
-            showAlert("All settings configured! Loading order summary...", "info");
+            showStatus("All documents configured! Loading order summary...");
             setTimeout(() => {
                 window.location.href = `/file/summary/${fileId}`;
-            }, 400);
+            }, 350);
         }
     } catch (err) {
-        showAlert("Server connection error. Please try again.", "error");
+        showStatus("Server connection error. Please try again.", true);
         saveBtn.disabled = false;
-        saveBtn.innerText = "Save & Proceed to Price Summary →";
+        saveBtn.innerText = "Save & Proceed to Order Summary →";
     }
 });
 </script>

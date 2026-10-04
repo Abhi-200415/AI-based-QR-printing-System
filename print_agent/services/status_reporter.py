@@ -46,13 +46,9 @@ def send_status(
     try:
 
         response = requests.put(
-
             f"{CLOUD_API_URL}/jobs/{job_id}/status",
-
             params=params,
-
-            timeout=10
-
+            timeout=25
         )
 
         response.raise_for_status()

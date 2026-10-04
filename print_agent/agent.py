@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import signal
 import sys
@@ -8,13 +9,8 @@ from core.logger import (
     warn
 )
 
-from core.config import (
-    SHOP_ID,
-    AGENT_ID,
-    PRINTER_SYNC_INTERVAL,
-    CLOUD_API_URL,
-    WEBSOCKET_URL
-)
+from core import config
+from core.auth import interactive_login, verify_shop_id, save_env_setting
 
 from printers.manager import (
     sync_printers
@@ -41,12 +37,12 @@ def shutdown(signum=None, frame=None):
 async def printer_sync_loop():
     while True:
         try:
-            await asyncio.sleep(PRINTER_SYNC_INTERVAL)
-            if not SHOP_ID:
+            await asyncio.sleep(config.PRINTER_SYNC_INTERVAL)
+            if not config.SHOP_ID:
                 continue
 
             info("Running automatic printer synchronization...")
-            success = await asyncio.to_thread(sync_printers, SHOP_ID)
+            success = await asyncio.to_thread(sync_printers, config.SHOP_ID)
             if success:
                 info("Printer synchronization complete.")
             else:
@@ -64,25 +60,25 @@ async def printer_sync_loop():
 
 async def start_agent():
     info("=" * 65)
-    info(f"AI Smart Printing Agent Started [Agent ID: {AGENT_ID}]")
-    info(f"Target Cloud Server : {CLOUD_API_URL}")
-    info(f"WebSocket Endpoint  : {WEBSOCKET_URL}")
+    info(f"AI Smart Printing Agent Started [Agent ID: {config.AGENT_ID}]")
+    info(f"Target Cloud Server : {config.CLOUD_API_URL}")
+    info(f"WebSocket Endpoint  : {config.WEBSOCKET_URL}")
     info("=" * 65)
 
-    if not SHOP_ID:
-        warn("NOTICE: SHOP_ID is not configured in .env.")
-        warn("Printers will not sync until SHOP_ID (Shop Owner UUID) is provided in PRINT_AGENT/.env.")
-    else:
-        info(f"Configured for Shop Owner ID: {SHOP_ID}")
-        info("Detecting and synchronizing local printers...")
-        try:
-            registered = await asyncio.to_thread(sync_printers, SHOP_ID)
-            if registered:
-                info("Printers synchronized with Cloud.")
-            else:
-                warn("Printer synchronization completed with warnings.")
-        except Exception as e:
-            error(f"Initial printer synchronization failed: {e}")
+    if not config.SHOP_ID:
+        warn("NOTICE: No Shop ID configured.")
+        config.SHOP_ID = interactive_login(config.CLOUD_API_URL)
+
+    info(f"Configured for Shop Owner ID: {config.SHOP_ID}")
+    info("Detecting and synchronizing local printers...")
+    try:
+        registered = await asyncio.to_thread(sync_printers, config.SHOP_ID)
+        if registered:
+            info("Printers synchronized with Cloud.")
+        else:
+            warn("Printer synchronization completed with warnings.")
+    except Exception as e:
+        error(f"Initial printer synchronization failed: {e}")
 
     # Start background sync task
     sync_task = asyncio.create_task(printer_sync_loop())
@@ -98,6 +94,27 @@ async def start_agent():
 
 
 def main():
+    parser = argparse.ArgumentParser(description="AI Smart Print Agent")
+    parser.add_argument("--login", action="store_true", help="Authenticate with Shop Owner credentials")
+    parser.add_argument("--shop-id", type=str, help="Specify Shop Owner UUID dynamically")
+    parser.add_argument("--server", type=str, help="Specify Cloud Server URL dynamically")
+    parser.add_argument("--agent-id", type=str, help="Specify Agent ID dynamically")
+    args = parser.parse_args()
+
+    if args.server:
+        config.CLOUD_API_URL = args.server.rstrip("/")
+        config.WEBSOCKET_URL = config.CLOUD_API_URL.replace("https://", "wss://").replace("http://", "ws://") + "/ws/printer"
+
+    if args.agent_id:
+        config.AGENT_ID = args.agent_id
+
+    if args.shop_id:
+        config.SHOP_ID = args.shop_id
+        save_env_setting("SHOP_ID", config.SHOP_ID)
+
+    if args.login:
+        config.SHOP_ID = interactive_login(config.CLOUD_API_URL)
+
     signal.signal(signal.SIGINT, shutdown)
     signal.signal(signal.SIGTERM, shutdown)
 

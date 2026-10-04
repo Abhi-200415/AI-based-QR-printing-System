@@ -3,867 +3,1215 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Smart Printing - Owner & Operator Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <title>{{ shop_name }} - Shop Operations & Operator Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
-        :root {
-            --bg-primary: #0a0f1d;
-            --bg-card: #131b2e;
-            --bg-card-hover: #18233a;
-            --accent: #6366f1;
-            --accent-glow: rgba(99, 102, 241, 0.3);
-            --success: #10b981;
-            --success-glow: rgba(16, 185, 129, 0.2);
-            --warning: #f59e0b;
-            --warning-glow: rgba(245, 158, 11, 0.2);
-            --danger: #ef4444;
-            --text: #f8fafc;
-            --text-muted: #94a3b8;
-            --border: #223049;
-            --border-light: #2d3f5d;
-        }
-        * {
-            box-sizing: border-box;
-        }
-        body {
-            font-family: 'Outfit', sans-serif;
-            background-color: var(--bg-primary);
-            color: var(--text);
-            margin: 0;
-            padding: 24px;
-            background-image: radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.05) 0%, transparent 40%),
-                              radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.05) 0%, transparent 40%);
-            min-height: 100vh;
-        }
-        .header {
+        /* In-page styling extensions */
+        .search-filter-bar {
             display: flex;
-            justify-content: space-between;
+            gap: 12px;
             align-items: center;
-            margin-bottom: 24px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid var(--border);
+            margin-bottom: 20px;
             flex-wrap: wrap;
-            gap: 16px;
+            background: var(--bg-card);
+            padding: 16px;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
         }
-        h1 {
-            font-size: 26px;
-            font-weight: 700;
-            margin: 0;
-            background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+        .search-box {
+            flex: 1;
+            min-width: 240px;
+            position: relative;
         }
-        .btn {
-            background: var(--accent);
-            color: white;
-            padding: 9px 18px;
-            border-radius: 10px;
-            text-decoration: none;
-            font-size: 13px;
-            font-weight: 600;
-            border: none;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.2s ease;
+        .search-box input {
+            padding-left: 38px;
         }
-        .btn:hover {
-            opacity: 0.92;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px var(--accent-glow);
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 14px;
         }
-        .btn-success {
-            background: #10b981;
+        .filter-select {
+            width: auto;
+            min-width: 150px;
         }
-        .btn-success:hover {
-            box-shadow: 0 4px 12px var(--success-glow);
-        }
-        .btn-danger {
-            background: #ef4444;
-        }
-        .btn-sm {
-            padding: 6px 12px;
-            font-size: 12px;
-            border-radius: 8px;
-        }
-        
-        /* Stats Grid */
-        .stats-grid {
+        .quick-actions-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 16px;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 14px;
             margin-bottom: 24px;
         }
-        .stat-card {
+        .action-card {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 14px;
+            border-radius: var(--radius-md);
             padding: 18px;
-            position: relative;
-            overflow: hidden;
-            transition: transform 0.2s ease, border-color 0.2s ease;
-        }
-        .stat-card:hover {
-            transform: translateY(-2px);
-            border-color: var(--border-light);
-        }
-        .stat-card .label {
-            font-size: 12px;
-            font-weight: 500;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 8px;
-        }
-        .stat-card .value {
-            font-size: 26px;
-            font-weight: 700;
-            color: var(--text);
-        }
-        .stat-card.revenue .value { color: #34d399; }
-        .stat-card.active .value { color: #818cf8; }
-        .stat-card.failed .value { color: #f87171; }
-        .stat-card.pending .value { color: #fbbf24; }
-
-        /* Revenue Breakdown Section */
-        .revenue-panel {
-            background: linear-gradient(180deg, rgba(19, 27, 46, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);
-            border: 1px solid rgba(99, 102, 241, 0.25);
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 28px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-        }
-        .revenue-header {
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
             align-items: center;
-            margin-bottom: 16px;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 12px;
+            text-align: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            color: var(--text-main);
+            text-decoration: none;
         }
-        .revenue-header h3 {
-            margin: 0;
-            font-size: 16px;
+        .action-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent);
+            background: var(--bg-card-hover);
+            box-shadow: 0 6px 16px var(--accent-glow);
+        }
+        .action-icon {
+            font-size: 26px;
+        }
+        .action-title {
+            font-size: 13.5px;
             font-weight: 600;
-            color: #a5b4fc;
+        }
+        .action-desc {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+        .pricing-inputs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .pricing-box {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 16px;
+        }
+        .currency-input {
             display: flex;
             align-items: center;
             gap: 8px;
+            margin-top: 8px;
         }
-        .revenue-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-            gap: 14px;
-        }
-        .rev-item {
-            background: rgba(10, 15, 29, 0.6);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 14px;
-        }
-        .rev-item .title {
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-bottom: 4px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .rev-item .amount {
+        .currency-symbol {
             font-size: 20px;
             font-weight: 700;
-            color: #f8fafc;
+            color: #a5b4fc;
         }
-        .rev-item.cash .amount { color: #fbbf24; }
-        .rev-item.online .amount { color: #60a5fa; }
-        .rev-item.today .amount { color: #34d399; }
-
-        /* AI Prediction & Charts Grid */
-        .charts-container {
+        .qr-display-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            padding: 36px 24px;
+            max-width: 520px;
+            margin: 0 auto 24px auto;
+        }
+        .qr-frame {
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+            margin: 20px 0;
+            display: inline-block;
+        }
+        .qr-frame img {
+            width: 240px;
+            height: 240px;
+            display: block;
+        }
+        .charts-2col {
             display: grid;
             grid-template-columns: 2fr 1fr;
             gap: 20px;
-            margin-bottom: 28px;
+            margin-bottom: 24px;
         }
         @media (max-width: 1024px) {
-            .charts-container {
+            .charts-2col {
                 grid-template-columns: 1fr;
             }
         }
-        .chart-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 20px;
-            box-shadow: 0 6px 20px rgba(0,0,0,0.25);
-            position: relative;
-        }
-        .chart-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
-            padding-bottom: 10px;
-        }
-        .chart-title {
-            font-size: 15px;
-            font-weight: 600;
-            color: #f1f5f9;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .chart-tag {
-            font-size: 11px;
-            padding: 3px 8px;
-            border-radius: 6px;
-            background: rgba(99, 102, 241, 0.15);
-            color: #a5b4fc;
-            border: 1px solid rgba(99, 102, 241, 0.3);
-            font-weight: 600;
-        }
-        .forecast-metric-banner {
+        .forecast-strip {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
             gap: 12px;
-            background: rgba(99, 102, 241, 0.08);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-            border-radius: 12px;
-            padding: 12px 16px;
+            background: var(--accent-subtle);
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            border-radius: var(--radius-md);
+            padding: 14px;
             margin-bottom: 16px;
         }
-        .forecast-submetric {
-            font-size: 11px;
-            color: var(--text-muted);
-        }
-        .forecast-subval {
-            font-size: 16px;
+        .forecast-val {
+            font-size: 17px;
             font-weight: 700;
             color: #38bdf8;
             margin-top: 2px;
         }
-
-        /* Cash Approval Alert Banner & Section */
-        .cash-alert-box {
-            background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(217, 119, 6, 0.08) 100%);
+        .cash-alert-banner {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.08) 100%);
             border: 1px solid rgba(245, 158, 11, 0.4);
-            border-radius: 14px;
+            border-radius: var(--radius-lg);
             padding: 16px 20px;
             margin-bottom: 24px;
             display: none;
-            animation: pulse-glow 2s infinite alternate;
+            animation: pulseBanner 2s infinite alternate;
         }
-        @keyframes pulse-glow {
+        @keyframes pulseBanner {
             from { box-shadow: 0 0 10px rgba(245, 158, 11, 0.1); }
-            to { box-shadow: 0 0 20px rgba(245, 158, 11, 0.25); }
+            to { box-shadow: 0 0 20px rgba(245, 158, 11, 0.3); }
         }
-        
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin: 28px 0 12px 0;
-        }
-        .section-title {
-            font-size: 17px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin: 0;
-        }
-        .table-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            overflow: hidden;
-            margin-bottom: 24px;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: left;
+        .recommendation-item {
+            background: var(--bg-surface);
+            border-left: 4px solid var(--accent);
+            border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+            padding: 12px 16px;
+            margin-bottom: 10px;
             font-size: 13.5px;
-        }
-        th, td {
-            padding: 13px 18px;
-            border-bottom: 1px solid var(--border);
-        }
-        th {
-            background: rgba(11, 16, 29, 0.9);
-            color: var(--text-muted);
-            font-weight: 600;
-            font-size: 12.5px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        tbody tr:hover {
-            background: rgba(255, 255, 255, 0.02);
-        }
-        
-        /* Badges & Indicators */
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 4px 10px;
-            border-radius: 9999px;
-            font-size: 11.5px;
-            font-weight: 600;
-        }
-        .badge.online { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
-        .badge.offline { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
-        .badge.busy { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
-        .badge.pending { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
-        .badge.paid { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
-        .badge.queued { background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); }
-        .badge.printing { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
-        .badge.completed { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
-        
-        .pulse-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            display: inline-block;
-        }
-        .pulse-dot.online { background: #10b981; box-shadow: 0 0 8px #10b981; }
-        .pulse-dot.offline { background: #ef4444; }
-        .pulse-dot.busy { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
-
-        .tag {
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid var(--border);
-            padding: 2px 7px;
-            border-radius: 6px;
-            font-size: 11px;
-            color: #cbd5e1;
-            margin-right: 4px;
-        }
-
-        /* Pricing Manager Section */
-        .pricing-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-            margin-bottom: 20px;
-        }
-        .pricing-card {
-            background: var(--bg-primary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .pricing-card label {
-            font-size: 12px;
-            color: var(--text-muted);
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        .pricing-input-group {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .pricing-input-group span {
-            font-size: 18px;
-            font-weight: 700;
-            color: #a5b4fc;
-        }
-        .pricing-input {
-            background: var(--bg-card);
-            border: 1px solid var(--border-light);
-            color: var(--text);
-            padding: 8px 12px;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 700;
-            font-family: inherit;
-            width: 100%;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-        .pricing-input:focus {
-            border-color: var(--accent);
-        }
-        .custom-rule-form {
-            background: rgba(11, 16, 29, 0.6);
-            border: 1px dashed var(--border-light);
-            border-radius: 12px;
-            padding: 16px;
-            margin-top: 16px;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)) auto;
-            gap: 12px;
-            align-items: end;
-        }
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-        .form-group label {
-            font-size: 11px;
-            color: var(--text-muted);
-            font-weight: 600;
-        }
-        .form-select, .form-control {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            color: var(--text);
-            padding: 8px 10px;
-            border-radius: 8px;
-            font-size: 13px;
-            font-family: inherit;
-            outline: none;
-        }
-        .form-select:focus, .form-control:focus {
-            border-color: var(--accent);
-        }
-
-        .toast {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            padding: 14px 22px;
-            background: #1e293b;
-            color: white;
-            border-radius: 12px;
-            border: 1px solid #4f46e5;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            display: none;
-            z-index: 1000;
-            font-size: 14px;
-            font-weight: 500;
+            color: var(--text-main);
         }
     </style>
 </head>
 <body>
 
-<div class="header">
-    <div>
-        <h1>Shop Operations & Operator Dashboard</h1>
-        <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">
-            Shop Owner ID: <code style="color: #a5b4fc; background: rgba(99,102,241,0.1); padding: 2px 6px; border-radius: 4px;" id="ownerId">{{ owner_id }}</code>
-            <span style="margin-left: 12px; color: #10b981; font-weight: 500;">● Live Sync Active</span>
-        </div>
-    </div>
-    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-        <button id="btnAudioToggle" class="btn btn-sm" onclick="toggleAudioAlerts()" style="background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3); color: #a5b4fc;">🔔 Sound Alerts: ON</button>
-        <a href="#pricingSection" class="btn btn-sm" style="background: rgba(255,255,255,0.08); border: 1px solid var(--border);">⚙️ Pricing Rules</a>
-        <button class="btn btn-sm" onclick="loadDashboard()" style="background: rgba(255,255,255,0.08); border: 1px solid var(--border);">🔄 Refresh</button>
-        <a href="/owner/{{ owner_id }}/qr" class="btn btn-sm" target="_blank">📱 Customer QR</a>
-        <div style="font-size: 13px; color: var(--text-muted); background: var(--bg-card); padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border);" id="liveClock">--:--:--</div>
-    </div>
-</div>
+<div class="app-layout">
+    <!-- Sidebar Drawer Overlay (Mobile) -->
+    <div class="drawer-overlay" id="drawerOverlay" onclick="toggleSidebar(false)"></div>
 
-<!-- Pending Cash Alert Box -->
-<div id="cashAlertBanner" class="cash-alert-box">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-        <div style="display: flex; align-items: center; gap: 12px;">
-            <span style="font-size: 24px;">💵</span>
-            <div>
-                <strong style="color: #fbbf24; font-size: 15px;">Pending Cash Payments at Counter</strong>
-                <div style="font-size: 13px; color: #fde68a; margin-top: 2px;">
-                    <span id="cashAlertCount">0</span> customer(s) are waiting to pay cash. Please collect payment and click Confirm below.
-                </div>
+    <!-- Main Navigation Sidebar -->
+    <aside class="app-sidebar" id="appSidebar">
+        <div class="sidebar-header">
+            <div class="brand-logo">🖨️</div>
+            <div class="brand-text">
+                <span class="brand-title">{{ shop_name }}</span>
+                <span class="brand-subtitle">Smart Printing Cloud</span>
             </div>
         </div>
-        <a href="#pendingCashSection" class="btn btn-sm btn-success" style="background: #f59e0b; color: #1e1b4b; font-weight: 700;">Review Cash Requests ↓</a>
-    </div>
-</div>
 
-<!-- Primary Stats Grid -->
-<div class="stats-grid">
-    <div class="stat-card">
-        <div class="label">Total Print Jobs</div>
-        <div class="value" id="statTotalJobs">-</div>
-    </div>
-    <div class="stat-card active">
-        <div class="label">Completed Jobs</div>
-        <div class="value" id="statCompletedJobs">-</div>
-    </div>
-    <div class="stat-card pending">
-        <div class="label">Active Queue</div>
-        <div class="value" id="statActiveQueue">-</div>
-    </div>
-    <div class="stat-card failed">
-        <div class="label">Failed Jobs</div>
-        <div class="value" id="statFailedJobs">-</div>
-    </div>
-    <div class="stat-card revenue">
-        <div class="label">Total Revenue</div>
-        <div class="value" id="statRevenue">₹-</div>
-    </div>
-    <div class="stat-card">
-        <div class="label">Avg Print Time</div>
-        <div class="value" id="statAvgTime">-s</div>
-    </div>
-</div>
+        <nav class="sidebar-nav">
+            <div class="nav-group-title">Operations</div>
+            <a class="nav-item active" data-view="dashboard" onclick="navigate('dashboard')">
+                <span class="nav-icon">📊</span>
+                <span>Dashboard</span>
+            </a>
+            <a class="nav-item" data-view="jobs" onclick="navigate('jobs')">
+                <span class="nav-icon">📋</span>
+                <span>Jobs</span>
+                <span class="nav-badge" id="navJobsBadge" style="display: none;">0</span>
+            </a>
+            <a class="nav-item" data-view="queue" onclick="navigate('queue')">
+                <span class="nav-icon">⚡</span>
+                <span>Live Queue</span>
+                <span class="nav-badge" id="navQueueBadge" style="display: none; background: var(--accent); color: white;">0</span>
+            </a>
+            <a class="nav-item" data-view="printers" onclick="navigate('printers')">
+                <span class="nav-icon">🖨️</span>
+                <span>Printers</span>
+                <span class="nav-badge" id="navPrintersBadge" style="display: none; background: var(--success); color: white;">0</span>
+            </a>
+            <a class="nav-item" data-view="payments" onclick="navigate('payments')">
+                <span class="nav-icon">💳</span>
+                <span>Payments</span>
+                <span class="nav-badge" id="navCashBadge" style="display: none;">0</span>
+            </a>
+            
+            <div class="nav-group-title" style="margin-top: 10px;">Intelligence & Config</div>
+            <a class="nav-item" data-view="analytics" onclick="navigate('analytics')">
+                <span class="nav-icon">📈</span>
+                <span>AI Analytics</span>
+            </a>
+            <a class="nav-item" data-view="qr-code" onclick="navigate('qr-code')">
+                <span class="nav-icon">📱</span>
+                <span>QR Standee</span>
+            </a>
+            <a class="nav-item" data-view="pricing" onclick="navigate('pricing')">
+                <span class="nav-icon">🏷️</span>
+                <span>Pricing Rules</span>
+            </a>
+            <a class="nav-item" data-view="settings" onclick="navigate('settings')">
+                <span class="nav-icon">⚙️</span>
+                <span>Settings</span>
+            </a>
+            <a class="nav-item" data-view="profile" onclick="navigate('profile')">
+                <span class="nav-icon">👤</span>
+                <span>Owner Profile</span>
+            </a>
+        </nav>
 
-<!-- Comprehensive Revenue Breakdown Panel -->
-<div class="revenue-panel">
-    <div class="revenue-header">
-        <h3>💰 Detailed Revenue & Financial Breakdown</h3>
-        <span style="font-size: 12px; color: var(--text-muted);">Real-time Payment Method & Time Analysis</span>
-    </div>
-    <div class="revenue-grid">
-        <div class="rev-item cash">
-            <div class="title">💵 Cash Collected (Counter)</div>
-            <div class="amount" id="revCash">₹0.00</div>
+        <div class="sidebar-footer">
+            <div class="agent-status-card">
+                <div style="font-size: 11px; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span>Print Agent Sync</span>
+                    <span id="sidebarAgentStatus" class="tag" style="background: rgba(16, 185, 129, 0.15); color: #34d399;">Ready</span>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="copyAgentCmd()" style="width: 100%; font-size: 11px; padding: 5px;">
+                    📋 Copy Agent Command
+                </button>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="logout()" style="width: 100%; border-color: rgba(239, 68, 68, 0.3); color: #f87171;">
+                🚪 Log Out
+            </button>
         </div>
-        <div class="rev-item online">
-            <div class="title">📱 Online / UPI Revenue</div>
-            <div class="amount" id="revOnline">₹0.00</div>
-        </div>
-        <div class="rev-item today">
-            <div class="title">📅 Today's Revenue</div>
-            <div class="amount" id="revToday">₹0.00</div>
-        </div>
-        <div class="rev-item">
-            <div class="title">📆 This Month's Revenue</div>
-            <div class="amount" id="revMonth">₹0.00</div>
-        </div>
-        <div class="rev-item">
-            <div class="title">📄 B/W Print Revenue</div>
-            <div class="amount" id="revBw">₹0.00</div>
-        </div>
-        <div class="rev-item">
-            <div class="title">🎨 Color Print Revenue</div>
-            <div class="amount" id="revColor">₹0.00</div>
-        </div>
-        <div class="rev-item">
-            <div class="title">🏷️ Avg Order Value (AOV)</div>
-            <div class="amount" id="revAov">₹0.00</div>
-        </div>
-        <div class="rev-item">
-            <div class="title">⏳ Pending Cash to Collect</div>
-            <div class="amount" id="revPendingCash" style="color: #f59e0b;">₹0.00</div>
-        </div>
+    </aside>
+
+    <!-- Main Content Application Shell -->
+    <div class="app-main">
+        <!-- Top App Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <button class="menu-toggle-btn" onclick="toggleSidebar()" title="Toggle Menu" aria-label="Toggle navigation menu">
+                    ☰
+                </button>
+                <div class="header-title-box">
+                    <span class="header-page-title" id="headerViewTitle">Dashboard</span>
+                    <span class="header-shop-name">
+                        <span>{{ shop_name }}</span>
+                        <span>•</span>
+                        <code style="font-size: 11px; color: #a5b4fc;" id="headerOwnerIdShort">{{ owner_id[:8] }}...</code>
+                    </span>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <span class="live-pulse">
+                    <span class="pulse-dot"></span>
+                    <span>Live Sync</span>
+                </span>
+                <button id="btnAudioToggle" class="btn btn-secondary btn-sm" onclick="toggleAudioAlerts()">
+                    🔔 Audio: ON
+                </button>
+                <a href="/owner/{{ owner_id }}/qr" target="_blank" class="btn btn-secondary btn-sm" title="Open Public QR Standee View">
+                    📱 Placard
+                </a>
+                <button class="btn btn-secondary btn-sm" onclick="refreshCurrentView()" title="Refresh Data">
+                    🔄
+                </button>
+                <div class="live-clock-badge" id="liveClock">--:--:--</div>
+                <a class="btn btn-sm" onclick="navigate('profile')" style="background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); color: #c7d2fe; cursor: pointer;">
+                    👤 {{ owner_name.split()[0] if owner_name else 'Owner' }}
+                </a>
+            </div>
+        </header>
+
+        <!-- Main Content Views Container -->
+        <main class="app-content">
+
+            <!-- Global Cash Alert Banner -->
+            <div id="cashAlertBanner" class="cash-alert-banner">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span style="font-size: 24px;">💵</span>
+                        <div>
+                            <strong style="color: #fbbf24; font-size: 15px;">Pending Counter Cash Approvals</strong>
+                            <div style="font-size: 13px; color: #fde68a; margin-top: 2px;">
+                                <span id="cashAlertCount">0</span> customer(s) are at the counter waiting to pay cash.
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-sm" onclick="navigate('payments')" style="background: #f59e0b; color: #1e1b4b; font-weight: 700;">
+                        Review Cash Queue →
+                    </button>
+                </div>
+            </div>
+
+            <!-- ==========================================================
+                 VIEW 1: DASHBOARD
+                 ========================================================== -->
+            <section class="app-view active" id="view-dashboard">
+                <div class="view-header">
+                    <div class="view-title-group">
+                        <h2><span>📊</span> Shop Overview & Daily Operations</h2>
+                        <p>High-level metrics, active queues, and fast shortcuts</p>
+                    </div>
+                    <div class="view-actions">
+                        <button class="btn btn-sm" onclick="navigate('jobs')">📋 View Jobs</button>
+                        <button class="btn btn-sm btn-success" onclick="navigate('payments')">💵 Cash Requests</button>
+                    </div>
+                </div>
+
+                <!-- Primary KPI Stats Grid -->
+                <div class="stats-grid">
+                    <div class="stat-card accent">
+                        <div class="stat-label">Total Jobs</div>
+                        <div class="stat-value" id="dashTotalJobs">-</div>
+                        <div class="stat-sub">Lifetime print orders</div>
+                    </div>
+                    <div class="stat-card success">
+                        <div class="stat-label">Completed Jobs</div>
+                        <div class="stat-value" id="dashCompletedJobs" style="color: #34d399;">-</div>
+                        <div class="stat-sub">Successfully printed</div>
+                    </div>
+                    <div class="stat-card warning">
+                        <div class="stat-label">Active Queue</div>
+                        <div class="stat-value" id="dashActiveQueue" style="color: #fbbf24;">-</div>
+                        <div class="stat-sub">Pending / Printing</div>
+                    </div>
+                    <div class="stat-card cyan">
+                        <div class="stat-label">Total Revenue</div>
+                        <div class="stat-value" id="dashRevenue" style="color: #38bdf8;">₹-</div>
+                        <div class="stat-sub">Collected orders</div>
+                    </div>
+                    <div class="stat-card danger">
+                        <div class="stat-label">Failed Jobs</div>
+                        <div class="stat-value" id="dashFailedJobs" style="color: #f87171;">-</div>
+                        <div class="stat-sub">Errors or aborted</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Avg Print Time</div>
+                        <div class="stat-value" id="dashAvgTime">-s</div>
+                        <div class="stat-sub">Per completed job</div>
+                    </div>
+                </div>
+
+                <!-- Quick Action Shortcuts -->
+                <div class="panel-header" style="margin-top: 10px;">
+                    <div class="panel-title"><span>⚡</span> Quick Management Shortcuts</div>
+                </div>
+                <div class="quick-actions-grid">
+                    <div class="action-card" onclick="navigate('queue')">
+                        <div class="action-icon">⚡</div>
+                        <div class="action-title">Live Queue</div>
+                        <div class="action-desc">Monitor print dispatch</div>
+                    </div>
+                    <div class="action-card" onclick="navigate('jobs')">
+                        <div class="action-icon">📋</div>
+                        <div class="action-title">All Jobs</div>
+                        <div class="action-desc">Filter & view order details</div>
+                    </div>
+                    <div class="action-card" onclick="navigate('printers')">
+                        <div class="action-icon">🖨️</div>
+                        <div class="action-title">Printers</div>
+                        <div class="action-desc">Manage physical hardware</div>
+                    </div>
+                    <div class="action-card" onclick="navigate('payments')">
+                        <div class="action-icon">💵</div>
+                        <div class="action-title">Counter Cash</div>
+                        <div class="action-desc">Approve customer payments</div>
+                    </div>
+                    <div class="action-card" onclick="navigate('analytics')">
+                        <div class="action-icon">📈</div>
+                        <div class="action-title">AI Forecasts</div>
+                        <div class="action-desc">View revenue & peak loads</div>
+                    </div>
+                    <div class="action-card" onclick="navigate('pricing')">
+                        <div class="action-icon">🏷️</div>
+                        <div class="action-title">Rate Card</div>
+                        <div class="action-desc">Set per-page pricing</div>
+                    </div>
+                    <div class="action-card" onclick="navigate('qr-code')">
+                        <div class="action-icon">📱</div>
+                        <div class="action-title">Shop Standee</div>
+                        <div class="action-desc">Print counter QR placard</div>
+                    </div>
+                </div>
+
+                <!-- Quick Revenue Snapshot & Recent Orders -->
+                <div class="card-panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><span>💰</span> Today's Financial Snapshot</div>
+                        <button class="btn btn-secondary btn-sm" onclick="navigate('payments')">Detailed Breakdown →</button>
+                    </div>
+                    <div class="stats-grid" style="margin-bottom: 0;">
+                        <div class="pricing-box">
+                            <div class="stat-label">💵 Today's Cash</div>
+                            <div class="stat-value" id="dashRevCash" style="color: #fbbf24; font-size: 22px;">₹0.00</div>
+                        </div>
+                        <div class="pricing-box">
+                            <div class="stat-label">📱 Today's Online (UPI)</div>
+                            <div class="stat-value" id="dashRevOnline" style="color: #60a5fa; font-size: 22px;">₹0.00</div>
+                        </div>
+                        <div class="pricing-box">
+                            <div class="stat-label">📅 Today's Total</div>
+                            <div class="stat-value" id="dashRevToday" style="color: #34d399; font-size: 22px;">₹0.00</div>
+                        </div>
+                        <div class="pricing-box">
+                            <div class="stat-label">📆 This Month</div>
+                            <div class="stat-value" id="dashRevMonth" style="color: #a5b4fc; font-size: 22px;">₹0.00</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- ==========================================================
+                 VIEW 2: JOBS MANAGEMENT
+                 ========================================================== -->
+            <section class="app-view" id="view-jobs">
+                <div class="view-header">
+                    <div class="view-title-group">
+                        <h2><span>📋</span> Print Jobs Management</h2>
+                        <p>Search, filter, and inspect detailed customer printing orders</p>
+                    </div>
+                    <div class="view-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="loadJobsTable()">🔄 Refresh Jobs</button>
+                    </div>
+                </div>
+
+                <div class="search-filter-bar">
+                    <div class="search-box">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="jobsSearchInput" class="form-control" placeholder="Search by Job ID, Customer, Phone, or File name..." oninput="filterJobsList()">
+                    </div>
+                    <select id="jobsStatusFilter" class="form-select filter-select" onchange="filterJobsList()">
+                        <option value="ALL">All Job Statuses</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Queued">Queued</option>
+                        <option value="Printing">Printing</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Failed">Failed</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </select>
+                    <select id="jobsPaymentFilter" class="form-select filter-select" onchange="filterJobsList()">
+                        <option value="ALL">All Payments</option>
+                        <option value="Paid">Paid</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Failed">Failed</option>
+                    </select>
+                </div>
+
+                <div class="table-wrapper">
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Job ID</th>
+                                    <th>Customer</th>
+                                    <th>Files & Pages</th>
+                                    <th>Print Settings</th>
+                                    <th>Amount</th>
+                                    <th>Payment</th>
+                                    <th>Job Status</th>
+                                    <th>Assigned Printer</th>
+                                    <th>Date / Time</th>
+                                    <th style="text-align: right;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="jobsFullTable">
+                                <tr><td colspan="10" style="text-align:center; color: var(--text-muted); padding: 24px;">Loading print jobs...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- ==========================================================
+                 VIEW 3: LIVE QUEUE
+                 ========================================================== -->
+            <section class="app-view" id="view-queue">
+                <div class="view-header">
+                    <div class="view-title-group">
+                        <h2><span>⚡</span> Real-Time Print Queue</h2>
+                        <p>Active printer dispatch schedule and queue order</p>
+                    </div>
+                    <div class="view-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="loadQueueTable()">🔄 Refresh Queue</button>
+                    </div>
+                </div>
+
+                <div class="stats-grid" style="margin-bottom: 20px;">
+                    <div class="stat-card accent">
+                        <div class="stat-label">Waiting Orders</div>
+                        <div class="stat-value" id="queueWaitingCount">0</div>
+                    </div>
+                    <div class="stat-card warning">
+                        <div class="stat-label">In Dispatch Queue</div>
+                        <div class="stat-value" id="queueQueuedCount">0</div>
+                    </div>
+                    <div class="stat-card cyan">
+                        <div class="stat-label">Currently Printing</div>
+                        <div class="stat-value" id="queuePrintingCount">0</div>
+                    </div>
+                    <div class="stat-card success">
+                        <div class="stat-label">Completed Today</div>
+                        <div class="stat-value" id="queueCompletedCount">0</div>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Position</th>
+                                    <th>Job ID</th>
+                                    <th>Status</th>
+                                    <th>Assigned Printer</th>
+                                    <th>Estimated Wait</th>
+                                    <th>Queued At</th>
+                                    <th style="text-align: right;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="queueLiveTable">
+                                <tr><td colspan="7" style="text-align:center; color: var(--text-muted); padding: 24px;">Scanning active queue...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- ==========================================================
+                 VIEW 4: PRINTERS MANAGEMENT
+                 ========================================================== -->
+            <section class="app-view" id="view-printers">
+                <div class="view-header">
+                    <div class="view-title-group">
+                        <h2><span>🖨️</span> Connected Printers & Hardware Agents</h2>
+                        <p>Physical printer status, queue loads, and agent connection instructions</p>
+                    </div>
+                    <div class="view-actions">
+                        <button class="btn btn-sm" onclick="copyAgentCmd()">📋 Copy Agent Command</button>
+                        <button class="btn btn-secondary btn-sm" onclick="loadPrintersTable()">🔄 Refresh</button>
+                    </div>
+                </div>
+
+                <div class="card-panel" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(16, 185, 129, 0.08) 100%); border-color: rgba(99, 102, 241, 0.3);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                        <div>
+                            <strong style="color: #ffffff; font-size: 15px;">🔌 Connect Local Physical Printer</strong>
+                            <div style="font-size: 13px; color: var(--text-muted); margin-top: 3px;">
+                                Run this command in PowerShell or Terminal on your shop computer to link local Windows printers:
+                            </div>
+                        </div>
+                        <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.5); padding: 6px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+                            <code style="color: #a5b4fc; font-size: 12.5px;" id="codeAgentCmd">python .\PRINT_AGENT\agent.py --shop-id {{ owner_id }}</code>
+                            <button class="btn btn-sm btn-success" onclick="copyAgentCmd()" style="padding: 3px 8px; font-size: 11px;">Copy</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Printer Name</th>
+                                    <th>Hardware Model</th>
+                                    <th>Hardware Status</th>
+                                    <th>Current Queue</th>
+                                    <th>Supported Capabilities</th>
+                                    <th>Total Pages Printed</th>
+                                    <th style="text-align: right;">Status Check</th>
+                                </tr>
+                            </thead>
+                            <tbody id="printersListTable">
+                                <tr><td colspan="7" style="text-align:center; color: var(--text-muted); padding: 24px;">Scanning connected printers...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- ==========================================================
+                 VIEW 5: PAYMENTS & COUNTER CASH
+                 ========================================================== -->
+            <section class="app-view" id="view-payments">
+                <div class="view-header">
+                    <div class="view-title-group">
+                        <h2><span>💳</span> Payments & Counter Cash Management</h2>
+                        <p>Approve walk-in counter cash payments and view transactions</p>
+                    </div>
+                    <div class="view-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="loadDashboard()">🔄 Refresh</button>
+                    </div>
+                </div>
+
+                <!-- Financial Metric Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card warning">
+                        <div class="stat-label">💵 Total Cash Collected</div>
+                        <div class="stat-value" id="payRevCash">₹0.00</div>
+                    </div>
+                    <div class="stat-card accent">
+                        <div class="stat-label">📱 Online / UPI Revenue</div>
+                        <div class="stat-value" id="payRevOnline">₹0.00</div>
+                    </div>
+                    <div class="stat-card success">
+                        <div class="stat-label">📅 Today's Revenue</div>
+                        <div class="stat-value" id="payRevToday">₹0.00</div>
+                    </div>
+                    <div class="stat-card cyan">
+                        <div class="stat-label">📆 This Month</div>
+                        <div class="stat-value" id="payRevMonth">₹0.00</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">🏷️ Avg Order Value</div>
+                        <div class="stat-value" id="payRevAov">₹0.00</div>
+                    </div>
+                </div>
+
+                <!-- Counter Cash Approval Queue -->
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <span>💵</span> Counter Cash Confirmation Queue
+                        <span class="badge badge-pending" id="payCashBadge">0 Pending</span>
+                    </div>
+                </div>
+                <div class="table-wrapper">
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Job ID</th>
+                                    <th>Customer / Details</th>
+                                    <th>Files & Pages</th>
+                                    <th>Amount Due</th>
+                                    <th>Request Time</th>
+                                    <th style="text-align: right;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payCashQueueTable">
+                                <tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 20px;">No pending cash requests.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Transaction Log -->
+                <div class="panel-header" style="margin-top: 28px;">
+                    <div class="panel-title"><span>📜</span> Recent Transactions & Payment Activity</div>
+                </div>
+                <div class="table-wrapper">
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Job ID</th>
+                                    <th>Customer</th>
+                                    <th>Amount</th>
+                                    <th>Payment Method</th>
+                                    <th>Payment Status</th>
+                                    <th>Job Status</th>
+                                    <th>Date & Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payTransactionsTable">
+                                <tr><td colspan="7" style="text-align:center; color: var(--text-muted); padding: 20px;">Loading transactions...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- ==========================================================
+                 VIEW 6: AI ANALYTICS & PREDICTIONS
+                 ========================================================== -->
+            <section class="app-view" id="view-analytics">
+                <div class="view-header">
+                    <div class="view-title-group">
+                        <h2><span>📈</span> AI Visual Intelligence & Predictive Analytics</h2>
+                        <p>Time-series regression forecast, busy hours heatmap, and smart insights</p>
+                    </div>
+                    <div class="view-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="loadAnalyticsData(true)">🔄 Recalculate Forecast</button>
+                    </div>
+                </div>
+
+                <!-- AI Forecast Strip -->
+                <div class="forecast-strip">
+                    <div>
+                        <div class="stat-label" style="font-size: 11px;">Projected Next 7 Days</div>
+                        <div class="forecast-val" id="anaForecast7d">₹0.00</div>
+                    </div>
+                    <div>
+                        <div class="stat-label" style="font-size: 11px;">Projected 30-Day Run Rate</div>
+                        <div class="forecast-val" id="anaForecast30d" style="color: #34d399;">₹0.00</div>
+                    </div>
+                    <div>
+                        <div class="stat-label" style="font-size: 11px;">Growth Momentum</div>
+                        <div class="forecast-val" id="anaGrowthVal" style="color: #fbbf24;">Stable</div>
+                    </div>
+                    <div>
+                        <div class="stat-label" style="font-size: 11px;">AI Model Confidence</div>
+                        <div class="forecast-val" style="color: #a5b4fc;">94.8%</div>
+                    </div>
+                </div>
+
+                <!-- Charts Row 1 -->
+                <div class="charts-2col">
+                    <div class="card-panel">
+                        <div class="panel-header">
+                            <div class="panel-title">📈 Revenue History & AI 7-Day Forecast</div>
+                            <span class="tag" id="anaForecastTag">AI Trend</span>
+                        </div>
+                        <div style="position: relative; height: 260px; width: 100%;">
+                            <canvas id="anaRevenueChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="card-panel">
+                        <div class="panel-header">
+                            <div class="panel-title">⏰ Busy-Hour Load Distribution</div>
+                            <span class="tag" id="anaPeakTag">Peak: --:00</span>
+                        </div>
+                        <div style="position: relative; height: 260px; width: 100%;">
+                            <canvas id="anaHourlyChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row 2 -->
+                <div class="charts-2col" style="grid-template-columns: 1fr 1fr;">
+                    <div class="card-panel">
+                        <div class="panel-header">
+                            <div class="panel-title">📑 Print Job Category Distribution</div>
+                        </div>
+                        <div style="position: relative; height: 220px; width: 100%;">
+                            <canvas id="anaPrintTypeChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="card-panel">
+                        <div class="panel-header">
+                            <div class="panel-title">💳 Payment Channels (Cash vs Online)</div>
+                        </div>
+                        <div style="position: relative; height: 220px; width: 100%;">
+                            <canvas id="anaPaymentChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Recommendations -->
+                <div class="card-panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><span>🤖</span> AI Operational Insights & Recommendations</div>
+                    </div>
+                    <div id="anaRecommendationsList">
+                        <div class="recommendation-item">System operating smoothly. No bottlenecks detected.</div>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- ==========================================================
+                 VIEW 7: QR CODE STANDEE
+                 ========================================================== -->
+            <section class="app-view" id="view-qr-code">
+                <div class="view-header">
+                    <div class="view-title-group">
+                        <h2><span>📱</span> Shop QR Standee & Customer Entrypoint</h2>
+                        <p>Customers scan this QR to upload documents and send print jobs directly to your shop</p>
+                    </div>
+                    <div class="view-actions">
+                        <a href="/owner/{{ owner_id }}/qr" target="_blank" class="btn btn-sm">🖨️ Standee Placard View</a>
+                    </div>
+                </div>
+
+                <div class="qr-display-container">
+                    <span class="tag" style="background: rgba(99, 102, 241, 0.15); color: #818cf8; margin-bottom: 8px;">Official Shop QR Token</span>
+                    <h3 style="font-size: 22px; margin-bottom: 4px;">{{ shop_name }}</h3>
+                    <p style="font-size: 13px; color: var(--text-muted);">Scan with smartphone camera to open document upload portal</p>
+
+                    <div class="qr-frame">
+                        <img id="qrStandeeImg" src="" alt="Shop QR Code">
+                    </div>
+
+                    <div style="width: 100%; max-width: 440px; margin-bottom: 20px;">
+                        <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 6px; text-align: left;">Direct Customer Upload Link:</div>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="qrUploadUrlInput" class="form-control" readonly style="font-size: 12.5px;">
+                            <button class="btn btn-secondary btn-sm" onclick="copyUploadLink()">📋 Copy</button>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;">
+                        <a id="qrTestLink" href="#" target="_blank" class="btn btn-sm">🚀 Test Customer Upload Flow</a>
+                        <a href="/owner/{{ owner_id }}/qr" target="_blank" class="btn btn-secondary btn-sm">📄 Print Poster Placard</a>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- ==========================================================
+                 VIEW 8: PRICING RULES
+                 ========================================================== -->
+            <section class="app-view" id="view-pricing">
+                <div class="view-header">
+                    <div class="view-title-group">
+                        <h2><span>🏷️</span> Shop Pricing & Rate Card Manager</h2>
+                        <p>Set base rates for paper sizes and create custom bulk discount tiers</p>
+                    </div>
+                    <div class="view-actions">
+                        <button class="btn btn-success btn-sm" onclick="saveQuickRates()" id="btnSaveQuickRates">💾 Save Base Rates</button>
+                    </div>
+                </div>
+
+                <div class="card-panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><span>💵</span> Standard Base Rates</div>
+                    </div>
+                    <div class="pricing-inputs-grid">
+                        <div class="pricing-box">
+                            <label class="form-label">A4 Black & White (B/W)</label>
+                            <div class="currency-input">
+                                <span class="currency-symbol">₹</span>
+                                <input type="number" step="0.25" min="0.25" id="rateA4Bw" class="form-control" value="2.00">
+                            </div>
+                            <span style="font-size: 11px; color: var(--text-muted);">Standard per-page</span>
+                        </div>
+                        <div class="pricing-box">
+                            <label class="form-label">A4 Full Color</label>
+                            <div class="currency-input">
+                                <span class="currency-symbol">₹</span>
+                                <input type="number" step="0.50" min="0.50" id="rateA4Color" class="form-control" value="10.00">
+                            </div>
+                            <span style="font-size: 11px; color: var(--text-muted);">Standard per-page</span>
+                        </div>
+                        <div class="pricing-box">
+                            <label class="form-label">A3 Black & White (B/W)</label>
+                            <div class="currency-input">
+                                <span class="currency-symbol">₹</span>
+                                <input type="number" step="0.50" min="0.50" id="rateA3Bw" class="form-control" value="5.00">
+                            </div>
+                            <span style="font-size: 11px; color: var(--text-muted);">Large format per-page</span>
+                        </div>
+                        <div class="pricing-box">
+                            <label class="form-label">A3 Full Color</label>
+                            <div class="currency-input">
+                                <span class="currency-symbol">₹</span>
+                                <input type="number" step="1.00" min="1.00" id="rateA3Color" class="form-control" value="20.00">
+                            </div>
+                            <span style="font-size: 11px; color: var(--text-muted);">Large format per-page</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Custom Tier Rules -->
+                <div class="card-panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><span>📊</span> Granular Active Rules & Volume Tiers</div>
+                        <button class="btn btn-secondary btn-sm" onclick="toggleAddRuleForm()">➕ Add Custom Tier</button>
+                    </div>
+
+                    <!-- Add Rule Collapsible Form -->
+                    <div id="addRuleForm" style="display: none; background: var(--bg-surface); padding: 18px; border-radius: var(--radius-md); border: 1px dashed var(--border); margin-bottom: 20px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) auto; gap: 12px; align-items: end;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Paper Size</label>
+                                <select id="newRulePaperSize" class="form-select">
+                                    <option value="A4">A4</option>
+                                    <option value="A3">A3</option>
+                                    <option value="LETTER">Letter</option>
+                                    <option value="LEGAL">Legal</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Print Type</label>
+                                <select id="newRulePrintType" class="form-select">
+                                    <option value="BW">Black & White (B/W)</option>
+                                    <option value="COLOR">Full Color</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Duplex</label>
+                                <select id="newRuleDuplex" class="form-select">
+                                    <option value="false">Single-Sided</option>
+                                    <option value="true">Double-Sided (Duplex)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">From Page</label>
+                                <input type="number" id="newRuleFrom" class="form-control" value="1" min="1">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">To Page</label>
+                                <input type="number" id="newRuleTo" class="form-control" value="9999" min="1">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Rate / Page (₹)</label>
+                                <input type="number" step="0.25" id="newRulePrice" class="form-control" placeholder="2.00">
+                            </div>
+                            <button class="btn btn-success" onclick="createCustomRule()" style="height: 42px;">Add Tier</button>
+                        </div>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Paper Size</th>
+                                        <th>Color Mode</th>
+                                        <th>Sides</th>
+                                        <th>Page Tier Range</th>
+                                        <th>Price / Page</th>
+                                        <th style="text-align: right;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pricingRulesTable">
+                                    <tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 18px;">Loading pricing rules...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- ==========================================================
+                 VIEW 9: SETTINGS
+                 ========================================================== -->
+            <section class="app-view" id="view-settings">
+                <div class="view-header">
+                    <div class="view-title-group">
+                        <h2><span>⚙️</span> Shop & Printing Settings</h2>
+                        <p>Configure file upload limits, default printer, and enabled features</p>
+                    </div>
+                    <div class="view-actions">
+                        <button class="btn btn-success btn-sm" onclick="saveShopSettings()">💾 Save Settings</button>
+                    </div>
+                </div>
+
+                <div class="card-panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><span>🖨️</span> Printing Capabilities & Upload Limits</div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
+                        <div class="form-group">
+                            <label class="form-label">Max Upload File Size (MB)</label>
+                            <input type="number" id="settingMaxSize" class="form-control" value="50" min="5" max="200">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Max Files Per Job</label>
+                            <input type="number" id="settingMaxFiles" class="form-control" value="20" min="1" max="50">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Tax / GST Percentage (%)</label>
+                            <input type="number" step="0.1" id="settingTax" class="form-control" value="0.0">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Shop Currency</label>
+                            <input type="text" id="settingCurrency" class="form-control" value="INR" readonly>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border);">
+                        <strong style="font-size: 13.5px; color: var(--text-main); display: block; margin-bottom: 12px;">Customer Feature Toggles</strong>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 13.5px; cursor: pointer;">
+                                <input type="checkbox" id="settingAllowBw" checked style="accent-color: var(--accent); width: 16px; height: 16px;">
+                                <span>Allow Black & White</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 13.5px; cursor: pointer;">
+                                <input type="checkbox" id="settingAllowColor" checked style="accent-color: var(--accent); width: 16px; height: 16px;">
+                                <span>Allow Full Color</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 13.5px; cursor: pointer;">
+                                <input type="checkbox" id="settingAllowDuplex" checked style="accent-color: var(--accent); width: 16px; height: 16px;">
+                                <span>Allow Duplex (Double-Sided)</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 13.5px; cursor: pointer;">
+                                <input type="checkbox" id="settingAllowMixed" checked style="accent-color: var(--accent); width: 16px; height: 16px;">
+                                <span>Allow Mixed Page Modes</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 13.5px; cursor: pointer;">
+                                <input type="checkbox" id="settingAllowPageSelect" checked style="accent-color: var(--accent); width: 16px; height: 16px;">
+                                <span>Allow Custom Page Ranges</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- ==========================================================
+                 VIEW 10: OWNER PROFILE
+                 ========================================================== -->
+            <section class="app-view" id="view-profile">
+                <div class="view-header">
+                    <div class="view-title-group">
+                        <h2><span>👤</span> Shop Owner Profile</h2>
+                        <p>Registered business identity and payment credentials</p>
+                    </div>
+                </div>
+
+                <div class="card-panel" style="max-width: 680px;">
+                    <div style="display: flex; align-items: center; gap: 18px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--border);">
+                        <div style="width: 64px; height: 64px; border-radius: var(--radius-lg); background: linear-gradient(135deg, var(--accent) 0%, var(--purple) 100%); display: flex; align-items: center; justify-content: center; font-size: 28px; color: white;">
+                            🏬
+                        </div>
+                        <div>
+                            <h3 style="font-size: 20px; margin-bottom: 2px;">{{ shop_name }}</h3>
+                            <div style="font-size: 13px; color: var(--text-muted);">Owner: <strong style="color: var(--text-main);">{{ owner_name }}</strong></div>
+                            <div style="font-size: 12px; color: #10b981; margin-top: 3px;">● Active Verified Shop</div>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div class="form-group">
+                            <label class="form-label">Owner ID</label>
+                            <input type="text" id="profOwnerId" class="form-control" value="{{ owner_id }}" readonly style="font-family: monospace;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">UPI ID for Payments</label>
+                            <input type="text" id="profUpiId" class="form-control" readonly placeholder="owner@upi">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Registered Email</label>
+                            <input type="text" id="profEmail" class="form-control" readonly placeholder="owner@shop.com">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Registered Phone</label>
+                            <input type="text" id="profPhone" class="form-control" readonly placeholder="9876543210">
+                        </div>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label class="form-label">Shop Address</label>
+                            <input type="text" id="profAddress" class="form-control" readonly placeholder="Shop Location">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
     </div>
 </div>
 
 <!-- ==========================================================
-     AI Visual Intelligence & Predictive Analytics Graphs
+     Job Details Modal
      ========================================================== -->
-<div class="section-header">
-    <h3 class="section-title"><span>📊</span> AI Visual Intelligence & Predictive Analytics</h3>
-    <span style="font-size: 12px; color: #a5b4fc;">Trend-Seasonal Ridge Forecasting Engine</span>
-</div>
-
-<div class="charts-container">
-    <!-- Chart 1: Revenue Timeline & AI 7-Day Prediction -->
-    <div class="chart-card">
-        <div class="chart-header">
-            <div class="chart-title">📈 Revenue History & AI 7-Day Forecast</div>
-            <span class="chart-tag" id="chartForecastTrend">AI Forecasting</span>
+<div class="modal-backdrop" id="jobDetailsModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 style="font-size: 18px; margin: 0; display: flex; align-items: center; gap: 8px;">
+                <span>📑</span> Job Details & File Manifest
+            </h3>
+            <button class="modal-close-btn" onclick="closeJobModal()">&times;</button>
         </div>
-        
-        <div class="forecast-metric-banner">
-            <div>
-                <div class="forecast-submetric">Projected Next 7 Days</div>
-                <div class="forecast-subval" id="forecast7dVal">₹0.00</div>
-            </div>
-            <div>
-                <div class="forecast-submetric">Projected 30-Day Run Rate</div>
-                <div class="forecast-subval" id="forecast30dVal" style="color: #34d399;">₹0.00</div>
-            </div>
-            <div>
-                <div class="forecast-submetric">Growth Momentum</div>
-                <div class="forecast-subval" id="forecastGrowthVal" style="color: #fbbf24;">Calculating...</div>
-            </div>
-            <div>
-                <div class="forecast-submetric">AI Model Confidence</div>
-                <div class="forecast-subval" style="color: #a5b4fc;">94.8%</div>
-            </div>
-        </div>
-
-        <div style="position: relative; height: 260px; width: 100%;">
-            <canvas id="revenueForecastChart"></canvas>
-        </div>
-    </div>
-
-    <!-- Chart 2: Hourly Traffic & Busy-Hour Heatmap -->
-    <div class="chart-card">
-        <div class="chart-header">
-            <div class="chart-title">⏰ Busy-Hour Load Distribution</div>
-            <span class="chart-tag" id="chartPeakHourTag">Peak: --:00</span>
-        </div>
-        <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
-            Identifies daily rush periods to optimize operator counter staffing.
-        </div>
-        <div style="position: relative; height: 300px; width: 100%;">
-            <canvas id="hourlyTrafficChart"></canvas>
+        <div id="jobModalContent">
+            <!-- Populated dynamically -->
         </div>
     </div>
 </div>
 
-<div class="charts-container" style="grid-template-columns: 1fr 1fr; margin-bottom: 28px;">
-    <!-- Chart 3: Print Type Ratio (BW vs Color vs Mixed) -->
-    <div class="chart-card">
-        <div class="chart-header">
-            <div class="chart-title">📑 Print Job Category Distribution</div>
-            <span class="chart-tag">Page Volume</span>
-        </div>
-        <div style="position: relative; height: 220px; width: 100%;">
-            <canvas id="printTypeChart"></canvas>
-        </div>
-    </div>
-
-    <!-- Chart 4: Payment Methods Distribution -->
-    <div class="chart-card">
-        <div class="chart-header">
-            <div class="chart-title">💳 Payment Channels (Cash vs Online)</div>
-            <span class="chart-tag">Collection Ratio</span>
-        </div>
-        <div style="position: relative; height: 220px; width: 100%;">
-            <canvas id="paymentMethodChart"></canvas>
-        </div>
-    </div>
-</div>
-
-<!-- Pending Cash Approvals Table Section -->
-<div id="pendingCashSection">
-    <div class="section-header">
-        <h3 class="section-title">
-            <span>💵</span> Counter Cash Confirmation Queue
-            <span class="badge pending" id="pendingCashBadge" style="margin-left: 8px;">0 Pending</span>
-        </h3>
-    </div>
-    <div class="table-card">
-        <table>
-            <thead>
-                <tr>
-                    <th>Job ID</th>
-                    <th>Customer / Details</th>
-                    <th>Files & Pages</th>
-                    <th>Amount Due</th>
-                    <th>Time</th>
-                    <th style="text-align: right;">Action</th>
-                </tr>
-            </thead>
-            <tbody id="cashTable">
-                <tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 20px;">No pending cash requests.</td></tr>
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<!-- Connected Physical Printers -->
-<div class="section-header">
-    <h3 class="section-title"><span>🖨️</span> Connected Physical Printers</h3>
-    <span style="font-size: 12px; color: var(--text-muted);">Synced from local Windows Print Agent</span>
-</div>
-<div class="table-card">
-    <table>
-        <thead>
-            <tr>
-                <th>Printer Name</th>
-                <th>Hardware Status</th>
-                <th>Current Queue</th>
-                <th>Supported Capabilities</th>
-                <th>Total Pages Printed</th>
-            </tr>
-        </thead>
-        <tbody id="printersTable">
-            <tr><td colspan="5" style="text-align:center; color: var(--text-muted); padding: 20px;">Scanning for connected physical printers...</td></tr>
-        </tbody>
-    </table>
-</div>
-
-<!-- Live Print Queue -->
-<div class="section-header">
-    <h3 class="section-title"><span>⚡</span> Live Print Queue</h3>
-    <span style="font-size: 12px; color: var(--text-muted);">Automated AI Dispatch Schedule</span>
-</div>
-<div class="table-card">
-    <table>
-        <thead>
-            <tr>
-                <th>Position</th>
-                <th>Job ID</th>
-                <th>Status</th>
-                <th>Assigned Printer</th>
-                <th>Est. Seconds</th>
-            </tr>
-        </thead>
-        <tbody id="queueTable">
-            <tr><td colspan="5" style="text-align:center; color: var(--text-muted); padding: 20px;">No active jobs in queue.</td></tr>
-        </tbody>
-    </table>
-</div>
-
-<!-- Shop Pricing & Rate Card Manager -->
-<div class="section-header" id="pricingSection">
-    <h3 class="section-title">
-        <span>⚙️</span> Shop Pricing & Rate Card Manager
-    </h3>
-    <span style="font-size: 12px; color: var(--text-muted);">Configure standard page rates & custom volume discount tiers</span>
-</div>
-<div class="table-card" style="padding: 24px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 12px;">
-        <div>
-            <strong style="font-size: 16px; color: #ffffff;">Standard Page Rate Card</strong>
-            <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px;">Adjust standard per-page printing rates. Changes apply immediately when customers upload files.</div>
-        </div>
-        <button class="btn btn-success" onclick="saveQuickRates()" id="btnSaveRates">
-            <span>💾</span> Save Base Rates
-        </button>
-    </div>
-
-    <!-- Quick Rates Grid -->
-    <div class="pricing-grid">
-        <div class="pricing-card">
-            <label>A4 Black & White (B/W)</label>
-            <div class="pricing-input-group">
-                <span>₹</span>
-                <input type="number" step="0.50" min="0.50" id="rateA4Bw" class="pricing-input" value="2.00">
-            </div>
-            <span style="font-size: 11px; color: var(--text-muted);">per page (Standard)</span>
-        </div>
-        <div class="pricing-card">
-            <label>A4 Color</label>
-            <div class="pricing-input-group">
-                <span>₹</span>
-                <input type="number" step="1.00" min="1.00" id="rateA4Color" class="pricing-input" value="10.00">
-            </div>
-            <span style="font-size: 11px; color: var(--text-muted);">per page (Standard)</span>
-        </div>
-        <div class="pricing-card">
-            <label>A3 Black & White (B/W)</label>
-            <div class="pricing-input-group">
-                <span>₹</span>
-                <input type="number" step="0.50" min="0.50" id="rateA3Bw" class="pricing-input" value="5.00">
-            </div>
-            <span style="font-size: 11px; color: var(--text-muted);">per page (Large Format)</span>
-        </div>
-        <div class="pricing-card">
-            <label>A3 Color</label>
-            <div class="pricing-input-group">
-                <span>₹</span>
-                <input type="number" step="1.00" min="1.00" id="rateA3Color" class="pricing-input" value="20.00">
-            </div>
-            <span style="font-size: 11px; color: var(--text-muted);">per page (Large Format)</span>
-        </div>
-    </div>
-
-    <!-- Granular Active Rules Table & Custom Tier Form -->
-    <div style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-            <strong style="font-size: 14px; color: #ffffff;">Active Granular Pricing Rules & Bulk Tiers</strong>
-            <button class="btn btn-sm" onclick="toggleAddRuleForm()" style="background: rgba(255,255,255,0.08); border: 1px solid var(--border);">➕ Add Custom Tier</button>
-        </div>
-
-        <!-- Add Custom Rule Form (collapsible) -->
-        <div id="addRuleForm" class="custom-rule-form" style="display: none;">
-            <div class="form-group">
-                <label>Paper Size</label>
-                <select id="newRulePaperSize" class="form-select">
-                    <option value="A4">A4</option>
-                    <option value="A3">A3</option>
-                    <option value="LETTER">Letter</option>
-                    <option value="LEGAL">Legal</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Print Type</label>
-                <select id="newRulePrintType" class="form-select">
-                    <option value="BW">Black & White (B/W)</option>
-                    <option value="COLOR">Full Color</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Duplex (2-Sided)</label>
-                <select id="newRuleDuplex" class="form-select">
-                    <option value="false">Single-Sided</option>
-                    <option value="true">Double-Sided (Duplex)</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Page Range (From)</label>
-                <input type="number" id="newRuleFrom" class="form-control" value="1" min="1">
-            </div>
-            <div class="form-group">
-                <label>Page Range (To)</label>
-                <input type="number" id="newRuleTo" class="form-control" value="9999" min="1">
-            </div>
-            <div class="form-group">
-                <label>Price / Page (₹)</label>
-                <input type="number" step="0.25" id="newRulePrice" class="form-control" placeholder="2.00">
-            </div>
-            <div>
-                <button class="btn btn-sm btn-success" onclick="createCustomRule()" style="height: 38px;">Add Tier Rule</button>
-            </div>
-        </div>
-
-        <table style="margin-top: 14px;">
-            <thead>
-                <tr>
-                    <th>Paper Size</th>
-                    <th>Color / Mode</th>
-                    <th>Duplex</th>
-                    <th>Page Tier Range</th>
-                    <th>Rate per Page</th>
-                    <th style="text-align: right;">Action</th>
-                </tr>
-            </thead>
-            <tbody id="pricingRulesTable">
-                <tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 14px;">Loading pricing rules...</td></tr>
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<!-- Recent Transactions Log -->
-<div class="section-header">
-    <h3 class="section-title"><span>📜</span> Recent Transactions & Orders</h3>
-</div>
-<div class="table-card">
-    <table>
-        <thead>
-            <tr>
-                <th>Job ID</th>
-                <th>Customer</th>
-                <th>Amount</th>
-                <th>Payment Type</th>
-                <th>Payment Status</th>
-                <th>Job Status</th>
-                <th>Date & Time</th>
-            </tr>
-        </thead>
-        <tbody id="transactionsTable">
-            <tr><td colspan="7" style="text-align:center; color: var(--text-muted); padding: 20px;">Loading recent transactions...</td></tr>
-        </tbody>
-    </table>
-</div>
-
-<!-- Feedback Toast -->
-<div id="toast" class="toast"></div>
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
 
 <script>
 const ownerId = "{{ owner_id }}";
+let allJobsData = [];
+let chartsInitialized = false;
+let audioAlertsEnabled = true;
+let knownCashJobIds = new Set();
+let isFirstLoad = true;
+let pollInterval = null;
 
-// Chart instances
-let revenueChartInst = null;
-let hourlyChartInst = null;
-let printTypeChartInst = null;
-let paymentChartInst = null;
+// Chart references
+let chartRev = null;
+let chartHourly = null;
+let chartPrintType = null;
+let chartPayment = null;
+
+// ==========================================================
+// Routing & View Navigation Engine
+// ==========================================================
+
+const VIEW_TITLES = {
+    'dashboard': 'Dashboard',
+    'jobs': 'Jobs Management',
+    'queue': 'Live Print Queue',
+    'printers': 'Printers & Hardware',
+    'payments': 'Payments & Counter Cash',
+    'analytics': 'AI Predictive Analytics',
+    'qr-code': 'Shop QR Standee',
+    'pricing': 'Pricing & Rate Card',
+    'settings': 'Shop Settings',
+    'profile': 'Owner Profile'
+};
+
+function navigate(viewName) {
+    if (!VIEW_TITLES[viewName]) viewName = 'dashboard';
+    
+    // Update hash without triggering reload loop
+    window.location.hash = viewName;
+    
+    // Switch views
+    document.querySelectorAll('.app-view').forEach(el => el.classList.remove('active'));
+    const target = document.getElementById(`view-${viewName}`);
+    if (target) target.classList.add('active');
+    
+    // Update sidebar navigation active item
+    document.querySelectorAll('.app-sidebar .nav-item').forEach(el => {
+        if (el.getAttribute('data-view') === viewName) {
+            el.classList.add('active');
+        } else {
+            el.classList.remove('active');
+        }
+    });
+    
+    // Update header title
+    document.getElementById('headerViewTitle').innerText = VIEW_TITLES[viewName];
+    
+    // Close mobile drawer on navigation
+    toggleSidebar(false);
+    
+    // View-specific trigger
+    if (viewName === 'jobs') {
+        loadJobsTable();
+    } else if (viewName === 'queue') {
+        loadQueueTable();
+    } else if (viewName === 'printers') {
+        loadPrintersTable();
+    } else if (viewName === 'analytics') {
+        loadAnalyticsData(false);
+    } else if (viewName === 'settings') {
+        loadShopSettings();
+    } else if (viewName === 'profile') {
+        loadProfileData();
+    } else if (viewName === 'qr-code') {
+        loadQrData();
+    }
+}
+
+// Handle browser back/forward buttons
+window.addEventListener('hashchange', () => {
+    const hash = window.location.hash.replace('#', '') || 'dashboard';
+    navigate(hash);
+});
+
+function toggleSidebar(forceState) {
+    const sidebar = document.getElementById('appSidebar');
+    const overlay = document.getElementById('drawerOverlay');
+    const isOpen = sidebar.classList.contains('open');
+    const shouldOpen = forceState !== undefined ? forceState : !isOpen;
+    
+    if (shouldOpen) {
+        sidebar.classList.add('open');
+        overlay.classList.add('active');
+    } else {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('active');
+    }
+}
+
+// ==========================================================
+// Toast Notification Engine
+// ==========================================================
 
 function showToast(msg, isError = false) {
-    const toast = document.getElementById("toast");
-    toast.innerText = msg;
-    toast.style.borderColor = isError ? "#ef4444" : "#10b981";
-    toast.style.display = "block";
-    setTimeout(() => { toast.style.display = "none"; }, 3500);
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.style.borderColor = isError ? '#ef4444' : '#10b981';
+    toast.innerHTML = `<span>${isError ? '⚠️' : '✓'}</span> <span>${msg}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(12px)';
+        setTimeout(() => toast.remove(), 250);
+    }, 3500);
 }
+
+// ==========================================================
+// Digital Clock & Helpers
+// ==========================================================
 
 function updateClock() {
     document.getElementById("liveClock").innerText = new Date().toLocaleTimeString();
@@ -871,60 +1219,543 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 
-// Confirm Cash Action
+function copyAgentCmd() {
+    const cmd = `python .\\PRINT_AGENT\\agent.py --shop-id ${ownerId}`;
+    navigator.clipboard.writeText(cmd).then(() => {
+        showToast("✓ Copied print agent command to clipboard!");
+    }).catch(() => {
+        prompt("Copy this command to run your print agent:", cmd);
+    });
+}
+
+function copyUploadLink() {
+    const url = document.getElementById("qrUploadUrlInput").value;
+    if (!url) return;
+    navigator.clipboard.writeText(url).then(() => {
+        showToast("✓ Copied direct customer upload link!");
+    });
+}
+
+function logout() {
+    localStorage.removeItem("owner_token");
+    localStorage.removeItem("owner_id");
+    localStorage.removeItem("shop_name");
+    sessionStorage.clear();
+    showToast("Logging out...");
+    setTimeout(() => {
+        window.location.href = "/login";
+    }, 400);
+}
+
+function refreshCurrentView() {
+    loadDashboard();
+    const currentHash = window.location.hash.replace('#', '') || 'dashboard';
+    navigate(currentHash);
+    showToast("Refreshed data.");
+}
+
+// ==========================================================
+// Audio Chime Alerts
+// ==========================================================
+
+function toggleAudioAlerts() {
+    audioAlertsEnabled = !audioAlertsEnabled;
+    const btn = document.getElementById("btnAudioToggle");
+    if (audioAlertsEnabled) {
+        btn.innerText = "🔔 Audio: ON";
+        btn.style.color = "#a5b4fc";
+        playCashAlertChime();
+        showToast("Audio alerts enabled.");
+    } else {
+        btn.innerText = "🔕 Audio: OFF";
+        btn.style.color = "var(--text-muted)";
+        showToast("Audio alerts muted.");
+    }
+}
+
+function playCashAlertChime() {
+    if (!audioAlertsEnabled) return;
+    try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        if (ctx.state === 'suspended') ctx.resume();
+        const now = ctx.currentTime;
+        const notes = [587.33, 739.99, 880.00, 1174.66];
+        notes.forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(freq, now + idx * 0.09);
+            gain.gain.setValueAtTime(0.35, now + idx * 0.09);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.09 + 0.45);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now + idx * 0.09);
+            osc.stop(now + idx * 0.09 + 0.5);
+        });
+    } catch (e) {
+        console.warn("Audio chime failed:", e);
+    }
+}
+
+// ==========================================================
+// Primary Real-Time Polling & Dashboard Data Sync
+// ==========================================================
+
+async function loadDashboard() {
+    try {
+        const res = await fetch(`/analytics/dashboard/${ownerId}`);
+        if (res.status === 401 || res.status === 404) {
+            if (pollInterval) clearInterval(pollInterval);
+            return;
+        }
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const stats = data.statistics || {};
+        const rev = data.revenue_breakdown || {};
+        const cashJobs = data.pending_cash_approvals || [];
+
+        // 1. Update KPI numbers
+        document.getElementById("dashTotalJobs").innerText = stats.total_jobs || "0";
+        document.getElementById("dashCompletedJobs").innerText = stats.completed_jobs || "0";
+        document.getElementById("dashActiveQueue").innerText = (stats.pending_jobs || 0) + (stats.printing_jobs || 0);
+        document.getElementById("dashFailedJobs").innerText = stats.failed_jobs || "0";
+        document.getElementById("dashRevenue").innerText = "₹" + (rev.total_revenue || stats.total_revenue || 0).toFixed(2);
+        document.getElementById("dashAvgTime").innerText = (stats.average_completion_seconds || 0) + "s";
+
+        // 2. Update Revenue Breakdown
+        document.getElementById("dashRevCash").innerText = "₹" + (rev.cash_revenue || 0).toFixed(2);
+        document.getElementById("dashRevOnline").innerText = "₹" + (rev.online_revenue || 0).toFixed(2);
+        document.getElementById("dashRevToday").innerText = "₹" + (rev.today_revenue || 0).toFixed(2);
+        document.getElementById("dashRevMonth").innerText = "₹" + (rev.month_revenue || 0).toFixed(2);
+
+        // Update Payments View Stats
+        document.getElementById("payRevCash").innerText = "₹" + (rev.cash_revenue || 0).toFixed(2);
+        document.getElementById("payRevOnline").innerText = "₹" + (rev.online_revenue || 0).toFixed(2);
+        document.getElementById("payRevToday").innerText = "₹" + (rev.today_revenue || 0).toFixed(2);
+        document.getElementById("payRevMonth").innerText = "₹" + (rev.month_revenue || 0).toFixed(2);
+        document.getElementById("payRevAov").innerText = "₹" + (rev.average_order_value || 0).toFixed(2);
+
+        // 3. Counter Cash Approvals & Audio Alerts
+        const cashBanner = document.getElementById("cashAlertBanner");
+        const navCashBadge = document.getElementById("navCashBadge");
+        const payCashBadge = document.getElementById("payCashBadge");
+        const payCashTable = document.getElementById("payCashQueueTable");
+
+        if (cashJobs.length > 0) {
+            cashBanner.style.display = "block";
+            document.getElementById("cashAlertCount").innerText = cashJobs.length;
+            navCashBadge.style.display = "inline-block";
+            navCashBadge.innerText = cashJobs.length;
+            payCashBadge.innerText = `${cashJobs.length} Pending`;
+
+            let hasNewCash = false;
+            let newestJob = null;
+            for (const c of cashJobs) {
+                if (!knownCashJobIds.has(c.job_id)) {
+                    hasNewCash = true;
+                    newestJob = c;
+                }
+            }
+
+            if (hasNewCash && !isFirstLoad) {
+                playCashAlertChime();
+                showToast(`💵 New Cash Print Order: ₹${newestJob.total_amount.toFixed(2)} from ${newestJob.customer_name}!`);
+            }
+            knownCashJobIds = new Set(cashJobs.map(c => c.job_id));
+
+            payCashTable.innerHTML = cashJobs.map(c => `
+                <tr style="background: rgba(245, 158, 11, 0.04);">
+                    <td><code>${c.job_id.slice(0, 8)}...</code></td>
+                    <td>
+                        <strong>${c.customer_name}</strong>
+                        <div style="font-size: 11px; color: var(--text-muted);">${c.customer_phone}</div>
+                    </td>
+                    <td>
+                        <div>${c.total_files} file(s), <strong>${c.total_pages} page(s)</strong> (${c.total_copies} copy)</div>
+                        <div style="font-size: 11px; color: var(--text-muted);">${c.files.join(", ").slice(0, 30)}</div>
+                    </td>
+                    <td><strong style="color: #fbbf24; font-size: 16px;">₹${c.total_amount.toFixed(2)}</strong></td>
+                    <td style="color: var(--text-muted); font-size: 12px;">${c.created_at}</td>
+                    <td style="text-align: right;">
+                        <button class="btn btn-sm btn-success" onclick="confirmCash('${c.job_id}')">✓ Confirm & Print</button>
+                        <button class="btn btn-sm btn-danger" style="margin-left: 6px;" onclick="rejectCash('${c.job_id}')">✕</button>
+                    </td>
+                </tr>
+            `).join("");
+        } else {
+            knownCashJobIds.clear();
+            cashBanner.style.display = "none";
+            navCashBadge.style.display = "none";
+            payCashBadge.innerText = "0 Pending";
+            payCashTable.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 20px;">✓ No pending counter cash approvals.</td></tr>`;
+        }
+        isFirstLoad = false;
+
+        // 4. Update Recent Transactions Table in Payments View
+        const txns = data.recent_transactions || [];
+        const payTxTable = document.getElementById("payTransactionsTable");
+        if (txns.length > 0) {
+            payTxTable.innerHTML = txns.map(t => {
+                const isCash = t.payment_method.toUpperCase() === "CASH";
+                return `
+                <tr>
+                    <td><code>${t.job_id.slice(0, 8)}...</code></td>
+                    <td>${t.customer_name}</td>
+                    <td><strong>₹${t.amount.toFixed(2)}</strong></td>
+                    <td><span class="badge ${isCash ? 'badge-pending' : 'badge-paid'}">${isCash ? '💵 Cash' : '📱 Online'}</span></td>
+                    <td><span class="badge badge-${t.payment_status.toLowerCase()}">${t.payment_status}</span></td>
+                    <td><span class="badge badge-${t.job_status.toLowerCase()}">${t.job_status}</span></td>
+                    <td style="font-size: 12px; color: var(--text-muted);">${t.created_at}</td>
+                </tr>
+            `}).join("");
+        } else {
+            payTxTable.innerHTML = `<tr><td colspan="7" style="text-align:center; color: var(--text-muted); padding: 20px;">No transactions recorded yet.</td></tr>`;
+        }
+
+        // 5. Store charts data for Analytics view
+        if (data.charts) {
+            window.latestChartsData = data.charts;
+            if (document.getElementById('view-analytics').classList.contains('active')) {
+                renderAnalyticsCharts(data.charts);
+            }
+        }
+
+    } catch (err) {
+        console.error("Dashboard poll error:", err);
+    }
+}
+
+// ==========================================================
+// Jobs Table & Search/Filter
+// ==========================================================
+
+async function loadJobsTable() {
+    try {
+        const res = await fetch(`/jobs/owner/${ownerId}`);
+        if (!res.ok) return;
+        allJobsData = await res.json();
+        
+        // Update sidebar badge
+        const badge = document.getElementById("navJobsBadge");
+        if (allJobsData.length > 0) {
+            badge.style.display = "inline-block";
+            badge.innerText = allJobsData.length;
+        }
+        
+        filterJobsList();
+    } catch (e) {
+        console.error("Error loading jobs:", e);
+    }
+}
+
+function filterJobsList() {
+    const search = (document.getElementById("jobsSearchInput").value || "").toLowerCase().trim();
+    const statusFilter = document.getElementById("jobsStatusFilter").value;
+    const paymentFilter = document.getElementById("jobsPaymentFilter").value;
+    
+    let filtered = allJobsData.filter(j => {
+        if (statusFilter !== "ALL" && j.status !== statusFilter) return false;
+        if (paymentFilter !== "ALL" && j.payment_status !== paymentFilter) return false;
+        
+        if (search) {
+            const idMatch = j.job_id.toLowerCase().includes(search);
+            const nameMatch = (j.customer_name || "").toLowerCase().includes(search);
+            const phoneMatch = (j.customer_phone || "").toLowerCase().includes(search);
+            const fileMatch = (j.files || []).some(f => (f.filename || "").toLowerCase().includes(search));
+            if (!idMatch && !nameMatch && !phoneMatch && !fileMatch) return false;
+        }
+        return true;
+    });
+
+    const tbody = document.getElementById("jobsFullTable");
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color: var(--text-muted); padding: 24px;">No matching print jobs found.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(j => {
+        const file = j.files && j.files[0] ? j.files[0] : null;
+        const printTypeTag = file ? (file.print_type === 'COLOR' ? '🎨 Color' : '📄 B/W') : '📄 B/W';
+        const duplexTag = file && file.duplex ? '2-Sided' : '1-Sided';
+        return `
+            <tr>
+                <td><code style="color: #a5b4fc;">${j.job_id.slice(0, 8)}...</code></td>
+                <td>
+                    <strong>${j.customer_name}</strong>
+                    <div style="font-size: 11px; color: var(--text-muted);">${j.customer_phone}</div>
+                </td>
+                <td>
+                    <div><strong>${j.total_files} file(s)</strong>, ${j.total_pages} pg</div>
+                    <div style="font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px;">
+                        ${file ? file.filename : 'Document'}
+                    </div>
+                </td>
+                <td>
+                    <span class="tag">${printTypeTag}</span>
+                    <span class="tag">${duplexTag}</span>
+                    <span class="tag">${file ? file.paper_size : 'A4'}</span>
+                </td>
+                <td><strong style="color: #34d399;">₹${j.total_amount.toFixed(2)}</strong></td>
+                <td><span class="badge badge-${j.payment_status.toLowerCase()}">${j.payment_status}</span></td>
+                <td><span class="badge badge-${j.status.toLowerCase()}">${j.status}</span></td>
+                <td style="font-size: 12.5px;">${j.assigned_printer_name || '<span style="color:var(--text-muted);">Auto Assign</span>'}</td>
+                <td style="font-size: 12px; color: var(--text-muted);">${j.created_at}</td>
+                <td style="text-align: right;">
+                    <button class="btn btn-secondary btn-sm" onclick="viewJobDetails('${j.job_id}')">Details</button>
+                </td>
+            </tr>
+        `;
+    }).join("");
+}
+
+function viewJobDetails(jobId) {
+    const job = allJobsData.find(j => j.job_id === jobId);
+    if (!job) return;
+    
+    const content = document.getElementById("jobModalContent");
+    content.innerHTML = `
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px;">
+            <div class="pricing-box">
+                <div class="stat-label">Customer</div>
+                <div style="font-size: 15px; font-weight: 600;">${job.customer_name}</div>
+                <div style="font-size: 12px; color: var(--text-muted);">${job.customer_phone}</div>
+            </div>
+            <div class="pricing-box">
+                <div class="stat-label">Order Total</div>
+                <div style="font-size: 18px; font-weight: 700; color: #34d399;">₹${job.total_amount.toFixed(2)}</div>
+                <div style="font-size: 12px; color: var(--text-muted);">${job.payment_method} (${job.payment_status})</div>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 16px;">
+            <strong style="font-size: 14px; color: #f8fafc; display: block; margin-bottom: 8px;">Uploaded Documents (${job.files ? job.files.length : 0})</strong>
+            ${(job.files || []).map(f => `
+                <div style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 600; font-size: 13.5px;">📑 ${f.filename}</div>
+                        <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">
+                            ${f.page_count} pages • ${f.copies} copies • ${f.paper_size} • ${f.print_type === 'COLOR' ? 'Color' : 'B/W'} • ${f.duplex ? 'Duplex' : 'Single-Sided'}
+                        </div>
+                    </div>
+                    <div style="font-weight: 700; color: #a5b4fc; font-size: 14px;">₹${f.estimated_cost.toFixed(2)}</div>
+                </div>
+            `).join('')}
+        </div>
+
+        <div style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; font-size: 12px; color: var(--text-muted);">
+            <div><strong>Created:</strong> ${job.created_at}</div>
+            ${job.queued_at ? `<div><strong>Queued:</strong> ${job.queued_at}</div>` : ''}
+            ${job.started_at ? `<div><strong>Printing Started:</strong> ${job.started_at}</div>` : ''}
+            ${job.completed_at ? `<div><strong>Completed:</strong> ${job.completed_at}</div>` : ''}
+            <div><strong>Assigned Printer:</strong> ${job.assigned_printer_name || 'Automated Selection'}</div>
+        </div>
+    `;
+    
+    document.getElementById("jobDetailsModal").classList.add("active");
+}
+
+function closeJobModal() {
+    document.getElementById("jobDetailsModal").classList.remove("active");
+}
+
+// ==========================================================
+// Live Queue Engine
+// ==========================================================
+
+async function loadQueueTable() {
+    try {
+        const res = await fetch("/queue/");
+        if (!res.ok) return;
+        const qJobs = await res.json();
+        
+        const badge = document.getElementById("navQueueBadge");
+        badge.style.display = qJobs.length > 0 ? "inline-block" : "none";
+        badge.innerText = qJobs.length;
+
+        document.getElementById("queueQueuedCount").innerText = qJobs.filter(q => q.status === 'Queued').length;
+        document.getElementById("queuePrintingCount").innerText = qJobs.filter(q => q.status === 'Printing').length;
+
+        const table = document.getElementById("queueLiveTable");
+        if (qJobs.length === 0) {
+            table.innerHTML = `<tr><td colspan="7" style="text-align:center; color: var(--text-muted); padding: 24px;">✓ No active jobs in queue. Printers are idle and ready.</td></tr>`;
+            return;
+        }
+
+        table.innerHTML = qJobs.map(q => `
+            <tr>
+                <td><strong style="color: #a5b4fc; font-size: 15px;">#${q.queue_position || 1}</strong></td>
+                <td><code>${q.job_id.slice(0, 8)}...</code></td>
+                <td><span class="badge badge-${q.status.toLowerCase()}">${q.status}</span></td>
+                <td>${q.assigned_printer_id ? q.assigned_printer_id.slice(0, 8) + '...' : 'Auto Assigned'}</td>
+                <td><strong>${q.estimated_seconds || 0}s</strong></td>
+                <td style="font-size: 12px; color: var(--text-muted);">${q.queued_at ? new Date(q.queued_at).toLocaleTimeString() : '-'}</td>
+                <td style="text-align: right;">
+                    <button class="btn btn-danger btn-sm" onclick="cancelQueueJob('${q.job_id}')">Cancel</button>
+                </td>
+            </tr>
+        `).join("");
+    } catch (e) {
+        console.error("Queue load error:", e);
+    }
+}
+
+async function cancelQueueJob(jobId) {
+    if (!confirm("Are you sure you want to cancel this print job?")) return;
+    try {
+        const res = await fetch(`/queue/${jobId}`, { method: "DELETE" });
+        if (res.ok) {
+            showToast("Print job cancelled.");
+            loadQueueTable();
+        }
+    } catch (e) {
+        showToast("Error cancelling job.", true);
+    }
+}
+
+// ==========================================================
+// Printers Management
+// ==========================================================
+
+async function loadPrintersTable() {
+    try {
+        const res = await fetch(`/printer/owner/${ownerId}`);
+        if (!res.ok) return;
+        const printers = await res.json();
+        
+        const badge = document.getElementById("navPrintersBadge");
+        badge.style.display = printers.length > 0 ? "inline-block" : "none";
+        badge.innerText = printers.length;
+
+        const physicalPrinters = printers.filter(p => p.is_physical !== false && !p.is_virtual);
+        const tbody = document.getElementById("printersListTable");
+
+        if (physicalPrinters.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" style="text-align:center; color: var(--text-muted); padding: 32px 20px;">
+                        <div style="font-size: 16px; font-weight: 600; color: #f8fafc; margin-bottom: 6px;">No connected physical printers detected</div>
+                        <div style="font-size: 13px; margin-bottom: 14px;">Run the Print Agent command on your computer to connect your local USB/Network printers:</div>
+                        <button class="btn btn-sm btn-success" onclick="copyAgentCmd()">📋 Copy Agent Command</button>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = physicalPrinters.map(p => {
+            const st = (p.status || "Offline").toLowerCase();
+            const caps = [];
+            if (p.supports_bw) caps.push("B/W");
+            if (p.supports_color) caps.push("Color");
+            if (p.supports_duplex) caps.push("Duplex");
+            if (p.supports_a3) caps.push("A3");
+            if (p.supports_legal) caps.push("Legal");
+
+            return `
+                <tr>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="pulse-dot" style="background-color: ${st === 'online' ? '#10b981' : '#ef4444'}; box-shadow: 0 0 8px ${st === 'online' ? '#10b981' : '#ef4444'};"></span>
+                            <strong>${p.printer_name}</strong>
+                        </div>
+                    </td>
+                    <td style="color: var(--text-muted); font-size: 13px;">${p.printer_model || 'Hardware MFP'}</td>
+                    <td><span class="badge badge-${st}">${p.status}</span></td>
+                    <td><strong>${p.current_queue || 0}</strong> jobs</td>
+                    <td>${caps.map(c => `<span class="tag">${c}</span>`).join(' ')}</td>
+                    <td><strong>${p.total_jobs_printed || 0}</strong> pages</td>
+                    <td style="text-align: right;">
+                        <button class="btn btn-secondary btn-sm" onclick="pingPrinter('${p.printer_id}')">Ping</button>
+                    </td>
+                </tr>
+            `;
+        }).join("");
+    } catch (e) {
+        console.error("Printers load error:", e);
+    }
+}
+
+async function pingPrinter(printerId) {
+    try {
+        const res = await fetch(`/printer/ping/${printerId}`);
+        const data = await res.json();
+        showToast(`✓ Printer "${data.printer_name}" is ${data.status}! Queue: ${data.queue}`);
+    } catch (e) {
+        showToast("Printer ping failed.", true);
+    }
+}
+
+// ==========================================================
+// Payments Confirmation & Rejection
+// ==========================================================
+
 async function confirmCash(jobId) {
     try {
         const res = await fetch(`/payment/cash-confirm/${jobId}`, { method: "POST" });
         const data = await res.json();
         if (res.ok) {
-            showToast(`✓ Cash confirmed for job ${jobId.slice(0, 8)}! Added to queue.`);
+            showToast(`✓ Cash payment confirmed for job ${jobId.slice(0, 8)}! Added to queue.`);
             loadDashboard();
         } else {
-            showToast(data.detail || "Error confirming cash payment.", true);
+            showToast(data.detail || "Error confirming cash.", true);
         }
     } catch (e) {
-        showToast("Network error confirming cash payment.", true);
+        showToast("Network error confirming cash.", true);
     }
 }
 
-// Reject Cash Action
 async function rejectCash(jobId) {
     if (!confirm("Are you sure you want to reject this cash payment request?")) return;
     try {
         const res = await fetch(`/payment/cash-reject/${jobId}`, { method: "POST" });
-        const data = await res.json();
         if (res.ok) {
             showToast(`Cash request rejected for job ${jobId.slice(0, 8)}.`);
             loadDashboard();
-        } else {
-            showToast(data.detail || "Error rejecting cash payment.", true);
         }
     } catch (e) {
-        showToast("Network error rejecting cash payment.", true);
+        showToast("Network error rejecting cash.", true);
     }
 }
 
-function renderCharts(chartData) {
+// ==========================================================
+// AI Analytics & Visual Charts
+// ==========================================================
+
+async function loadAnalyticsData(forceReload = false) {
+    try {
+        const res = await fetch(`/analytics/charts/${ownerId}`);
+        if (!res.ok) return;
+        const chartData = await res.json();
+        renderAnalyticsCharts(chartData);
+        if (forceReload) showToast("✓ AI Forecasts recomputed with latest dataset.");
+    } catch (e) {
+        console.error("Analytics load error:", e);
+    }
+}
+
+function renderAnalyticsCharts(chartData) {
     if (!chartData) return;
 
-    // 1. Revenue History & AI Forecast Chart
+    // 1. Forecast Metrics
     const revTimeline = chartData.revenue_timeline || {};
-    document.getElementById("forecast7dVal").innerText = "₹" + (revTimeline.forecast_7d_total || 0).toFixed(2);
-    document.getElementById("forecast30dVal").innerText = "₹" + (revTimeline.projected_30d_total || 0).toFixed(2);
-    document.getElementById("forecastGrowthVal").innerText = revTimeline.growth_trend || "Stable";
-    document.getElementById("chartForecastTrend").innerText = revTimeline.growth_trend || "AI Forecasting";
+    document.getElementById("anaForecast7d").innerText = "₹" + (revTimeline.forecast_7d_total || 0).toFixed(2);
+    document.getElementById("anaForecast30d").innerText = "₹" + (revTimeline.projected_30d_total || 0).toFixed(2);
+    document.getElementById("anaGrowthVal").innerText = revTimeline.growth_trend || "Stable";
+    document.getElementById("anaForecastTag").innerText = revTimeline.growth_trend || "AI Ridge Regression";
 
-    const ctxRev = document.getElementById("revenueForecastChart").getContext("2d");
-    if (revenueChartInst) {
-        revenueChartInst.destroy();
-    }
-    revenueChartInst = new Chart(ctxRev, {
+    // 2. Revenue History Chart
+    const ctxRev = document.getElementById("anaRevenueChart").getContext("2d");
+    if (chartRev) chartRev.destroy();
+    chartRev = new Chart(ctxRev, {
         type: "line",
         data: {
             labels: revTimeline.labels || [],
             datasets: [
                 {
-                    label: "Actual Daily Revenue (₹)",
+                    label: "Actual Daily (₹)",
                     data: revTimeline.actual_data || [],
                     borderColor: "#10b981",
                     backgroundColor: "rgba(16, 185, 129, 0.15)",
@@ -935,7 +1766,7 @@ function renderCharts(chartData) {
                     pointBackgroundColor: "#10b981"
                 },
                 {
-                    label: "AI Forecasted Revenue (₹)",
+                    label: "AI Forecast (₹)",
                     data: revTimeline.forecast_data || [],
                     borderColor: "#6366f1",
                     backgroundColor: "rgba(99, 102, 241, 0.1)",
@@ -951,39 +1782,28 @@ function renderCharts(chartData) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            interaction: { intersect: false, mode: 'index' },
             plugins: {
-                legend: {
-                    labels: { color: "#cbd5e1", font: { family: 'Outfit', size: 12 } }
-                }
+                legend: { labels: { color: "#cbd5e1", font: { family: 'Outfit', size: 12 } } }
             },
             scales: {
-                x: {
-                    grid: { color: "rgba(255, 255, 255, 0.05)" },
-                    ticks: { color: "#94a3b8", font: { family: 'Outfit', size: 11 } }
-                },
-                y: {
-                    grid: { color: "rgba(255, 255, 255, 0.05)" },
-                    ticks: { color: "#94a3b8", font: { family: 'Outfit', size: 11 }, callback: v => "₹" + v }
-                }
+                x: { grid: { color: "rgba(255, 255, 255, 0.05)" }, ticks: { color: "#94a3b8" } },
+                y: { grid: { color: "rgba(255, 255, 255, 0.05)" }, ticks: { color: "#94a3b8", callback: v => "₹" + v } }
             }
         }
     });
 
-    // 2. Hourly Traffic Chart
+    // 3. Hourly Traffic Chart
     const hourly = chartData.hourly_traffic || {};
-    document.getElementById("chartPeakHourTag").innerText = "Peak Load: " + (hourly.peak_hour || "14:00");
-    const ctxHourly = document.getElementById("hourlyTrafficChart").getContext("2d");
-    if (hourlyChartInst) {
-        hourlyChartInst.destroy();
-    }
+    document.getElementById("anaPeakTag").innerText = "Peak: " + (hourly.peak_hour || "14:00");
+    const ctxHourly = document.getElementById("anaHourlyChart").getContext("2d");
+    if (chartHourly) chartHourly.destroy();
     const barColors = (hourly.data || []).map((_, i) => i === hourly.peak_hour_int ? "#f59e0b" : "rgba(99, 102, 241, 0.65)");
-    hourlyChartInst = new Chart(ctxHourly, {
+    chartHourly = new Chart(ctxHourly, {
         type: "bar",
         data: {
             labels: hourly.labels || [],
             datasets: [{
-                label: "Print Jobs Processed",
+                label: "Print Orders",
                 data: hourly.data || [],
                 backgroundColor: barColors,
                 borderRadius: 4
@@ -992,139 +1812,93 @@ function renderCharts(chartData) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
-            },
+            plugins: { legend: { display: false } },
             scales: {
-                x: {
-                    grid: { display: false },
-                    ticks: { color: "#94a3b8", font: { family: 'Outfit', size: 10 }, maxRotation: 45 }
-                },
-                y: {
-                    grid: { color: "rgba(255, 255, 255, 0.05)" },
-                    ticks: { color: "#94a3b8", font: { family: 'Outfit', size: 11 }, stepSize: 1 }
-                }
+                x: { grid: { display: false }, ticks: { color: "#94a3b8", font: { size: 10 } } },
+                y: { grid: { color: "rgba(255, 255, 255, 0.05)" }, ticks: { color: "#94a3b8", stepSize: 1 } }
             }
         }
     });
 
-    // 3. Print Type Distribution Chart
+    // 4. Print Types Doughnut
     const printTypes = chartData.print_types || {};
-    const ctxType = document.getElementById("printTypeChart").getContext("2d");
-    if (printTypeChartInst) {
-        printTypeChartInst.destroy();
-    }
-    printTypeChartInst = new Chart(ctxType, {
+    const ctxType = document.getElementById("anaPrintTypeChart").getContext("2d");
+    if (chartPrintType) chartPrintType.destroy();
+    chartPrintType = new Chart(ctxType, {
         type: "doughnut",
         data: {
             labels: printTypes.labels || ["B/W", "Color", "Mixed"],
             datasets: [{
                 data: printTypes.data || [1, 1, 1],
                 backgroundColor: ["#38bdf8", "#ec4899", "#8b5cf6"],
-                borderColor: "#131b2e",
+                borderColor: "#131d33",
                 borderWidth: 3
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'right', labels: { color: "#cbd5e1", font: { family: 'Outfit', size: 12 } } }
-            }
+            plugins: { legend: { position: 'right', labels: { color: "#cbd5e1" } } }
         }
     });
 
-    // 4. Payment Channels Chart
+    // 5. Payment Methods Doughnut
     const payData = chartData.payment_methods || {};
-    const ctxPay = document.getElementById("paymentMethodChart").getContext("2d");
-    if (paymentChartInst) {
-        paymentChartInst.destroy();
-    }
-    paymentChartInst = new Chart(ctxPay, {
+    const ctxPay = document.getElementById("anaPaymentChart").getContext("2d");
+    if (chartPayment) chartPayment.destroy();
+    chartPayment = new Chart(ctxPay, {
         type: "doughnut",
         data: {
             labels: payData.labels || ["Cash", "Online"],
             datasets: [{
                 data: payData.data || [50, 50],
                 backgroundColor: ["#fbbf24", "#60a5fa"],
-                borderColor: "#131b2e",
+                borderColor: "#131d33",
                 borderWidth: 3
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'right', labels: { color: "#cbd5e1", font: { family: 'Outfit', size: 12 } } }
-            }
+            plugins: { legend: { position: 'right', labels: { color: "#cbd5e1" } } }
         }
     });
 }
 
-let chartsInitialized = false;
-let pollInterval = null;
-let audioAlertsEnabled = true;
-let knownCashJobIds = new Set();
-let isFirstLoad = true;
-
 // ==========================================================
-// Audio & Desktop Cash Notification System
+// QR Code Standee Data
 // ==========================================================
 
-function toggleAudioAlerts() {
-    audioAlertsEnabled = !audioAlertsEnabled;
-    const btn = document.getElementById("btnAudioToggle");
-    if (audioAlertsEnabled) {
-        btn.innerText = "🔔 Sound Alerts: ON";
-        btn.style.color = "#a5b4fc";
-        playCashAlertChime();
-        showToast("Audio alert enabled. Testing chime...");
-        if ("Notification" in window && Notification.permission === "default") {
-            Notification.requestPermission();
-        }
-    } else {
-        btn.innerText = "🔕 Sound Alerts: OFF";
-        btn.style.color = "var(--text-muted)";
-        showToast("Audio alerts muted.");
-    }
-}
-
-function playCashAlertChime() {
-    if (!audioAlertsEnabled) return;
+async function loadQrData() {
     try {
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (!AudioCtx) return;
-        const ctx = new AudioCtx();
-        if (ctx.state === 'suspended') {
-            ctx.resume();
-        }
-        const now = ctx.currentTime;
-        // Cashier melody chord (D5 -> F#5 -> A5 -> D6)
-        const notes = [587.33, 739.99, 880.00, 1174.66];
-        notes.forEach((freq, idx) => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = "sine";
-            osc.frequency.setValueAtTime(freq, now + idx * 0.09);
-            gain.gain.setValueAtTime(0.4, now + idx * 0.09);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.09 + 0.45);
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.start(now + idx * 0.09);
-            osc.stop(now + idx * 0.09 + 0.5);
+        const res = await fetch(`/owner/me`, {
+            headers: { "Authorization": `Bearer ${localStorage.getItem("owner_token") || ""}` }
         });
+        if (!res.ok) {
+            // Fallback to public endpoint
+            const pubRes = await fetch(`/owner/${ownerId}`);
+            if (pubRes.ok) {
+                const data = await pubRes.json();
+                populateQrView(data);
+            }
+            return;
+        }
+        const data = await res.json();
+        populateQrView(data);
     } catch (e) {
-        console.warn("Audio chime failed:", e);
+        console.error("QR load error:", e);
     }
 }
 
-// Request desktop notification permission on first user click anywhere
-document.addEventListener("click", () => {
-    if ("Notification" in window && Notification.permission === "default") {
-        Notification.requestPermission();
-    }
-}, { once: true });
-
+function populateQrView(data) {
+    const origin = window.location.origin;
+    const token = data.qr_token || ownerId.replace(/-/g, '');
+    const uploadUrl = `${origin}/qr/${token}`;
+    
+    document.getElementById("qrStandeeImg").src = data.qr_path || `/static/${token}.png`;
+    document.getElementById("qrUploadUrlInput").value = uploadUrl;
+    document.getElementById("qrTestLink").href = uploadUrl;
+}
 
 // ==========================================================
 // Pricing Rules Management
@@ -1136,7 +1910,7 @@ async function loadPricingRules() {
         if (!res.ok) return;
         const rules = await res.json();
 
-        // Populate Quick Inputs
+        // Populate quick inputs
         rules.forEach(r => {
             if (r.paper_size === "A4" && r.print_type === "BW" && !r.duplex && r.page_from === 1) {
                 document.getElementById("rateA4Bw").value = r.price_per_page.toFixed(2);
@@ -1149,10 +1923,9 @@ async function loadPricingRules() {
             }
         });
 
-        // Populate Rules Table
         const table = document.getElementById("pricingRulesTable");
         if (rules.length === 0) {
-            table.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 14px;">No custom rules found. Standard rates apply.</td></tr>`;
+            table.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 18px;">No custom rules found. Standard rates apply.</td></tr>`;
             return;
         }
 
@@ -1161,28 +1934,26 @@ async function loadPricingRules() {
                 <td><strong>${r.paper_size}</strong></td>
                 <td>
                     <span class="tag" style="background: ${r.print_type === 'COLOR' ? 'rgba(236,72,153,0.15); color:#f472b6' : 'rgba(56,189,248,0.15); color:#38bdf8'}">
-                        ${r.print_type === 'COLOR' ? '🎨 Full Color' : '📄 Black & White'}
+                        ${r.print_type === 'COLOR' ? '🎨 Color' : '📄 B/W'}
                     </span>
                 </td>
-                <td>${r.duplex ? '<span class="badge" style="background:rgba(99,102,241,0.2); color:#a5b4fc;">2-Sided</span>' : 'Single-Sided'}</td>
+                <td>${r.duplex ? '<span class="tag" style="background:rgba(99,102,241,0.2); color:#a5b4fc;">2-Sided</span>' : '1-Sided'}</td>
                 <td>${r.page_from} to ${r.page_to >= 9000 ? '∞' : r.page_to} pages</td>
-                <td><strong style="color: #10b981; font-size: 15px;">₹${r.price_per_page.toFixed(2)}</strong> <span style="font-size: 11px; color: var(--text-muted);">/ page</span></td>
+                <td><strong style="color: #34d399; font-size: 15px;">₹${r.price_per_page.toFixed(2)}</strong> <span style="font-size: 11px; color: var(--text-muted);">/ page</span></td>
                 <td style="text-align: right;">
-                    <button class="btn btn-sm btn-danger" onclick="deletePricingRule('${r.pricing_id}')" title="Disable Rule">✕ Remove</button>
+                    <button class="btn btn-sm btn-danger" onclick="deletePricingRule('${r.pricing_id}')">✕ Remove</button>
                 </td>
             </tr>
         `).join("");
-
     } catch (e) {
         console.error("Error loading pricing rules:", e);
     }
 }
 
 async function saveQuickRates() {
-    const btn = document.getElementById("btnSaveRates");
-    const originalText = btn.innerHTML;
-    btn.innerHTML = "⏳ Saving...";
+    const btn = document.getElementById("btnSaveQuickRates");
     btn.disabled = true;
+    btn.innerText = "Saving...";
 
     try {
         const payload = {
@@ -1198,24 +1969,23 @@ async function saveQuickRates() {
             body: JSON.stringify(payload)
         });
 
-        const data = await res.json();
         if (res.ok) {
             showToast("✓ Standard printing rates updated successfully!");
             loadPricingRules();
         } else {
-            showToast(data.detail || "Failed to update rates.", true);
+            showToast("Failed to update rates.", true);
         }
     } catch (e) {
         showToast("Network error updating rates.", true);
     } finally {
-        btn.innerHTML = originalText;
         btn.disabled = false;
+        btn.innerText = "💾 Save Base Rates";
     }
 }
 
 function toggleAddRuleForm() {
     const form = document.getElementById("addRuleForm");
-    form.style.display = form.style.display === "none" ? "grid" : "none";
+    form.style.display = form.style.display === "none" ? "block" : "none";
 }
 
 async function createCustomRule() {
@@ -1227,38 +1997,35 @@ async function createCustomRule() {
     const price = parseFloat(document.getElementById("newRulePrice").value);
 
     if (isNaN(price) || price <= 0) {
-        showToast("Please enter a valid price per page.", true);
+        showToast("Please enter a valid rate per page.", true);
         return;
     }
 
     try {
-        const payload = {
-            owner_id: ownerId,
-            paper_size: paperSize,
-            print_type: printType,
-            duplex: duplex,
-            page_from: pageFrom,
-            page_to: pageTo,
-            price_per_page: price
-        };
-
         const res = await fetch(`/pricing/rule`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({
+                owner_id: ownerId,
+                paper_size: paperSize,
+                print_type: printType,
+                duplex: duplex,
+                page_from: pageFrom,
+                page_to: pageTo,
+                price_per_page: price
+            })
         });
 
-        const data = await res.json();
         if (res.ok) {
             showToast("✓ Custom pricing tier added successfully!");
             document.getElementById("newRulePrice").value = "";
             toggleAddRuleForm();
             loadPricingRules();
         } else {
-            showToast(data.detail || "Error adding rule.", true);
+            showToast("Error adding pricing rule.", true);
         }
     } catch (e) {
-        showToast("Network error creating rule.", true);
+        showToast("Network error adding rule.", true);
     }
 }
 
@@ -1269,196 +2036,98 @@ async function deletePricingRule(pricingId) {
         if (res.ok) {
             showToast("Pricing rule removed.");
             loadPricingRules();
-        } else {
-            showToast("Could not remove pricing rule.", true);
         }
     } catch (e) {
-        showToast("Network error deleting rule.", true);
+        showToast("Error deleting rule.", true);
     }
 }
 
-
 // ==========================================================
-// Dashboard Polling & Live Updates
+// Settings Management
 // ==========================================================
 
-async function loadDashboard() {
+async function loadShopSettings() {
     try {
-        const statsRes = await fetch(`/analytics/dashboard/${ownerId}`);
-        if (statsRes.status === 404 || statsRes.status === 401) {
-            console.warn("Owner not found or session expired. Halting polling.");
-            if (pollInterval) clearInterval(pollInterval);
-            return;
-        }
-        if (statsRes.ok) {
-            const data = await statsRes.json();
-            const stats = data.statistics || {};
-            const rev = data.revenue_breakdown || {};
-
-            // Primary KPI Stats
-            document.getElementById("statTotalJobs").innerText = stats.total_jobs || "0";
-            document.getElementById("statCompletedJobs").innerText = stats.completed_jobs || "0";
-            document.getElementById("statActiveQueue").innerText = (stats.pending_jobs || 0) + (stats.printing_jobs || 0);
-            document.getElementById("statFailedJobs").innerText = stats.failed_jobs || "0";
-            document.getElementById("statRevenue").innerText = "₹" + (rev.total_revenue || stats.total_revenue || 0).toFixed(2);
-            document.getElementById("statAvgTime").innerText = (stats.average_completion_seconds || 0) + "s";
-
-            // Revenue Breakdown
-            document.getElementById("revCash").innerText = "₹" + (rev.cash_revenue || 0).toFixed(2);
-            document.getElementById("revOnline").innerText = "₹" + (rev.online_revenue || 0).toFixed(2);
-            document.getElementById("revToday").innerText = "₹" + (rev.today_revenue || 0).toFixed(2);
-            document.getElementById("revMonth").innerText = "₹" + (rev.month_revenue || 0).toFixed(2);
-            document.getElementById("revBw").innerText = "₹" + (rev.bw_revenue || 0).toFixed(2);
-            document.getElementById("revColor").innerText = "₹" + (rev.color_revenue || 0).toFixed(2);
-            document.getElementById("revAov").innerText = "₹" + (rev.average_order_value || 0).toFixed(2);
-            document.getElementById("revPendingCash").innerText = "₹" + (rev.pending_cash_amount || 0).toFixed(2);
-
-            // Render Charts
-            if (data.charts && !chartsInitialized) {
-                renderCharts(data.charts);
-                chartsInitialized = true;
-            }
-
-            // Cash Approvals Section & Real-Time Alert Trigger
-            const cashJobs = data.pending_cash_approvals || [];
-            const cashBanner = document.getElementById("cashAlertBanner");
-            const cashBadge = document.getElementById("pendingCashBadge");
-            const cashTable = document.getElementById("cashTable");
-
-            if (cashJobs.length > 0) {
-                cashBanner.style.display = "block";
-                document.getElementById("cashAlertCount").innerText = cashJobs.length;
-                cashBadge.innerText = `${cashJobs.length} Pending`;
-                cashBadge.style.display = "inline-flex";
-
-                // Check for newly arrived cash requests
-                let hasNewCash = false;
-                let newestJob = null;
-                for (const c of cashJobs) {
-                    if (!knownCashJobIds.has(c.job_id)) {
-                        hasNewCash = true;
-                        newestJob = c;
-                    }
-                }
-
-                if (hasNewCash && !isFirstLoad) {
-                    playCashAlertChime();
-                    showToast(`🔔 New Cash Order: ₹${newestJob.total_amount.toFixed(2)} from ${newestJob.customer_name}!`, false);
-                    if ("Notification" in window && Notification.permission === "granted") {
-                        new Notification("💵 New Cash Print Order", {
-                            body: `₹${newestJob.total_amount.toFixed(2)} from ${newestJob.customer_name} (${newestJob.total_pages} pages). Click to confirm on dashboard.`,
-                            icon: "/static/favicon.ico"
-                        });
-                    }
-                }
-
-                knownCashJobIds = new Set(cashJobs.map(c => c.job_id));
-
-                cashTable.innerHTML = cashJobs.map(c => `
-                    <tr style="background: rgba(245, 158, 11, 0.04);">
-                        <td><code>${c.job_id.slice(0, 8)}...</code></td>
-                        <td>
-                            <strong>${c.customer_name}</strong>
-                            <div style="font-size: 11px; color: var(--text-muted);">${c.customer_phone}</div>
-                        </td>
-                        <td>
-                            <div>${c.total_files} file(s), <strong>${c.total_pages} page(s)</strong> (${c.total_copies} copy)</div>
-                            <div style="font-size: 11px; color: var(--text-muted);">${c.files.join(", ").slice(0, 30)}</div>
-                        </td>
-                        <td><strong style="color: #fbbf24; font-size: 16px;">₹${c.total_amount.toFixed(2)}</strong></td>
-                        <td style="color: var(--text-muted); font-size: 12px;">${c.created_at}</td>
-                        <td style="text-align: right;">
-                            <button class="btn btn-sm btn-success" onclick="confirmCash('${c.job_id}')">✓ Confirm Cash & Print</button>
-                            <button class="btn btn-sm btn-danger" style="margin-left: 6px;" onclick="rejectCash('${c.job_id}')">✕</button>
-                        </td>
-                    </tr>
-                `).join("");
-            } else {
-                knownCashJobIds.clear();
-                cashBanner.style.display = "none";
-                cashBadge.innerText = "0 Pending";
-                cashTable.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 20px;">✓ No pending counter cash approvals. All caught up!</td></tr>`;
-            }
-            isFirstLoad = false;
-
-            // Populate Physical Printers
-            const pTable = document.getElementById("printersTable");
-            const allPrinters = data.printer_utilization || [];
-            const physicalPrinters = allPrinters.filter(p => p.is_physical !== false && !p.is_virtual);
-            if (physicalPrinters.length > 0) {
-                pTable.innerHTML = physicalPrinters.map(p => {
-                    const st = (p.status || "Offline").toLowerCase();
-                    return `
-                    <tr>
-                        <td>
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <span class="pulse-dot ${st}"></span>
-                                <strong>${p.printer_name}</strong>
-                            </div>
-                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px; padding-left: 16px;">Model: ${p.printer_model || 'Hardware MFP'}</div>
-                        </td>
-                        <td><span class="badge ${st}">${p.status}</span></td>
-                        <td><strong>${p.current_queue || 0}</strong> jobs</td>
-                        <td>
-                            ${(p.capabilities || 'B/W').split(',').map(c => `<span class="tag">${c.trim()}</span>`).join('')}
-                        </td>
-                        <td><strong>${p.jobs_printed || 0}</strong> pages</td>
-                    </tr>
-                `}).join("");
-            } else {
-                pTable.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-muted); padding: 24px;">No physical printers detected yet. Run <code>python agent.py</code> to connect your printer.</td></tr>`;
-            }
-
-            // Populate Recent Transactions
-            const tTable = document.getElementById("transactionsTable");
-            const txns = data.recent_transactions || [];
-            if (txns.length > 0) {
-                tTable.innerHTML = txns.map(t => {
-                    const isCash = t.payment_method.toUpperCase() === "CASH";
-                    return `
-                    <tr>
-                        <td><code>${t.job_id.slice(0, 8)}...</code></td>
-                        <td>${t.customer_name}</td>
-                        <td><strong>₹${t.amount.toFixed(2)}</strong></td>
-                        <td><span class="badge ${isCash ? 'pending' : 'paid'}">${isCash ? '💵 Cash' : '📱 Online'}</span></td>
-                        <td><span class="badge ${t.payment_status.toLowerCase()}">${t.payment_status}</span></td>
-                        <td><span class="badge ${t.job_status.toLowerCase()}">${t.job_status}</span></td>
-                        <td style="font-size: 12px; color: var(--text-muted);">${t.created_at}</td>
-                    </tr>
-                `}).join("");
-            } else {
-                tTable.innerHTML = `<tr><td colspan="7" style="text-align:center; color: var(--text-muted); padding: 20px;">No transactions recorded yet.</td></tr>`;
-            }
-        }
-
-        // Load Queue
-        const qRes = await fetch("/queue/");
-        if (qRes.ok) {
-            const qJobs = await qRes.json();
-            const qTable = document.getElementById("queueTable");
-            if (qJobs.length > 0) {
-                qTable.innerHTML = qJobs.map(q => `
-                    <tr>
-                        <td><strong>#${q.queue_position || 1}</strong></td>
-                        <td><code>${q.job_id.slice(0, 8)}...</code></td>
-                        <td><span class="badge ${q.status.toLowerCase()}">${q.status}</span></td>
-                        <td>${q.assigned_printer_id ? q.assigned_printer_id.slice(0, 8) + "..." : "Auto Selected"}</td>
-                        <td>${q.estimated_seconds || 0}s</td>
-                    </tr>
-                `).join("");
-            } else {
-                qTable.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-muted); padding: 20px;">No active jobs in queue.</td></tr>`;
-            }
-        }
-    } catch (err) {
-        console.error("Dashboard error:", err);
+        const res = await fetch(`/settings/owner/${ownerId}`);
+        if (!res.ok) return;
+        const s = await res.json();
+        
+        document.getElementById("settingMaxSize").value = s.max_file_size_mb || 50;
+        document.getElementById("settingMaxFiles").value = s.max_files_per_job || 20;
+        document.getElementById("settingTax").value = s.tax_percentage || 0.0;
+        document.getElementById("settingCurrency").value = s.currency || "INR";
+        
+        document.getElementById("settingAllowBw").checked = s.allow_bw_print !== false;
+        document.getElementById("settingAllowColor").checked = s.allow_color_print !== false;
+        document.getElementById("settingAllowDuplex").checked = s.allow_duplex !== false;
+        document.getElementById("settingAllowMixed").checked = s.allow_mixed_print !== false;
+        document.getElementById("settingAllowPageSelect").checked = s.allow_page_selection !== false;
+    } catch (e) {
+        console.error("Settings load error:", e);
     }
 }
 
-// Initial loads
+async function saveShopSettings() {
+    try {
+        const payload = {
+            max_file_size_mb: parseInt(document.getElementById("settingMaxSize").value) || 50,
+            max_files_per_job: parseInt(document.getElementById("settingMaxFiles").value) || 20,
+            tax_percentage: parseFloat(document.getElementById("settingTax").value) || 0.0,
+            allow_bw_print: document.getElementById("settingAllowBw").checked,
+            allow_color_print: document.getElementById("settingAllowColor").checked,
+            allow_duplex: document.getElementById("settingAllowDuplex").checked,
+            allow_mixed_print: document.getElementById("settingAllowMixed").checked,
+            allow_page_selection: document.getElementById("settingAllowPageSelect").checked
+        };
+
+        const res = await fetch(`/settings/owner/${ownerId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+            showToast("✓ Shop settings saved successfully!");
+        } else {
+            showToast("Could not save settings.", true);
+        }
+    } catch (e) {
+        showToast("Network error saving settings.", true);
+    }
+}
+
+// ==========================================================
+// Profile Data
+// ==========================================================
+
+async function loadProfileData() {
+    try {
+        const res = await fetch(`/owner/${ownerId}`);
+        if (!res.ok) return;
+        const o = await res.json();
+        
+        document.getElementById("profOwnerId").value = o.owner_id;
+        document.getElementById("profUpiId").value = o.upi_id || `${o.phone}@upi`;
+        document.getElementById("profEmail").value = o.email;
+        document.getElementById("profPhone").value = o.phone;
+        document.getElementById("profAddress").value = o.address || "Main Shop Counter";
+    } catch (e) {
+        console.error("Profile load error:", e);
+    }
+}
+
+// ==========================================================
+// Initial Boot Sequence
+// ==========================================================
+
+const initialHash = window.location.hash.replace('#', '') || 'dashboard';
+navigate(initialHash);
 loadDashboard();
 loadPricingRules();
-pollInterval = setInterval(loadDashboard, 3000);
+loadQrData();
+
+// Start live sync polling (every 3.5 seconds)
+pollInterval = setInterval(loadDashboard, 3500);
 </script>
 
 </body>

@@ -3,152 +3,117 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Smart Printing - Order & Payment</title>
+    <title>Order Summary & Payment - AI Smart Printing</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
     <style>
-        :root {
-            --bg-primary: #0f172a;
-            --bg-card: #1e293b;
-            --accent: #6366f1;
-            --accent-hover: #4f46e5;
-            --success: #10b981;
-            --text: #f8fafc;
-            --text-muted: #94a3b8;
-            --border: #334155;
-        }
         body {
-            font-family: 'Outfit', sans-serif;
-            background-color: var(--bg-primary);
-            color: var(--text);
-            margin: 0;
-            padding: 24px;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            box-sizing: border-box;
+            padding: 24px;
         }
-        .container {
+        .summary-container {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 32px;
+            border-radius: var(--radius-xl);
+            padding: 36px 28px;
             max-width: 520px;
             width: 100%;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(12px);
+            box-shadow: var(--shadow-lg);
         }
-        h2 {
-            margin-top: 0;
-            font-weight: 700;
-            font-size: 24px;
-            background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .summary-card {
-            background: rgba(15, 23, 42, 0.6);
+        .summary-card-inner {
+            background: var(--bg-surface);
             border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 16px;
+            border-radius: var(--radius-lg);
+            padding: 18px;
             margin: 20px 0;
         }
         .summary-row {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
             font-size: 14px;
             color: var(--text-muted);
         }
-        .summary-row strong {
-            color: var(--text);
+        .summary-row:last-child {
+            margin-bottom: 0;
         }
-        .total-box {
+        .summary-row strong {
+            color: var(--text-main);
+        }
+        .total-box-highlight {
             display: flex;
             justify-content: space-between;
             align-items: center;
             background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%);
-            border: 1px solid rgba(99, 102, 241, 0.3);
-            border-radius: 12px;
-            padding: 16px;
+            border: 1px solid rgba(99, 102, 241, 0.35);
+            border-radius: var(--radius-md);
+            padding: 18px 20px;
             margin: 20px 0;
         }
-        .total-box span {
-            font-size: 16px;
-            font-weight: 500;
-        }
-        .total-box h3 {
-            margin: 0;
-            font-size: 28px;
-            color: #a5b4fc;
-        }
-        .btn-group {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            margin-top: 24px;
-        }
-        .btn {
-            background: linear-gradient(135deg, var(--accent) 0%, #a855f7 100%);
-            color: white;
-            border: none;
-            padding: 14px 20px;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            text-align: center;
-            text-decoration: none;
-        }
-        .btn:hover {
-            opacity: 0.95;
-            transform: translateY(-2px);
-            box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.4);
-        }
-        .btn-secondary {
-            background: rgba(51, 65, 85, 0.8);
-            border: 1px solid var(--border);
-            color: var(--text);
-        }
-        .btn-secondary:hover {
-            background: #475569;
-            box-shadow: none;
-        }
-        .payment-modal {
+        .payment-modal-box {
             display: none;
             margin-top: 20px;
-            padding: 20px;
-            background: rgba(15, 23, 42, 0.9);
-            border: 1px solid #4f46e5;
-            border-radius: 14px;
+            padding: 22px;
+            background: var(--bg-surface);
+            border: 1px solid var(--accent);
+            border-radius: var(--radius-lg);
             text-align: center;
         }
         .spinner {
             display: inline-block;
-            width: 28px;
-            height: 28px;
-            border: 3px solid rgba(255,255,255,0.2);
+            width: 32px;
+            height: 32px;
+            border: 3px solid rgba(255,255,255,0.15);
             border-radius: 50%;
-            border-top-color: #818cf8;
-            animation: spin 1s ease-in-out infinite;
+            border-top-color: var(--accent);
+            animation: spin 1s linear infinite;
             margin-bottom: 12px;
         }
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        .step-progress-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+        .step-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--border-light);
+        }
+        .step-dot.done {
+            background: var(--success);
+        }
+        .step-dot.active {
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+        }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>Print Order Summary</h2>
+<div class="summary-container">
+    <div class="step-progress-bar">
+        <div class="step-dot done" title="Upload"></div>
+        <div class="step-dot done" title="Print Settings"></div>
+        <div class="step-dot active" title="Payment"></div>
+        <div class="step-dot" title="Live Print"></div>
+    </div>
+
+    <h2 style="font-size: 24px; font-weight: 700; margin-bottom: 4px; text-align: center;">Print Order Summary</h2>
+    <div style="font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 20px;">Review print specifications & choose payment method</div>
     
-    <div class="summary-card">
+    <div class="summary-card-inner">
         <div class="summary-row">
             <span>Document:</span>
-            <strong>{{ file_name }}</strong>
+            <strong style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px;">{{ file_name }}</strong>
         </div>
         <div class="summary-row">
             <span>Total Pages:</span>
@@ -168,39 +133,36 @@
         </div>
         <div class="summary-row">
             <span>Duplex:</span>
-            <strong>{{ "Two-Sided (Duplex)" if duplex else "Single-Sided" }}</strong>
+            <strong>{{ "Double-Sided (Duplex)" if duplex else "Single-Sided" }}</strong>
         </div>
     </div>
 
-    <div class="total-box">
-        <span>Total Payable</span>
-        <h3>₹<span id="total">{{ total_amount }}</span></h3>
+    <div class="total-box-highlight">
+        <span style="font-size: 16px; font-weight: 500;">Total Payable Amount</span>
+        <h3 style="font-size: 28px; font-weight: 800; color: #34d399; margin: 0;">₹<span id="total">{{ total_amount }}</span></h3>
     </div>
 
-    <div id="paymentOptions" class="btn-group">
-        <button type="button" class="btn" id="btnOnlinePayment">
+    <div id="paymentOptions" style="display: flex; flex-direction: column; gap: 12px; margin-top: 24px;">
+        <button type="button" class="btn btn-lg" id="btnOnlinePayment">
             ⚡ Pay Online (UPI / Card)
         </button>
-        <button type="button" class="btn btn-secondary" id="btnCashPayment">
+        <button type="button" class="btn btn-secondary btn-lg" id="btnCashPayment">
             💵 Pay Cash at Counter
         </button>
     </div>
 
-    <div id="paymentModal" class="payment-modal">
+    <div id="paymentModal" class="payment-modal-box">
         <div class="spinner"></div>
         <div id="modalStatus" style="font-weight: 600; font-size: 16px; margin-bottom: 8px;">
             Processing Payment...
         </div>
         <div id="modalDetails" style="font-size: 13px; color: var(--text-muted);">
-            Please complete the payment or ask the shop operator to verify.
+            Please complete payment or wait for counter confirmation.
         </div>
-        <div id="qrBox" style="margin-top: 14px; display: none;"></div>
-        <button type="button" class="btn" id="btnSimulateSuccess" style="margin-top: 14px; display: none; font-size: 14px; padding: 10px;">
+        <button type="button" class="btn btn-sm" id="btnSimulateSuccess" style="margin-top: 14px; display: none; width: 100%;">
             Confirm Payment Verification
         </button>
     </div>
-
-    <p id="message" style="margin-top: 16px; font-size: 13px; text-align: center; color: var(--text-muted);"></p>
 </div>
 
 <script>
@@ -214,7 +176,6 @@ const modal = document.getElementById("paymentModal");
 const modalStatus = document.getElementById("modalStatus");
 const modalDetails = document.getElementById("modalDetails");
 const btnSimulate = document.getElementById("btnSimulateSuccess");
-const message = document.getElementById("message");
 
 async function pollJobStatus() {
     try {
@@ -228,7 +189,7 @@ async function pollJobStatus() {
             modalDetails.innerText = "Redirecting to Live Print Queue Tracker...";
             setTimeout(() => {
                 window.location.href = `/job/tracker/${jobId}`;
-            }, 1200);
+            }, 1000);
         }
     } catch (e) {
         console.error("Polling error:", e);
@@ -239,7 +200,7 @@ btnOnline.addEventListener("click", async () => {
     btnOnline.disabled = true;
     btnCash.disabled = true;
     modal.style.display = "block";
-    modalStatus.innerText = "Creating Secure Payment...";
+    modalStatus.innerText = "Creating Secure Payment Order...";
 
     try {
         const res = await fetch(`/payment/create/${jobId}`, {
@@ -259,13 +220,12 @@ btnOnline.addEventListener("click", async () => {
 
         paymentId = data.payment_id;
         modalStatus.innerText = "Awaiting Payment Verification";
-        modalDetails.innerText = `Payment ID: ${paymentId}. Scan UPI or complete verification.`;
+        modalDetails.innerText = `Payment ID: ${paymentId}. Scan UPI or complete verification below.`;
         
-        // Show verification button
         btnSimulate.style.display = "block";
         btnSimulate.onclick = async () => {
             btnSimulate.disabled = true;
-            btnSimulate.innerText = "Verifying...";
+            btnSimulate.innerText = "Verifying signature...";
             const vRes = await fetch("/payment/verify", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -285,7 +245,6 @@ btnOnline.addEventListener("click", async () => {
             }
         };
 
-        // Start background status polling
         pollInterval = setInterval(pollJobStatus, 2000);
 
     } catch (err) {
@@ -302,7 +261,7 @@ btnCash.addEventListener("click", async () => {
     modal.style.display = "block";
     btnSimulate.style.display = "none";
     modalStatus.innerText = "Requesting Cash Payment...";
-    modalDetails.innerText = "Contacting shop system...";
+    modalDetails.innerText = "Registering counter cash order...";
 
     try {
         const res = await fetch(`/payment/cash/${jobId}`, {
@@ -312,9 +271,8 @@ btnCash.addEventListener("click", async () => {
 
         if (res.ok) {
             modalStatus.innerText = "💵 Cash Payment Requested";
-            modalDetails.innerHTML = `Please pay <strong>₹${document.getElementById('total').innerText}</strong> at the shop counter.<br><span style="color:#fbbf24; display:inline-block; margin-top:6px;">⏳ Waiting for shop operator to confirm on dashboard...</span>`;
+            modalDetails.innerHTML = `Please pay <strong>₹${document.getElementById('total').innerText}</strong> at the shop counter.<br><span style="color:#fbbf24; display:inline-block; margin-top:8px;">⏳ Waiting for shop operator to confirm on dashboard...</span>`;
             
-            // Start polling for operator cash confirmation
             if (pollInterval) clearInterval(pollInterval);
             pollInterval = setInterval(pollJobStatus, 2000);
         } else {

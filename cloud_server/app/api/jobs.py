@@ -87,6 +87,66 @@ def create_new_job(
 
 
 # ==========================================================
+# Get All Jobs for Shop Owner
+# ==========================================================
+
+@router.get("/owner/{owner_id}")
+def get_owner_jobs(
+    owner_id: UUID,
+    db: Session = Depends(get_db)
+):
+    jobs = (
+        db.query(ActiveJob)
+        .filter(ActiveJob.owner_id == owner_id)
+        .order_by(ActiveJob.created_at.desc())
+        .all()
+    )
+    result = []
+    for j in jobs:
+        files = []
+        for f in (j.files or []):
+            files.append({
+                "file_id": str(f.file_id),
+                "filename": f.original_filename,
+                "file_type": f.file_type,
+                "page_count": f.page_count,
+                "copies": f.copies,
+                "paper_size": f.paper_size.value if hasattr(f.paper_size, "value") else str(f.paper_size),
+                "print_type": f.print_type.value if hasattr(f.print_type, "value") else str(f.print_type),
+                "duplex": f.duplex,
+                "orientation": f.orientation.value if hasattr(f.orientation, "value") else str(f.orientation),
+                "page_ranges": f.page_ranges,
+                "color_page_ranges": f.color_page_ranges,
+                "estimated_cost": float(f.estimated_cost or 0.0)
+            })
+        pmt = j.payment
+        result.append({
+            "job_id": str(j.job_id),
+            "customer_name": j.customer_name or "Walk-in Customer",
+            "customer_phone": j.customer_phone or "-",
+            "status": j.status.value,
+            "payment_status": j.payment_status.value,
+            "payment_method": pmt.payment_method.value if pmt and pmt.payment_method else "UPI",
+            "assigned_printer_id": str(j.assigned_printer_id) if j.assigned_printer_id else None,
+            "assigned_printer_name": j.assigned_printer.printer_name if j.assigned_printer else None,
+            "queue_position": j.queue_position,
+            "total_files": j.total_files or len(files),
+            "total_pages": j.total_pages or sum(f["page_count"] * f["copies"] for f in files),
+            "total_copies": j.total_copies or 1,
+            "subtotal": float(j.subtotal or 0.0),
+            "tax": float(j.tax or 0.0),
+            "total_amount": float(j.total_amount or (pmt.amount if pmt else 0.0) or 0.0),
+            "estimated_seconds": j.estimated_seconds or 0,
+            "created_at": j.created_at.strftime("%Y-%m-%d %H:%M:%S") if j.created_at else "-",
+            "queued_at": j.queued_at.strftime("%Y-%m-%d %H:%M:%S") if j.queued_at else None,
+            "started_at": j.started_at.strftime("%Y-%m-%d %H:%M:%S") if j.started_at else None,
+            "completed_at": j.completed_at.strftime("%Y-%m-%d %H:%M:%S") if j.completed_at else None,
+            "files": files
+        })
+    return result
+
+
+# ==========================================================
 # Get Single Job
 # ==========================================================
 

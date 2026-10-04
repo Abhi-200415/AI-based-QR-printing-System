@@ -272,29 +272,17 @@ def update_printer_status(
 def get_cloud_printers(
     owner_id: str
 ):
-
     try:
-
         response = requests.get(
-
-            f"{CLOUD_API_URL}/printer/owner/"
-            f"{owner_id}",
-
-            timeout=10
-
+            f"{CLOUD_API_URL}/printer/owner/{owner_id}",
+            timeout=25
         )
-
         response.raise_for_status()
-
         return response.json()
-
     except Exception as e:
-
         error(
-            f"Unable to read Cloud printers: "
-            f"{e}"
+            f"Unable to read Cloud printers: {e}"
         )
-
         return None
 
 
@@ -304,7 +292,7 @@ def delete_cloud_printer(
     try:
         response = requests.delete(
             f"{CLOUD_API_URL}/printer/{printer_id}",
-            timeout=10
+            timeout=25
         )
         return response.status_code in (200, 204)
     except Exception as e:

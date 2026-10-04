@@ -3,230 +3,154 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Smart Printing - Live Job Tracker</title>
+    <title>Live Print Tracker - AI Smart Printing</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
     <style>
-        :root {
-            --bg-primary: #0f172a;
-            --bg-card: #1e293b;
-            --accent: #6366f1;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --text: #f8fafc;
-            --text-muted: #94a3b8;
-            --border: #334155;
-        }
         body {
-            font-family: 'Outfit', sans-serif;
-            background-color: var(--bg-primary);
-            color: var(--text);
-            margin: 0;
-            padding: 24px;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            box-sizing: border-box;
+            padding: 24px;
         }
-        .container {
+        .tracker-container {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 32px;
+            border-radius: var(--radius-xl);
+            padding: 36px 28px;
             max-width: 540px;
             width: 100%;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            box-shadow: var(--shadow-lg);
             text-align: center;
         }
-        h2 {
-            margin-top: 0;
-            font-weight: 700;
-            background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .status-badge {
-            display: inline-block;
-            padding: 8px 18px;
-            border-radius: 9999px;
-            font-size: 14px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin: 12px 0 24px 0;
-            background: rgba(99, 102, 241, 0.2);
-            color: #a5b4fc;
-            border: 1px solid rgba(99, 102, 241, 0.4);
-        }
-        .status-badge.pending { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border-color: rgba(245, 158, 11, 0.4); }
-        .status-badge.queued { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border-color: rgba(99, 102, 241, 0.4); }
-        .status-badge.printing { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border-color: rgba(56, 189, 248, 0.4); }
-        .status-badge.completed { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.4); }
-        .status-badge.failed { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border-color: rgba(239, 68, 68, 0.4); }
-        
-        .cash-alert-box {
-            display: none;
-            background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.1) 100%);
-            border: 1px solid rgba(245, 158, 11, 0.4);
-            border-radius: 14px;
-            padding: 16px;
-            margin-bottom: 20px;
-            text-align: left;
-        }
-        
-        .progress-steps {
+        .progress-steps-line {
             display: flex;
             justify-content: space-between;
             position: relative;
-            margin: 32px 0 28px 0;
+            margin: 36px 12px 32px 12px;
         }
-        .progress-steps::before {
+        .progress-steps-line::before {
             content: '';
             position: absolute;
             top: 50%;
-            left: 10%;
-            right: 10%;
+            left: 8%;
+            right: 8%;
             height: 3px;
-            background: var(--border);
+            background: var(--border-light);
             transform: translateY(-50%);
             z-index: 1;
         }
-        .step {
+        .step-circle {
             position: relative;
             z-index: 2;
             background: var(--bg-card);
-            border: 3px solid var(--border);
-            width: 38px;
-            height: 38px;
+            border: 3px solid var(--border-light);
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 700;
             font-size: 14px;
+            color: var(--text-muted);
             transition: all 0.3s ease;
         }
-        .step.active {
+        .step-circle.active {
             border-color: var(--accent);
             background: var(--accent);
             color: white;
-            box-shadow: 0 0 15px rgba(99, 102, 241, 0.6);
+            box-shadow: 0 0 16px var(--accent-glow);
         }
-        .step.pending-active {
+        .step-circle.pending-active {
             border-color: var(--warning);
             background: var(--warning);
             color: #1e1b4b;
-            box-shadow: 0 0 15px rgba(245, 158, 11, 0.6);
+            box-shadow: 0 0 16px var(--warning-glow);
         }
-        .step.done {
+        .step-circle.done {
             border-color: var(--success);
             background: var(--success);
             color: white;
         }
-        .step-label {
+        .step-tag-label {
             position: absolute;
-            top: 44px;
+            top: 46px;
             left: 50%;
             transform: translateX(-50%);
-            font-size: 12px;
+            font-size: 11.5px;
+            font-weight: 600;
             color: var(--text-muted);
             white-space: nowrap;
-        }
-        .details-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin: 24px 0;
-            text-align: left;
-        }
-        .detail-box {
-            background: rgba(15, 23, 42, 0.6);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 14px;
-        }
-        .detail-box .title {
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-bottom: 4px;
-        }
-        .detail-box .value {
-            font-size: 18px;
-            font-weight: 600;
-            color: var(--text);
-        }
-        .completion-banner {
-            display: none;
-            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.2) 100%);
-            border: 1px solid rgba(16, 185, 129, 0.4);
-            border-radius: 12px;
-            padding: 16px;
-            margin-top: 20px;
         }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>Live Print Status</h2>
-    <div id="statusBadge" class="status-badge pending">Awaiting Payment</div>
+<div class="tracker-container">
+    <h2 style="font-size: 24px; font-weight: 700; margin-bottom: 4px;">Live Print Order Tracker</h2>
+    <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Real-time automated print agent synchronization</div>
+    
+    <div id="statusBadge" class="badge badge-pending" style="font-size: 13px; padding: 6px 16px; margin-bottom: 20px;">
+        Awaiting Payment
+    </div>
 
     <!-- Cash Confirmation Notice -->
-    <div id="cashNoticeBox" class="cash-alert-box">
-        <div style="display: flex; align-items: flex-start; gap: 10px;">
+    <div id="cashNoticeBox" class="card-panel" style="display: none; background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.08) 100%); border-color: rgba(245, 158, 11, 0.4); text-align: left; padding: 16px; margin-bottom: 24px;">
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
             <span style="font-size: 24px;">💵</span>
             <div>
                 <strong style="color: #fbbf24; font-size: 14px;">Cash Payment Required at Counter</strong>
                 <div style="font-size: 13px; color: #cbd5e1; margin-top: 3px;">
-                    Please pay <strong>₹<span id="cashAmount">0.00</span></strong> to the shop operator. Once confirmed on the dashboard, your print job will be queued.
+                    Please pay <strong>₹<span id="cashAmount">0.00</span></strong> to the shop operator. Once confirmed on the operator dashboard, your job will begin printing automatically.
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="progress-steps">
-        <div class="step pending-active" id="stepPaid">
+    <div class="progress-steps-line">
+        <div class="step-circle pending-active" id="stepPaid">
             1
-            <span class="step-label" id="stepPaidLabel">Payment</span>
+            <span class="step-tag-label" id="stepPaidLabel">Payment</span>
         </div>
-        <div class="step" id="stepQueued">
+        <div class="step-circle" id="stepQueued">
             2
-            <span class="step-label">In Queue</span>
+            <span class="step-tag-label">In Queue</span>
         </div>
-        <div class="step" id="stepPrinting">
+        <div class="step-circle" id="stepPrinting">
             3
-            <span class="step-label">Printing</span>
+            <span class="step-tag-label">Printing</span>
         </div>
-        <div class="step" id="stepCompleted">
+        <div class="step-circle" id="stepCompleted">
             4
-            <span class="step-label">Completed</span>
+            <span class="step-tag-label">Completed</span>
         </div>
     </div>
 
-    <div class="details-grid">
-        <div class="detail-box">
-            <div class="title">Assigned Printer</div>
-            <div class="value" id="printerName">Pending Payment...</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 32px 0 24px 0; text-align: left;">
+        <div class="pricing-box">
+            <div class="stat-label">Assigned Printer</div>
+            <div id="printerName" style="font-size: 16px; font-weight: 600; color: var(--text-main);">Pending Payment...</div>
         </div>
-        <div class="detail-box">
-            <div class="title">Queue Position</div>
-            <div class="value" id="queuePos">Waiting Confirmation</div>
+        <div class="pricing-box">
+            <div class="stat-label">Queue Position</div>
+            <div id="queuePos" style="font-size: 16px; font-weight: 600; color: #a5b4fc;">Waiting Confirmation</div>
         </div>
-        <div class="detail-box">
-            <div class="title">Estimated Wait</div>
-            <div class="value" id="estWait">-</div>
+        <div class="pricing-box">
+            <div class="stat-label">Estimated Wait</div>
+            <div id="estWait" style="font-size: 16px; font-weight: 600; color: var(--text-main);">-</div>
         </div>
-        <div class="detail-box">
-            <div class="title">Total Pages</div>
-            <div class="value" id="totalPages">-</div>
+        <div class="pricing-box">
+            <div class="stat-label">Total Pages</div>
+            <div id="totalPages" style="font-size: 16px; font-weight: 600; color: #34d399;">-</div>
         </div>
     </div>
 
-    <div id="completionBanner" class="completion-banner">
-        <div style="font-size: 28px; margin-bottom: 8px;">🎉</div>
-        <div style="font-size: 16px; font-weight: 600; color: #6ee7b7;">Your documents have finished printing!</div>
-        <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Please collect your printed pages from the counter tray.</div>
+    <div id="completionBanner" class="card-panel" style="display: none; background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.15) 100%); border-color: rgba(16, 185, 129, 0.4); margin-bottom: 0;">
+        <div style="font-size: 32px; margin-bottom: 6px;">🎉</div>
+        <div style="font-size: 17px; font-weight: 700; color: #34d399;">Your documents have finished printing!</div>
+        <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Please collect your printed pages from the shop counter tray.</div>
     </div>
 </div>
 
@@ -239,7 +163,6 @@ async function fetchStatus() {
         if (!res.ok) return;
         const data = await res.json();
 
-        // Update UI fields
         document.getElementById("totalPages").innerText = data.total_pages || "1";
         document.getElementById("cashAmount").innerText = (data.total_amount || 0).toFixed(2);
 
@@ -251,19 +174,18 @@ async function fetchStatus() {
         const s3 = document.getElementById("stepPrinting");
         const s4 = document.getElementById("stepCompleted");
 
-        // Reset step classes
-        s1.className = "step";
-        s2.className = "step";
-        s3.className = "step";
-        s4.className = "step";
+        s1.className = "step-circle";
+        s2.className = "step-circle";
+        s3.className = "step-circle";
+        s4.className = "step-circle";
 
         const isCashPending = (data.payment_status === "Pending" && (data.payment_method === "Cash" || data.status === "Pending"));
 
         if (isCashPending) {
             badge.innerText = "⏳ Awaiting Cash Confirmation";
-            badge.className = "status-badge pending";
+            badge.className = "badge badge-pending";
             cashBox.style.display = "block";
-            s1.className = "step pending-active";
+            s1.className = "step-circle pending-active";
             s1Label.innerText = "Awaiting Cash";
             document.getElementById("printerName").innerText = "Waiting for Operator";
             document.getElementById("queuePos").innerText = "Pending Cash";
@@ -271,30 +193,30 @@ async function fetchStatus() {
             return;
         }
 
-        // When payment is completed
         cashBox.style.display = "none";
-        s1.className = "step done";
+        s1.className = "step-circle done";
         s1Label.innerText = "Paid ✓";
         document.getElementById("printerName").innerText = data.assigned_printer_name || "AI Assigning...";
         document.getElementById("queuePos").innerText = data.queue_position !== null ? `#${data.queue_position}` : "Active";
         document.getElementById("estWait").innerText = (data.estimated_seconds || 0) + "s";
 
         badge.innerText = data.status;
-        badge.className = "status-badge " + data.status.toLowerCase();
+        badge.className = "badge badge-" + data.status.toLowerCase();
 
         if (data.status === "Queued" || data.status === "Assigned") {
-            s2.className = "step active";
+            s2.className = "step-circle active";
         } else if (data.status === "Printing") {
-            s2.className = "step done";
-            s3.className = "step active";
+            s2.className = "step-circle done";
+            s3.className = "step-circle active";
         } else if (data.status === "Completed") {
-            s2.className = "step done";
-            s3.className = "step done";
-            s4.className = "step done";
+            s2.className = "step-circle done";
+            s3.className = "step-circle done";
+            s4.className = "step-circle done";
             document.getElementById("completionBanner").style.display = "block";
             clearInterval(trackerInterval);
         } else if (data.status === "Failed") {
             badge.innerText = "Print Failed";
+            badge.className = "badge badge-failed";
             clearInterval(trackerInterval);
         }
     } catch (e) {

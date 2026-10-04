@@ -25,19 +25,16 @@ WEBSOCKET_URL = os.getenv(
     default_ws
 )
 
+from core.auth import get_default_agent_id
+
 # ==========================================================
 # Agent Configuration
 # ==========================================================
 
-AGENT_ID = os.getenv(
-    "AGENT_ID",
-    "agent_001"
-)
+AGENT_ID = os.getenv("AGENT_ID", "").strip() or get_default_agent_id()
 
-SHOP_ID = os.getenv(
-    "SHOP_ID",
-    ""
-)
+SHOP_ID = os.getenv("SHOP_ID", "").strip()
+
 
 # ==========================================================
 # Download Configuration
