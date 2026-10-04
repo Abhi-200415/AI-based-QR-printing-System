@@ -19,7 +19,7 @@
             border: 1px solid var(--border);
             border-radius: var(--radius-xl);
             padding: 36px 28px;
-            max-width: 540px;
+            max-width: 560px;
             width: 100%;
             box-shadow: var(--shadow-lg);
             text-align: center;
@@ -84,6 +84,62 @@
             color: var(--text-muted);
             white-space: nowrap;
         }
+        .receipt-action-bar {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .receipt-action-bar .btn {
+            flex: 1;
+            padding: 10px 14px;
+            font-size: 13px;
+        }
+
+        /* Modal Receipt Viewer */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(6px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            padding: 20px;
+        }
+        .receipt-modal-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            width: 100%;
+            max-width: 640px;
+            height: 85vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+        .receipt-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-surface);
+        }
+        .receipt-modal-body {
+            flex: 1;
+            background: #0f172a;
+            position: relative;
+        }
+        .receipt-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
     </style>
 </head>
 <body>
@@ -109,6 +165,19 @@
         </div>
     </div>
 
+    <!-- Finishing In Progress Notice -->
+    <div id="finishingNoticeBox" class="card-panel" style="display: none; background: linear-gradient(135deg, rgba(99, 102, 241, 0.18) 0%, rgba(168, 85, 247, 0.15) 100%); border-color: rgba(99, 102, 241, 0.4); text-align: left; padding: 16px; margin-bottom: 24px;">
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
+            <span style="font-size: 24px;">✨</span>
+            <div>
+                <strong style="color: #a5b4fc; font-size: 14px;">Printing Done — Finishing in Progress</strong>
+                <div id="finishingServicesListText" style="font-size: 13px; color: #cbd5e1; margin-top: 3px;">
+                    The operator is currently performing manual finishing work on your document.
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="progress-steps-line">
         <div class="step-circle pending-active" id="stepPaid">
             1
@@ -124,7 +193,7 @@
         </div>
         <div class="step-circle" id="stepCompleted">
             4
-            <span class="step-tag-label">Completed</span>
+            <span class="step-tag-label" id="stepCompletedLabel">Completed</span>
         </div>
     </div>
 
@@ -138,24 +207,66 @@
             <div id="queuePos" style="font-size: 16px; font-weight: 600; color: #a5b4fc;">Waiting Confirmation</div>
         </div>
         <div class="pricing-box">
-            <div class="stat-label">Estimated Wait</div>
-            <div id="estWait" style="font-size: 16px; font-weight: 600; color: var(--text-main);">-</div>
+            <div class="stat-label">Customer Ref</div>
+            <div id="customerRefVal" style="font-size: 16px; font-weight: 600; color: var(--text-main);">-</div>
         </div>
         <div class="pricing-box">
-            <div class="stat-label">Total Pages</div>
-            <div id="totalPages" style="font-size: 16px; font-weight: 600; color: #34d399;">-</div>
+            <div class="stat-label">Total Amount</div>
+            <div id="totalAmountVal" style="font-size: 16px; font-weight: 600; color: #34d399;">-</div>
         </div>
     </div>
 
-    <div id="completionBanner" class="card-panel" style="display: none; background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.15) 100%); border-color: rgba(16, 185, 129, 0.4); margin-bottom: 0;">
+    <!-- Receipt Action Bar -->
+    <div id="receiptBar" class="receipt-action-bar" style="display: none;">
+        <button type="button" class="btn btn-secondary" id="btnViewReceipt">
+            📄 View Receipt
+        </button>
+        <a class="btn btn-primary" id="btnDownloadReceipt" href="#">
+            ⬇ Download Receipt
+        </a>
+    </div>
+
+    <div id="completionBanner" class="card-panel" style="display: none; background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.15) 100%); border-color: rgba(16, 185, 129, 0.4); margin-top: 20px; margin-bottom: 0;">
         <div style="font-size: 32px; margin-bottom: 6px;">🎉</div>
-        <div style="font-size: 17px; font-weight: 700; color: #34d399;">Your documents have finished printing!</div>
-        <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Please collect your printed pages from the shop counter tray.</div>
+        <div style="font-size: 17px; font-weight: 700; color: #34d399;">Your order is ready for pickup!</div>
+        <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Printing and finishing completed. Please collect your order from the shop counter.</div>
+    </div>
+</div>
+
+<!-- Receipt Modal -->
+<div id="receiptModal" class="modal-overlay">
+    <div class="receipt-modal-box">
+        <div class="receipt-modal-header">
+            <strong style="color: var(--text-main); font-size: 14px;">📄 Official Order Receipt</strong>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnCloseReceipt">✕ Close</button>
+        </div>
+        <div class="receipt-modal-body">
+            <iframe id="receiptIframe" class="receipt-frame" src="about:blank"></iframe>
+        </div>
     </div>
 </div>
 
 <script>
 const jobId = "{{ job_id }}";
+
+const receiptBar = document.getElementById("receiptBar");
+const btnViewReceipt = document.getElementById("btnViewReceipt");
+const btnDownloadReceipt = document.getElementById("btnDownloadReceipt");
+const receiptModal = document.getElementById("receiptModal");
+const receiptIframe = document.getElementById("receiptIframe");
+const btnCloseReceipt = document.getElementById("btnCloseReceipt");
+
+btnDownloadReceipt.href = `/receipt/job/${jobId}/download`;
+
+btnViewReceipt.addEventListener("click", () => {
+    receiptIframe.src = `/receipt/job/${jobId}/view`;
+    receiptModal.style.display = "flex";
+});
+
+btnCloseReceipt.addEventListener("click", () => {
+    receiptModal.style.display = "none";
+    receiptIframe.src = "about:blank";
+});
 
 async function fetchStatus() {
     try {
@@ -163,16 +274,19 @@ async function fetchStatus() {
         if (!res.ok) return;
         const data = await res.json();
 
-        document.getElementById("totalPages").innerText = data.total_pages || "1";
+        document.getElementById("customerRefVal").innerText = data.customer_reference || "Walk-in";
+        document.getElementById("totalAmountVal").innerText = "₹" + (data.total_amount || 0).toFixed(2);
         document.getElementById("cashAmount").innerText = (data.total_amount || 0).toFixed(2);
 
         const badge = document.getElementById("statusBadge");
         const cashBox = document.getElementById("cashNoticeBox");
+        const finishingBox = document.getElementById("finishingNoticeBox");
         const s1 = document.getElementById("stepPaid");
         const s1Label = document.getElementById("stepPaidLabel");
         const s2 = document.getElementById("stepQueued");
         const s3 = document.getElementById("stepPrinting");
         const s4 = document.getElementById("stepCompleted");
+        const s4Label = document.getElementById("stepCompletedLabel");
 
         s1.className = "step-circle";
         s2.className = "step-circle";
@@ -185,21 +299,39 @@ async function fetchStatus() {
             badge.innerText = "⏳ Awaiting Cash Confirmation";
             badge.className = "badge badge-pending";
             cashBox.style.display = "block";
+            finishingBox.style.display = "none";
+            receiptBar.style.display = "none";
             s1.className = "step-circle pending-active";
             s1Label.innerText = "Awaiting Cash";
             document.getElementById("printerName").innerText = "Waiting for Operator";
             document.getElementById("queuePos").innerText = "Pending Cash";
-            document.getElementById("estWait").innerText = "--";
             return;
         }
 
         cashBox.style.display = "none";
         s1.className = "step-circle done";
         s1Label.innerText = "Paid ✓";
+        receiptBar.style.display = "flex";
         document.getElementById("printerName").innerText = data.assigned_printer_name || "AI Assigning...";
         document.getElementById("queuePos").innerText = data.queue_position !== null ? `#${data.queue_position}` : "Active";
-        document.getElementById("estWait").innerText = (data.estimated_seconds || 0) + "s";
 
+        // Check if finishing is pending
+        if (data.finishing_status === "PENDING") {
+            finishingBox.style.display = "block";
+            const serviceNames = (data.finishing_services || []).map(s => s.service_name).join(", ");
+            if (serviceNames) {
+                document.getElementById("finishingServicesListText").innerText = `Operator is completing: ${serviceNames}`;
+            }
+            badge.innerText = "Finishing Required";
+            badge.className = "badge badge-pending";
+            s2.className = "step-circle done";
+            s3.className = "step-circle done";
+            s4.className = "step-circle pending-active";
+            s4Label.innerText = "Finishing...";
+            return;
+        }
+
+        finishingBox.style.display = "none";
         badge.innerText = data.status;
         badge.className = "badge badge-" + data.status.toLowerCase();
 
@@ -212,6 +344,7 @@ async function fetchStatus() {
             s2.className = "step-circle done";
             s3.className = "step-circle done";
             s4.className = "step-circle done";
+            s4Label.innerText = "Ready ✓";
             document.getElementById("completionBanner").style.display = "block";
             clearInterval(trackerInterval);
         } else if (data.status === "Failed") {

@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Receipt - Order #{{ receipt.order_id[:8] }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --border: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #6366f1;
+            --success: #10b981;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg);
+            color: var(--text-main);
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 24px;
+        }
+        .receipt-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            max-width: 580px;
+            width: 100%;
+            padding: 32px 28px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+        .receipt-header {
+            text-align: center;
+            padding-bottom: 20px;
+            border-bottom: 2px dashed var(--border);
+            margin-bottom: 20px;
+        }
+        .shop-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+        .receipt-sub {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+        .meta-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            font-size: 13.5px;
+            margin-bottom: 20px;
+        }
+        .meta-item {
+            background: rgba(15, 23, 42, 0.6);
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .meta-label {
+            font-size: 11.5px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .meta-value {
+            font-weight: 600;
+            color: var(--text-main);
+            margin-top: 2px;
+        }
+        .section-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 20px 0 10px 0;
+        }
+        .file-item {
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+        }
+        .file-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .file-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-main);
+        }
+        .file-cost {
+            font-weight: 700;
+            color: #34d399;
+            font-size: 14px;
+        }
+        .file-specs {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .finishing-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(99, 102, 241, 0.15);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 11.5px;
+            color: #c7d2fe;
+            margin-top: 8px;
+        }
+        .totals-box {
+            border-top: 2px dashed var(--border);
+            padding-top: 16px;
+            margin-top: 20px;
+        }
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+        .total-row.grand {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-main);
+            border-top: 1px solid var(--border);
+            padding-top: 10px;
+            margin-top: 10px;
+        }
+        .total-row.grand .amount {
+            color: #34d399;
+            font-size: 22px;
+        }
+        .payment-status-badge {
+            display: inline-block;
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 20px;
+            padding: 4px 14px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .actions-bar {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+        .btn {
+            flex: 1;
+            padding: 12px 16px;
+            border-radius: 10px;
+            border: none;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+        }
+        .btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        @media print {
+            body { background: white; color: black; padding: 0; }
+            .receipt-card { border: none; box-shadow: none; max-width: 100%; color: black; background: white; }
+            .meta-item, .file-item { background: #f8fafc; border-color: #cbd5e1; color: black; }
+            .meta-value, .file-name, .shop-title { color: black; }
+            .actions-bar { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="receipt-card">
+    <div class="receipt-header">
+        <div class="shop-title">🖨️ {{ receipt.shop_name }}</div>
+        {% if receipt.shop_address %}
+        <div class="receipt-sub">{{ receipt.shop_address }}</div>
+        {% endif %}
+        <div class="receipt-sub" style="margin-top: 8px;">
+            <span class="payment-status-badge">✓ {{ receipt.payment_status }}</span>
+        </div>
+    </div>
+
+    <div class="meta-grid">
+        <div class="meta-item">
+            <div class="meta-label">Order Reference</div>
+            <div class="meta-value" style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px;">
+                #{{ receipt.order_id[:8] }}
+            </div>
+        </div>
+        <div class="meta-item">
+            <div class="meta-label">Date & Time</div>
+            <div class="meta-value" style="font-size: 12.5px;">{{ receipt.date_time }}</div>
+        </div>
+        {% if receipt.customer_reference %}
+        <div class="meta-item">
+            <div class="meta-label">Customer Name</div>
+            <div class="meta-value">{{ receipt.customer_reference }}</div>
+        </div>
+        {% endif %}
+        <div class="meta-item">
+            <div class="meta-label">Payment Method</div>
+            <div class="meta-value">{{ receipt.payment_method }}</div>
+        </div>
+    </div>
+
+    <div class="section-title">Itemized Documents & Finishing</div>
+    {% for item in receipt.file_items %}
+    <div class="file-item">
+        <div class="file-title-row">
+            <div class="file-name">📄 {{ item.filename }}</div>
+            <div class="file-cost">₹{{ "%.2f"|format(item.printing_cost) }}</div>
+        </div>
+        <div class="file-specs">
+            {{ item.page_count }} pg(s) • {{ item.copies }} copy(ies) • {{ item.paper_size }} • {{ item.print_type }} • {{ "2-Sided" if item.duplex else "1-Sided" }}
+            {% if item.page_ranges %} (Pages: {{ item.page_ranges }}){% endif %}
+        </div>
+        {% if item.finishing_services and item.finishing_services|length > 0 %}
+            {% for srv in item.finishing_services %}
+            <div class="finishing-tag">
+                <span>✨ {{ srv.service_name }}</span>
+                {% if srv.quantity > 1 %}<span>(x{{ srv.quantity }})</span>{% endif %}
+                <strong>+₹{{ "%.2f"|format(srv.total_price) }}</strong>
+            </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    <!-- Order-level finishing services (if any) -->
+    {% if receipt.order_finishing_services and receipt.order_finishing_services|length > 0 %}
+    <div class="section-title">Order-Level Finishing</div>
+    {% for srv in receipt.order_finishing_services %}
+    <div class="file-item" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <div class="file-name">✨ {{ srv.service_name }}</div>
+            <div class="file-specs">Rate: ₹{{ "%.2f"|format(srv.unit_price) }} (Qty: {{ srv.quantity }})</div>
+        </div>
+        <div class="file-cost">₹{{ "%.2f"|format(srv.total_price) }}</div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="totals-box">
+        <div class="total-row">
+            <span>Printing Subtotal:</span>
+            <span>₹{{ "%.2f"|format(receipt.printing_subtotal) }}</span>
+        </div>
+        <div class="total-row">
+            <span>Finishing Services:</span>
+            <span>₹{{ "%.2f"|format(receipt.finishing_subtotal) }}</span>
+        </div>
+        {% if receipt.tax and receipt.tax > 0 %}
+        <div class="total-row">
+            <span>Tax / GST:</span>
+            <span>₹{{ "%.2f"|format(receipt.tax) }}</span>
+        </div>
+        {% endif %}
+        <div class="total-row grand">
+            <span>Grand Total:</span>
+            <span class="amount">₹{{ "%.2f"|format(receipt.grand_total) }}</span>
+        </div>
+    </div>
+
+    <div class="actions-bar">
+        <button class="btn btn-secondary" onclick="window.print()">🖨️ Print Receipt</button>
+        <a class="btn btn-primary" href="/receipt/job/{{ receipt.order_id }}/download">⬇ Download Receipt</a>
+    </div>
+</div>
+
+</body>
+</html>

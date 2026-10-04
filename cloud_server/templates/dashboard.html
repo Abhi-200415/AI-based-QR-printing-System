@@ -233,6 +233,10 @@
                 <span class="nav-icon">🏷️</span>
                 <span>Pricing Rules</span>
             </a>
+            <a class="nav-item" data-view="services" onclick="navigate('services')">
+                <span class="nav-icon">✂️</span>
+                <span>Finishing Services</span>
+            </a>
             <a class="nav-item" data-view="settings" onclick="navigate('settings')">
                 <span class="nav-icon">⚙️</span>
                 <span>Settings</span>
@@ -957,6 +961,46 @@
 
 
             <!-- ==========================================================
+                 VIEW: FINISHING & ADDITIONAL SERVICES
+                 ========================================================== -->
+            <section class="app-view" id="view-services">
+                <div class="view-header">
+                    <div class="view-title-group">
+                        <h2><span>✂️</span> Finishing & Additional Services</h2>
+                        <p>Configure shop-specific finishing services and prices (Spiral Binding, Lamination, Stapling, Envelope, etc.)</p>
+                    </div>
+                    <div class="view-actions">
+                        <button class="btn btn-primary btn-sm" onclick="openAddServiceModal()">➕ Add Service</button>
+                    </div>
+                </div>
+
+                <div class="card-panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><span>📋</span> Active Finishing Rate Card</div>
+                        <button class="btn btn-secondary btn-sm" onclick="loadFinishingServices()">🔄 Refresh</button>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Service Name</th>
+                                    <th>Description</th>
+                                    <th>Charge Basis</th>
+                                    <th>Unit Price</th>
+                                    <th>Status</th>
+                                    <th style="text-align: right;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="finishingServicesTable">
+                                <tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 18px;">Loading finishing services...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- ==========================================================
                  VIEW 9: SETTINGS
                  ========================================================== -->
             <section class="app-view" id="view-settings">
@@ -1091,6 +1135,53 @@
     </div>
 </div>
 
+<!-- ==========================================================
+     Finishing Service Add / Edit Modal
+     ========================================================== -->
+<div class="modal-backdrop" id="serviceEditModal">
+    <div class="modal-box" style="max-width: 480px;">
+        <div class="modal-header">
+            <h3 id="serviceModalTitle" style="font-size: 18px; margin: 0;">✨ Edit Finishing Service</h3>
+            <button class="modal-close-btn" onclick="closeServiceModal()">&times;</button>
+        </div>
+        <div style="padding: 20px;">
+            <input type="hidden" id="serviceEditId">
+            <div class="form-group">
+                <label class="form-label">Service Name</label>
+                <input type="text" id="serviceEditName" class="form-control" placeholder="e.g. Spiral Binding" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Description (Optional)</label>
+                <input type="text" id="serviceEditDesc" class="form-control" placeholder="e.g. Spiral binding with front & back cover">
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="form-group">
+                    <label class="form-label">Price (₹)</label>
+                    <input type="number" step="0.5" id="serviceEditPrice" class="form-control" placeholder="30.00" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Charge Type</label>
+                    <select id="serviceEditChargeType" class="form-select">
+                        <option value="PER_ORDER" selected>Per Order</option>
+                        <option value="PER_PAGE">Per Sheet</option>
+                        <option value="PER_COPY">Per Copy</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group" style="margin-top: 8px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13.5px;">
+                    <input type="checkbox" id="serviceEditEnabled" checked style="width: 16px; height: 16px; accent-color: var(--accent);">
+                    <span>Enabled for Customer Selection</span>
+                </label>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button class="btn btn-secondary btn-sm" onclick="closeServiceModal()">Cancel</button>
+                <button class="btn btn-primary btn-sm" onclick="saveFinishingService()">💾 Save Service</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Toast Container -->
 <div class="toast-container" id="toastContainer"></div>
 
@@ -1122,6 +1213,7 @@ const VIEW_TITLES = {
     'analytics': 'AI Predictive Analytics',
     'qr-code': 'Shop QR Standee',
     'pricing': 'Pricing & Rate Card',
+    'services': 'Finishing & Additional Services',
     'settings': 'Shop Settings',
     'profile': 'Owner Profile'
 };
@@ -1159,6 +1251,8 @@ function navigate(viewName) {
         loadQueueTable();
     } else if (viewName === 'printers') {
         loadPrintersTable();
+    } else if (viewName === 'services') {
+        loadFinishingServices();
     } else if (viewName === 'analytics') {
         loadAnalyticsData(false);
     } else if (viewName === 'settings') {
@@ -1463,9 +1557,10 @@ function filterJobsList() {
         if (search) {
             const idMatch = j.job_id.toLowerCase().includes(search);
             const nameMatch = (j.customer_name || "").toLowerCase().includes(search);
+            const refMatch = (j.customer_reference || "").toLowerCase().includes(search);
             const phoneMatch = (j.customer_phone || "").toLowerCase().includes(search);
             const fileMatch = (j.files || []).some(f => (f.filename || "").toLowerCase().includes(search));
-            if (!idMatch && !nameMatch && !phoneMatch && !fileMatch) return false;
+            if (!idMatch && !nameMatch && !refMatch && !phoneMatch && !fileMatch) return false;
         }
         return true;
     });
@@ -1480,11 +1575,15 @@ function filterJobsList() {
         const file = j.files && j.files[0] ? j.files[0] : null;
         const printTypeTag = file ? (file.print_type === 'COLOR' ? '🎨 Color' : '📄 B/W') : '📄 B/W';
         const duplexTag = file && file.duplex ? '2-Sided' : '1-Sided';
+        const isFinishingPending = j.finishing_status === "PENDING";
+        const finishingNames = (j.finishing_services || []).map(s => s.service_name).join(", ");
+
         return `
-            <tr>
+            <tr style="${isFinishingPending ? 'background: rgba(99, 102, 241, 0.05);' : ''}">
                 <td><code style="color: #a5b4fc;">${j.job_id.slice(0, 8)}...</code></td>
                 <td>
                     <strong>${j.customer_name}</strong>
+                    ${j.customer_reference ? `<div style="display: inline-block; background: rgba(99, 102, 241, 0.2); color: #c7d2fe; font-size: 11px; padding: 1px 6px; border-radius: 4px; font-weight: 600; margin-top: 2px;">Ref: ${j.customer_reference}</div>` : ''}
                     <div style="font-size: 11px; color: var(--text-muted);">${j.customer_phone}</div>
                 </td>
                 <td>
@@ -1500,10 +1599,14 @@ function filterJobsList() {
                 </td>
                 <td><strong style="color: #34d399;">₹${j.total_amount.toFixed(2)}</strong></td>
                 <td><span class="badge badge-${j.payment_status.toLowerCase()}">${j.payment_status}</span></td>
-                <td><span class="badge badge-${j.status.toLowerCase()}">${j.status}</span></td>
+                <td>
+                    <span class="badge badge-${j.status.toLowerCase()}">${j.status}</span>
+                    ${isFinishingPending ? `<div style="color: #fbbf24; font-size: 10.5px; font-weight: 700; margin-top: 4px;">⚠️ FINISHING: ${finishingNames || 'Required'}</div>` : ''}
+                </td>
                 <td style="font-size: 12.5px;">${j.assigned_printer_name || '<span style="color:var(--text-muted);">Auto Assign</span>'}</td>
                 <td style="font-size: 12px; color: var(--text-muted);">${j.created_at}</td>
                 <td style="text-align: right;">
+                    ${isFinishingPending ? `<button class="btn btn-success btn-sm" style="margin-right: 4px; font-size: 11px;" onclick="completeFinishing('${j.job_id}')">✓ Done Finishing</button>` : ''}
                     <button class="btn btn-secondary btn-sm" onclick="viewJobDetails('${j.job_id}')">Details</button>
                 </td>
             </tr>
@@ -1515,12 +1618,16 @@ function viewJobDetails(jobId) {
     const job = allJobsData.find(j => j.job_id === jobId);
     if (!job) return;
     
+    const isFinishingPending = job.finishing_status === "PENDING";
+    const finishingServices = job.finishing_services || [];
+    
     const content = document.getElementById("jobModalContent");
     content.innerHTML = `
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px;">
             <div class="pricing-box">
                 <div class="stat-label">Customer</div>
                 <div style="font-size: 15px; font-weight: 600;">${job.customer_name}</div>
+                ${job.customer_reference ? `<div style="color: #a5b4fc; font-weight: 600; font-size: 12.5px; margin-top: 2px;">Customer Ref: ${job.customer_reference}</div>` : ''}
                 <div style="font-size: 12px; color: var(--text-muted);">${job.customer_phone}</div>
             </div>
             <div class="pricing-box">
@@ -1529,6 +1636,37 @@ function viewJobDetails(jobId) {
                 <div style="font-size: 12px; color: var(--text-muted);">${job.payment_method} (${job.payment_status})</div>
             </div>
         </div>
+
+        ${isFinishingPending ? `
+            <div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(168, 85, 247, 0.15) 100%); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong style="color: #a5b4fc; font-size: 14px;">✂️ FINISHING WORK REQUIRED</strong>
+                        <div style="font-size: 12px; color: #cbd5e1; margin-top: 2px;">
+                            Perform manual finishing work and click complete to finalize order.
+                        </div>
+                    </div>
+                    <button class="btn btn-success btn-sm" onclick="completeFinishing('${job.job_id}')">
+                        ✓ Complete Finishing
+                    </button>
+                </div>
+            </div>
+        ` : ''}
+
+        ${finishingServices.length > 0 ? `
+            <div style="margin-bottom: 16px;">
+                <strong style="font-size: 14px; color: #f8fafc; display: block; margin-bottom: 8px;">Selected Finishing Services (${finishingServices.length})</strong>
+                ${finishingServices.map(s => `
+                    <div style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-weight: 600; font-size: 13.5px;">✓ ${s.service_name}</div>
+                            <div style="font-size: 11.5px; color: var(--text-muted);">Rate Snapshot: ₹${s.unit_price.toFixed(2)} × ${s.quantity}</div>
+                        </div>
+                        <div style="font-weight: 700; color: #34d399; font-size: 14px;">₹${s.total_price.toFixed(2)}</div>
+                    </div>
+                `).join('')}
+            </div>
+        ` : ''}
 
         <div style="margin-bottom: 16px;">
             <strong style="font-size: 14px; color: #f8fafc; display: block; margin-bottom: 8px;">Uploaded Documents (${job.files ? job.files.length : 0})</strong>
@@ -1550,6 +1688,7 @@ function viewJobDetails(jobId) {
             ${job.queued_at ? `<div><strong>Queued:</strong> ${job.queued_at}</div>` : ''}
             ${job.started_at ? `<div><strong>Printing Started:</strong> ${job.started_at}</div>` : ''}
             ${job.completed_at ? `<div><strong>Completed:</strong> ${job.completed_at}</div>` : ''}
+            <div><strong>Finishing Status:</strong> ${job.finishing_status || 'NONE'} ${job.finishing_completed_at ? `(Done at ${job.finishing_completed_at})` : ''}</div>
             <div><strong>Assigned Printer:</strong> ${job.assigned_printer_name || 'Automated Selection'}</div>
         </div>
     `;
@@ -1559,6 +1698,183 @@ function viewJobDetails(jobId) {
 
 function closeJobModal() {
     document.getElementById("jobDetailsModal").classList.remove("active");
+}
+
+// ==========================================================
+// Finishing Services Management Engine
+// ==========================================================
+let allFinishingServices = [];
+
+async function loadFinishingServices() {
+    try {
+        const res = await fetch(`/services/owner/${ownerId}`);
+        if (!res.ok) return;
+        allFinishingServices = await res.json();
+        
+        const tbody = document.getElementById("finishingServicesTable");
+        if (allFinishingServices.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 24px;">No finishing services configured. Click '+ Add Service' to create one.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = allFinishingServices.map(s => {
+            const isEnabled = s.is_enabled;
+            return `
+                <tr style="opacity: ${isEnabled ? '1' : '0.6'};">
+                    <td>
+                        <strong style="color: var(--text-main);">${s.service_name}</strong>
+                    </td>
+                    <td style="color: var(--text-muted); font-size: 12.5px;">${s.description || '-'}</td>
+                    <td><span class="tag">${(s.charge_type || 'PER_ORDER').replace('_', ' ')}</span></td>
+                    <td><strong style="color: #34d399; font-size: 15px;">₹${parseFloat(s.price).toFixed(2)}</strong></td>
+                    <td>
+                        <span class="badge ${isEnabled ? 'badge-completed' : 'badge-failed'}">
+                            ${isEnabled ? '● Enabled' : '○ Disabled'}
+                        </span>
+                    </td>
+                    <td style="text-align: right;">
+                        <button class="btn btn-secondary btn-sm" onclick="openEditServiceModal('${s.service_id}')">✏️ Edit Price</button>
+                        <button class="btn btn-secondary btn-sm" style="margin-left: 6px;" onclick="toggleFinishingService('${s.service_id}', ${isEnabled})">
+                            ${isEnabled ? 'Disable' : 'Enable'}
+                        </button>
+                        <button class="btn btn-danger btn-sm" style="margin-left: 6px;" onclick="deleteFinishingService('${s.service_id}')">🗑️</button>
+                    </td>
+                </tr>
+            `;
+        }).join("");
+    } catch (e) {
+        console.error("Error loading finishing services:", e);
+    }
+}
+
+function openAddServiceModal() {
+    document.getElementById("serviceModalTitle").innerText = "➕ Add New Finishing Service";
+    document.getElementById("serviceEditId").value = "";
+    document.getElementById("serviceEditName").value = "";
+    document.getElementById("serviceEditDesc").value = "";
+    document.getElementById("serviceEditPrice").value = "";
+    document.getElementById("serviceEditChargeType").value = "PER_ORDER";
+    document.getElementById("serviceEditEnabled").checked = true;
+    document.getElementById("serviceEditModal").classList.add("active");
+}
+
+function openEditServiceModal(serviceId) {
+    const s = allFinishingServices.find(item => item.service_id === serviceId);
+    if (!s) return;
+    document.getElementById("serviceModalTitle").innerText = "✏️ Edit Finishing Service";
+    document.getElementById("serviceEditId").value = s.service_id;
+    document.getElementById("serviceEditName").value = s.service_name;
+    document.getElementById("serviceEditDesc").value = s.description || "";
+    document.getElementById("serviceEditPrice").value = parseFloat(s.price);
+    document.getElementById("serviceEditChargeType").value = s.charge_type || "PER_ORDER";
+    document.getElementById("serviceEditEnabled").checked = s.is_enabled;
+    document.getElementById("serviceEditModal").classList.add("active");
+}
+
+function closeServiceModal() {
+    document.getElementById("serviceEditModal").classList.remove("active");
+}
+
+async function saveFinishingService() {
+    const sId = document.getElementById("serviceEditId").value;
+    const sName = document.getElementById("serviceEditName").value.trim();
+    const sDesc = document.getElementById("serviceEditDesc").value.trim() || null;
+    const sPrice = parseFloat(document.getElementById("serviceEditPrice").value);
+    const sType = document.getElementById("serviceEditChargeType").value;
+    const sEnabled = document.getElementById("serviceEditEnabled").checked;
+
+    if (!sName || isNaN(sPrice) || sPrice < 0) {
+        showToast("Please enter a valid service name and price.", true);
+        return;
+    }
+
+    try {
+        let res;
+        if (sId) {
+            res = await fetch(`/services/${sId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    service_name: sName,
+                    description: sDesc,
+                    price: sPrice,
+                    charge_type: sType,
+                    is_enabled: sEnabled
+                })
+            });
+        } else {
+            res = await fetch(`/services/owner/${ownerId}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    service_name: sName,
+                    description: sDesc,
+                    price: sPrice,
+                    charge_type: sType,
+                    is_enabled: sEnabled
+                })
+            });
+        }
+
+        if (res.ok) {
+            showToast(sId ? "✓ Service updated successfully!" : "✓ New finishing service added!");
+            closeServiceModal();
+            loadFinishingServices();
+        } else {
+            const err = await res.json();
+            showToast(err.detail || "Error saving finishing service.", true);
+        }
+    } catch (e) {
+        showToast("Network error saving service.", true);
+    }
+}
+
+async function toggleFinishingService(serviceId, currentStatus) {
+    try {
+        const res = await fetch(`/services/${serviceId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ is_enabled: !currentStatus })
+        });
+        if (res.ok) {
+            showToast(`Service ${!currentStatus ? 'enabled' : 'disabled'}.`);
+            loadFinishingServices();
+        }
+    } catch (e) {
+        showToast("Network error updating status.", true);
+    }
+}
+
+async function deleteFinishingService(serviceId) {
+    if (!confirm("Are you sure you want to remove this finishing service?")) return;
+    try {
+        const res = await fetch(`/services/${serviceId}`, { method: "DELETE" });
+        if (res.ok) {
+            showToast("Finishing service deleted.");
+            loadFinishingServices();
+        }
+    } catch (e) {
+        showToast("Error deleting service.", true);
+    }
+}
+
+async function completeFinishing(jobId) {
+    try {
+        const res = await fetch(`/services/job/${jobId}/complete-finishing`, {
+            method: "POST"
+        });
+        if (res.ok) {
+            showToast("✓ Finishing marked COMPLETED for job!");
+            closeJobModal();
+            loadJobsTable();
+            loadDashboard();
+        } else {
+            const err = await res.json();
+            showToast(err.detail || "Error completing finishing.", true);
+        }
+    } catch (e) {
+        showToast("Network error updating finishing status.", true);
+    }
 }
 
 // ==========================================================
@@ -2124,6 +2440,7 @@ const initialHash = window.location.hash.replace('#', '') || 'dashboard';
 navigate(initialHash);
 loadDashboard();
 loadPricingRules();
+loadFinishingServices();
 loadQrData();
 
 // Start live sync polling (every 3.5 seconds)

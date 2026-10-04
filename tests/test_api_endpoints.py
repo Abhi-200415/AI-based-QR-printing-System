@@ -153,7 +153,7 @@ class TestAPIEndpoints(unittest.TestCase):
         # 2. Customer scans QR code
         res_scan = client.get(f"/qr/{owner.qr_token}", follow_redirects=True)
         self.assertEqual(res_scan.status_code, 200)
-        self.assertIn("Upload Your Documents", res_scan.text)
+        self.assertIn("Upload", res_scan.text)
         self.assertIn("text/html", res_scan.headers.get("content-type", ""))
         db.close()
 

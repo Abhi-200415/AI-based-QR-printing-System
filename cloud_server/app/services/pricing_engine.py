@@ -11,9 +11,59 @@ from app.database.models import (
     ShopSettings,
     PricingBasis,
     PaperSize,
-    PrintType
+    PrintType,
+    FinishingService,
+    JobFinishingService
 )
 from app.utils.logger import logger
+
+
+# ==========================================================
+# Default Finishing Services Seeder
+# ==========================================================
+
+def seed_default_finishing_services(owner_id, db: Session):
+    """
+    Seeds standard baseline finishing services for a shop owner if none exist.
+    - Spiral Binding: Rs 30.00
+    - Lamination: Rs 20.00
+    - Stapling: Rs 5.00
+    - Envelope: Rs 5.00
+    - Transparent/Glass Sheet: Rs 3.00
+    """
+    try:
+        existing = db.query(FinishingService).filter(FinishingService.owner_id == owner_id).first()
+        if existing:
+            return
+
+        defaults = [
+            ("Spiral Binding", "Protective spiral binding with front/back cover", Decimal("30.00"), "PER_ORDER"),
+            ("Lamination", "Protective thermal pouch lamination", Decimal("20.00"), "PER_ORDER"),
+            ("Stapling", "Corner or side staple fastening", Decimal("5.00"), "PER_ORDER"),
+            ("Envelope", "Document security envelope", Decimal("5.00"), "PER_ORDER"),
+            ("Transparent/Glass Sheet", "Clear transparent protective cover sheet", Decimal("3.00"), "PER_ORDER"),
+        ]
+
+        for name, desc, price, ctype in defaults:
+            s = FinishingService(
+                service_id=uuid.uuid4(),
+                owner_id=owner_id,
+                service_name=name,
+                description=desc,
+                price=price,
+                charge_type=ctype,
+                is_enabled=True
+            )
+            db.add(s)
+
+        db.commit()
+        logger.info(f"Seeded default finishing services for shop owner {owner_id}")
+    except Exception as e:
+        logger.warning(f"Could not seed default finishing services for owner {owner_id}: {e}")
+        try:
+            db.rollback()
+        except Exception:
+            pass
 
 
 # ==========================================================
@@ -224,6 +274,84 @@ def calculate_file_cost(
 
 
 # ==========================================================
+# Apply Finishing Services to Job
+# ==========================================================
+
+def apply_finishing_services_to_job(
+    job: ActiveJob,
+    service_selections: list,
+    customer_reference: Optional[str],
+    db: Session
+):
+    """
+    Applies authoritative finishing service selections to an active job.
+    Enforces shop isolation, active status, creates price snapshot records,
+    and updates customer reference.
+    """
+    if customer_reference is not None:
+        job.customer_reference = customer_reference.strip() if customer_reference else None
+
+    # Clear existing selections for this job
+    db.query(JobFinishingService).filter(JobFinishingService.job_id == job.job_id).delete()
+
+    if not service_selections:
+        job.finishing_status = "NONE"
+        db.commit()
+        return
+
+    has_services = False
+    for item in service_selections:
+        srv_id = item.service_id if hasattr(item, "service_id") else item.get("service_id")
+        qty = item.quantity if hasattr(item, "quantity") else item.get("quantity", 1)
+        qty = max(1, int(qty or 1))
+        fid = item.file_id if hasattr(item, "file_id") else item.get("file_id")
+
+        if fid:
+            # Verify file belongs to this job
+            f_check = db.query(JobFile).filter(JobFile.file_id == fid, JobFile.job_id == job.job_id).first()
+            if not f_check:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"File {fid} does not belong to job {job.job_id}"
+                )
+
+        # Authoritative lookup: Must belong to THIS shop and be ENABLED
+        service = (
+            db.query(FinishingService)
+            .filter(
+                FinishingService.service_id == srv_id,
+                FinishingService.owner_id == job.owner_id,
+                FinishingService.is_enabled == True
+            )
+            .first()
+        )
+        if not service:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Finishing service {srv_id} is not available for this shop or is disabled."
+            )
+
+        unit_p = Decimal(str(service.price))
+        total_p = unit_p * Decimal(str(qty))
+
+        job_service = JobFinishingService(
+            id=uuid.uuid4(),
+            job_id=job.job_id,
+            file_id=fid,
+            service_id=service.service_id,
+            service_name=service.service_name,
+            unit_price=unit_p,
+            quantity=qty,
+            total_price=total_p
+        )
+        db.add(job_service)
+        has_services = True
+
+    job.finishing_status = "PENDING" if has_services else "NONE"
+    db.commit()
+
+
+# ==========================================================
 # Calculate Total Job Cost
 # ==========================================================
 
@@ -252,22 +380,28 @@ def calculate_job_cost(
         .all()
     )
 
-    if not files:
-        job.subtotal = Decimal("0.00")
-        job.tax = Decimal("0.00")
-        job.total_amount = Decimal("0.00")
-        db.commit()
-        return Decimal("0.00")
-
-    subtotal = Decimal("0.00")
+    # Printing cost
+    printing_subtotal = Decimal("0.00")
     total_pages_count = 0
     total_files_count = len(files)
     total_copies_count = 0
 
     for file in files:
-        subtotal += calculate_file_cost(job, file, db)
+        printing_subtotal += calculate_file_cost(job, file, db)
         total_pages_count += (file.page_count or 1) * (file.copies or 1)
         total_copies_count += (file.copies or 1)
+
+    # Finishing services cost
+    finishing_services = (
+        db.query(JobFinishingService)
+        .filter(JobFinishingService.job_id == job_id)
+        .all()
+    )
+    finishing_subtotal = Decimal("0.00")
+    for fs in finishing_services:
+        finishing_subtotal += Decimal(str(fs.total_price))
+
+    subtotal = printing_subtotal + finishing_subtotal
 
     tax_percentage = Decimal("0.00")
     if settings and settings.tax_percentage is not None:

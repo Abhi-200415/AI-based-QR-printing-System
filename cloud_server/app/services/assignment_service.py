@@ -61,6 +61,36 @@ def is_printer_eligible(
     return True
 
 
+def has_eligible_online_printer(
+    job: ActiveJob,
+    db: Session
+) -> bool:
+    """
+    Checks whether at least one eligible printer exists for the shop owner that is ONLINE and available.
+    """
+    candidate_printers = (
+        db.query(Printer)
+        .filter(
+            Printer.owner_id == job.owner_id,
+            Printer.status == PrinterStatus.ONLINE,
+            Printer.is_available == True
+        )
+        .all()
+    )
+    if not candidate_printers:
+        return False
+
+    files = job.files or []
+    if not files:
+        return True
+
+    for printer in candidate_printers:
+        if is_printer_eligible(printer, job):
+            return True
+
+    return False
+
+
 # ==========================================================
 # Compatibility Scoring
 # ==========================================================

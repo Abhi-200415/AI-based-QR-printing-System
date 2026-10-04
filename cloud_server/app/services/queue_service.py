@@ -205,7 +205,16 @@ def complete_queue_job(
     if not job:
         return None
 
-    job.status = JobStatus.COMPLETED
+    # Mark physical print completed for files
+    for f in (job.files or []):
+        f.print_completed = True
+
+    # If finishing is pending, keep job status active until operator completes finishing
+    if job.finishing_status == "PENDING":
+        job.status = JobStatus.PRINTING
+    else:
+        job.status = JobStatus.COMPLETED
+
     remove_job_from_queue(job_id, db)
 
     printer_id = job.assigned_printer_id

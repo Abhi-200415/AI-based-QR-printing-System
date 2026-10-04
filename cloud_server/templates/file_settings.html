@@ -16,7 +16,7 @@
         }
         .settings-container {
             width: 100%;
-            max-width: 520px;
+            max-width: 540px;
         }
         .settings-card {
             background: var(--bg-card);
@@ -35,6 +35,7 @@
             justify-content: space-between;
             align-items: center;
             font-size: 13.5px;
+            gap: 8px;
         }
         .step-progress-bar {
             display: flex;
@@ -56,6 +57,102 @@
             background: var(--accent);
             box-shadow: 0 0 10px var(--accent);
         }
+
+        /* Voice Assistant Box */
+        .voice-box {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: var(--radius-md);
+            padding: 14px 16px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .voice-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .voice-status-pill {
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-muted);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .voice-status-pill.listening {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            animation: pulseGlow 1.5s infinite;
+        }
+        @keyframes pulseGlow {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            70% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .voice-interpreted-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--accent);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            font-size: 13px;
+        }
+
+        /* Modal Preview Viewer */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(6px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            padding: 20px;
+        }
+        .preview-modal-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            width: 100%;
+            max-width: 780px;
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+        .preview-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-surface);
+        }
+        .preview-modal-body {
+            flex: 1;
+            background: #111827;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+        .preview-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
     </style>
 </head>
 <body>
@@ -74,13 +171,58 @@
             <div id="fileProgress" style="font-size: 13px; color: var(--text-muted);"></div>
         </div>
 
+        <!-- Document Pill with Preview Only Button -->
         <div class="file-manifest-pill">
-            <div style="font-weight: 600; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 280px;">
+            <div style="font-weight: 600; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px;">
                 📑 {{ file_name }}
             </div>
-            <span class="badge" style="background: var(--accent); color: white;">
-                {{ page_count }} Page(s)
-            </span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button type="button" class="btn btn-secondary btn-sm" id="btnOpenPreview" style="padding: 4px 10px; font-size: 12px;">
+                    👁 Preview
+                </button>
+                <span class="badge" style="background: var(--accent); color: white;">
+                    {{ page_count }} Page(s)
+                </span>
+            </div>
+        </div>
+
+        <!-- Tap-To-Activate Voice Assistant -->
+        <div class="voice-box">
+            <div class="voice-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 18px;">🎙️</span>
+                    <div>
+                        <strong style="font-size: 13.5px; color: var(--text-main);">Voice Assistant</strong>
+                        <div style="font-size: 11px; color: var(--text-muted);">Tap to configure print options by voice</div>
+                    </div>
+                </div>
+                <div id="voiceStatusPill" class="voice-status-pill">
+                    <span id="voiceStatusDot">🎙️</span>
+                    <span id="voiceStatusText">Ready</span>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button type="button" class="btn btn-secondary btn-sm" id="btnVoiceSpeak" style="flex: 1; padding: 8px 14px; font-size: 13px; background: rgba(99, 102, 241, 0.2); border-color: var(--accent);">
+                    🎤 Tap to Speak
+                </button>
+            </div>
+
+            <!-- Structured Result Confirmation Card -->
+            <div id="voiceResultCard" class="voice-interpreted-card" style="display: none;">
+                <div style="font-weight: 600; color: var(--accent); margin-bottom: 6px;">
+                    🧠 Interpreted Voice Settings:
+                </div>
+                <div id="voiceInterpretedSpecs" style="color: var(--text-main); line-height: 1.5; margin-bottom: 10px;"></div>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn btn-sm" id="btnConfirmVoice" style="flex: 1;">
+                        ✓ Confirm & Apply
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btnCancelVoice">
+                        ✏️ Edit Manually
+                    </button>
+                </div>
+            </div>
         </div>
 
         <form id="settingsForm">
@@ -134,7 +276,49 @@
                 <input type="text" id="color_page_ranges" class="form-control" placeholder="e.g. 2, 4, 7">
             </div>
 
-            <button type="submit" class="btn btn-lg" id="saveBtn" style="width: 100%; margin-top: 10px;">
+            <!-- Customer Reference Name -->
+            <div class="form-group">
+                <label class="form-label">Customer Reference Name (Optional)</label>
+                <input type="text" id="customer_reference" class="form-control" placeholder="e.g. Rahul (For active order identification)">
+                <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 4px;">Used only to identify your order at the counter.</div>
+            </div>
+
+            <!-- Finishing / Additional Services Section -->
+            <div class="form-group" style="margin-top: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <label class="form-label" style="margin-bottom: 0; font-weight: 600; font-size: 14px; color: var(--text-main);">
+                        ✨ Finishing Service (For this Document)
+                    </label>
+                    <span style="font-size: 11.5px; color: var(--accent); font-weight: 500;">Shop Configured</span>
+                </div>
+                
+                <div id="finishingServicesList" style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
+                    {% if finishing_services and finishing_services|length > 0 %}
+                        {% for s in finishing_services %}
+                        <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 10px 14px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 13.5px; transition: all 0.2s ease;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" class="service-checkbox" value="{{ s.service_id }}" data-price="{{ s.price }}" data-name="{{ s.service_name }}" style="width: 18px; height: 18px; accent-color: var(--accent);">
+                                <div>
+                                    <div style="font-weight: 600; color: var(--text-main);">{{ s.service_name }}</div>
+                                    {% if s.description %}
+                                    <div style="font-size: 11px; color: var(--text-muted);">{{ s.description }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <span style="font-weight: 700; color: #34d399; font-size: 14px;">
+                                ₹{{ "%.2f"|format(s.price) if s.price else "0.00" }}
+                            </span>
+                        </label>
+                        {% endfor %}
+                    {% else %}
+                        <div style="font-size: 12.5px; color: var(--text-muted); padding: 8px; background: var(--bg-surface); border-radius: var(--radius-md); text-align: center;">
+                            No additional finishing services configured for this shop.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-lg" id="saveBtn" style="width: 100%; margin-top: 16px;">
                 Save & Proceed to Order Summary →
             </button>
         </form>
@@ -143,9 +327,29 @@
     </div>
 </div>
 
+<!-- Secure In-Page File Preview Modal -->
+<div id="previewModal" class="modal-overlay">
+    <div class="preview-modal-box">
+        <div class="preview-modal-header">
+            <div style="font-weight: 600; font-size: 15px; color: var(--text-main);">
+                📄 {{ file_name }} (Preview Only)
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnClosePreview">
+                ✕ Close Preview
+            </button>
+        </div>
+        <div class="preview-modal-body">
+            <iframe id="previewIframe" class="preview-frame" src="about:blank"></iframe>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/voice_search.js"></script>
 <script>
 const fileId = "{{ file_id }}";
+const jobId = "{{ job_id }}";
 
+// Multi-file wizard progress
 const pending = JSON.parse(localStorage.getItem("pending_file_ids") || "[]");
 const grandTotal = parseInt(sessionStorage.getItem("total_files") || (pending.length + 1));
 const currentIdx = grandTotal - pending.length;
@@ -153,12 +357,14 @@ if (grandTotal > 1) {
     document.getElementById("fileProgress").innerText = `Configuring document ${currentIdx} of ${grandTotal}`;
 }
 
+// Color mode toggle
 const printTypeSelect = document.getElementById("print_type");
 const mixedSection = document.getElementById("mixedSection");
 printTypeSelect.addEventListener("change", function() {
     mixedSection.style.display = (this.value === "MIXED") ? "block" : "none";
 });
 
+// Status helper
 const statusMsg = document.getElementById("settingsStatusMsg");
 function showStatus(msg, isError = false) {
     statusMsg.innerText = msg;
@@ -166,11 +372,134 @@ function showStatus(msg, isError = false) {
     statusMsg.style.display = "block";
 }
 
+// ---------------------------------------------------------
+// 1. In-Page Secure File Preview
+// ---------------------------------------------------------
+const previewModal = document.getElementById("previewModal");
+const btnOpenPreview = document.getElementById("btnOpenPreview");
+const btnClosePreview = document.getElementById("btnClosePreview");
+const previewIframe = document.getElementById("previewIframe");
+
+btnOpenPreview.addEventListener("click", () => {
+    previewIframe.src = `/preview/job/${jobId}/file/${fileId}`;
+    previewModal.style.display = "flex";
+});
+
+btnClosePreview.addEventListener("click", () => {
+    previewModal.style.display = "none";
+    previewIframe.src = "about:blank";
+});
+
+// ---------------------------------------------------------
+// 2. Tap-To-Activate AI Voice Assistant
+// ---------------------------------------------------------
+let voiceAssistant = null;
+let lastInterpreted = null;
+
+if (window.AIVoiceAssistant) {
+    voiceAssistant = new window.AIVoiceAssistant();
+    const voiceStatusPill = document.getElementById("voiceStatusPill");
+    const voiceStatusDot = document.getElementById("voiceStatusDot");
+    const voiceStatusText = document.getElementById("voiceStatusText");
+    const btnVoiceSpeak = document.getElementById("btnVoiceSpeak");
+    const voiceResultCard = document.getElementById("voiceResultCard");
+    const voiceInterpretedSpecs = document.getElementById("voiceInterpretedSpecs");
+
+    voiceAssistant.onStateChangeCallback = (state, detail) => {
+        if (state === 'LISTENING') {
+            voiceStatusPill.className = "voice-status-pill listening";
+            voiceStatusDot.innerText = "🔴";
+            voiceStatusText.innerText = "Listening...";
+            btnVoiceSpeak.innerText = "Listening... (Speak Now)";
+        } else if (state === 'PROCESSING') {
+            voiceStatusPill.className = "voice-status-pill";
+            voiceStatusDot.innerText = "🧠";
+            voiceStatusText.innerText = "Processing...";
+            btnVoiceSpeak.innerText = "Processing speech...";
+        } else if (state === 'RESULT') {
+            voiceStatusPill.className = "voice-status-pill";
+            voiceStatusDot.innerText = "✓";
+            voiceStatusText.innerText = "Interpreted";
+            btnVoiceSpeak.innerText = "🎤 Tap to Speak Again";
+        } else if (state === 'ERROR') {
+            voiceStatusPill.className = "voice-status-pill";
+            voiceStatusDot.innerText = "⚠️";
+            voiceStatusText.innerText = "Error";
+            btnVoiceSpeak.innerText = "🎤 Tap to Speak";
+            showStatus(detail || "Voice error.", true);
+        } else {
+            voiceStatusPill.className = "voice-status-pill";
+            voiceStatusDot.innerText = "🎙️";
+            voiceStatusText.innerText = "Ready";
+            btnVoiceSpeak.innerText = "🎤 Tap to Speak";
+        }
+    };
+
+    voiceAssistant.onResultCallback = (result) => {
+        lastInterpreted = result;
+        if (result.intent === 'PREVIEW') {
+            btnOpenPreview.click();
+            return;
+        }
+        if (result.intent === 'UNKNOWN' || result.message) {
+            showStatus(result.message || "Sorry, I can't perform that voice command.", true);
+            return;
+        }
+
+        // Build structured preview
+        const specs = [];
+        if (result.copies) specs.push(`• Copies: <strong>${result.copies}</strong>`);
+        if (result.printType) specs.push(`• Color: <strong>${result.printType}</strong>`);
+        if (result.duplex !== null) specs.push(`• Sides: <strong>${result.duplex ? 'Double-Sided' : 'Single-Sided'}</strong>`);
+        if (result.paperSize) specs.push(`• Paper: <strong>${result.paperSize}</strong>`);
+        if (result.pageRanges) specs.push(`• Pages: <strong>${result.pageRanges}</strong>`);
+        if (result.finishingService) specs.push(`• Finishing: <strong>${result.finishingService}</strong>`);
+
+        voiceInterpretedSpecs.innerHTML = specs.length > 0 ? specs.join("<br>") : "No changes detected.";
+        voiceResultCard.style.display = "block";
+    };
+
+    btnVoiceSpeak.addEventListener("click", () => {
+        voiceResultCard.style.display = "none";
+        voiceAssistant.startListening();
+    });
+
+    document.getElementById("btnConfirmVoice").addEventListener("click", () => {
+        if (!lastInterpreted) return;
+        if (lastInterpreted.copies) document.getElementById("copies").value = lastInterpreted.copies;
+        if (lastInterpreted.printType) {
+            document.getElementById("print_type").value = lastInterpreted.printType;
+            mixedSection.style.display = (lastInterpreted.printType === "MIXED") ? "block" : "none";
+        }
+        if (lastInterpreted.duplex !== null) document.getElementById("duplex").checked = lastInterpreted.duplex;
+        if (lastInterpreted.paperSize) document.getElementById("paper_size").value = lastInterpreted.paperSize;
+        if (lastInterpreted.pageRanges) document.getElementById("page_ranges").value = lastInterpreted.pageRanges;
+
+        if (lastInterpreted.finishingService) {
+            const boxes = document.querySelectorAll(".service-checkbox");
+            boxes.forEach(cb => {
+                const sName = cb.dataset.name ? cb.dataset.name.toLowerCase() : "";
+                cb.checked = sName.includes(lastInterpreted.finishingService.toLowerCase());
+            });
+        }
+
+        voiceResultCard.style.display = "none";
+        showStatus("✓ Voice settings applied! You can save or make manual edits.");
+    });
+
+    document.getElementById("btnCancelVoice").addEventListener("click", () => {
+        voiceResultCard.style.display = "none";
+    });
+}
+
+// ---------------------------------------------------------
+// 3. Form Submit with Per-File Finishing & Authoritative Calculation
+// ---------------------------------------------------------
 document.getElementById("settingsForm").addEventListener("submit", async function(e) {
     e.preventDefault();
     const saveBtn = document.getElementById("saveBtn");
     saveBtn.disabled = true;
-    saveBtn.innerText = "Calculating pricing rates...";
+    saveBtn.innerText = "Calculating authoritative price...";
 
     const data = {
         copies: parseInt(document.getElementById("copies").value) || 1,
@@ -182,7 +511,17 @@ document.getElementById("settingsForm").addEventListener("submit", async functio
         color_page_ranges: document.getElementById("color_page_ranges").value.trim() || null
     };
 
+    // Collect selected finishing services for this file
+    const selectedBoxes = document.querySelectorAll(".service-checkbox:checked");
+    const selectedServices = Array.from(selectedBoxes).map(cb => ({
+        service_id: cb.value,
+        file_id: fileId,
+        quantity: 1
+    }));
+    const customerRef = document.getElementById("customer_reference").value.trim() || null;
+
     try {
+        // 1. Save file print settings
         const response = await fetch(`/file/${fileId}/settings`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -192,6 +531,24 @@ document.getElementById("settingsForm").addEventListener("submit", async functio
         const result = await response.json();
         if (!response.ok) {
             showStatus(result.detail || "Unable to save print settings.", true);
+            saveBtn.disabled = false;
+            saveBtn.innerText = "Save & Proceed to Order Summary →";
+            return;
+        }
+
+        // 2. Authoritatively apply finishing services to the job with file_id
+        const srvRes = await fetch(`/services/job/${jobId}/select`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                customer_reference: customerRef,
+                services: selectedServices
+            })
+        });
+
+        if (!srvRes.ok) {
+            const srvData = await srvRes.json();
+            showStatus(srvData.detail || "Error applying finishing services.", true);
             saveBtn.disabled = false;
             saveBtn.innerText = "Save & Proceed to Order Summary →";
             return;

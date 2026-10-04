@@ -90,6 +90,16 @@ def create_payment(
     if not job.total_amount or job.total_amount <= 0:
         raise HTTPException(status_code=400, detail="Job price could not be calculated.")
 
+    # Payment Gating: verify that an eligible printer/Print Agent is available if shop has printers configured
+    from app.services.assignment_service import has_eligible_online_printer
+    from app.database.models import Printer
+    owner_printers = db.query(Printer).filter(Printer.owner_id == job.owner_id).all()
+    if owner_printers and not has_eligible_online_printer(job, db):
+        raise HTTPException(
+            status_code=400,
+            detail="No printer is currently available. Please try again when the print service is online."
+        )
+
     method = payload.payment_method if payload else PaymentMethod.UPI
     payment = PaymentService.create_payment_order(job, payment_method=method, db=db)
 
@@ -221,6 +231,16 @@ async def cash_payment_request(
     if not job.total_amount or job.total_amount <= 0:
         prepare_job(job.job_id, db)
         db.refresh(job)
+
+    # Payment Gating: verify that an eligible printer/Print Agent is available if shop has printers configured
+    from app.services.assignment_service import has_eligible_online_printer
+    from app.database.models import Printer
+    owner_printers = db.query(Printer).filter(Printer.owner_id == job.owner_id).all()
+    if owner_printers and not has_eligible_online_printer(job, db):
+        raise HTTPException(
+            status_code=400,
+            detail="No printer is currently available. Please try again when the print service is online."
+        )
 
     payment = job.payment
     if not payment:

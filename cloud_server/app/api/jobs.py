@@ -120,11 +120,26 @@ def get_owner_jobs(
                 "estimated_cost": float(f.estimated_cost or 0.0)
             })
         pmt = j.payment
+        finishing_list = []
+        for s in (j.finishing_services or []):
+            finishing_list.append({
+                "id": str(s.id),
+                "file_id": str(s.file_id) if s.file_id else None,
+                "service_id": str(s.service_id) if s.service_id else None,
+                "service_name": s.service_name,
+                "unit_price": float(s.unit_price),
+                "quantity": s.quantity,
+                "total_price": float(s.total_price)
+            })
+
         result.append({
             "job_id": str(j.job_id),
             "customer_name": j.customer_name or "Walk-in Customer",
             "customer_phone": j.customer_phone or "-",
+            "customer_reference": j.customer_reference,
             "status": j.status.value,
+            "finishing_status": j.finishing_status or "NONE",
+            "finishing_completed_at": j.finishing_completed_at.strftime("%Y-%m-%d %H:%M:%S") if j.finishing_completed_at else None,
             "payment_status": j.payment_status.value,
             "payment_method": pmt.payment_method.value if pmt and pmt.payment_method else "UPI",
             "assigned_printer_id": str(j.assigned_printer_id) if j.assigned_printer_id else None,
@@ -141,7 +156,8 @@ def get_owner_jobs(
             "queued_at": j.queued_at.strftime("%Y-%m-%d %H:%M:%S") if j.queued_at else None,
             "started_at": j.started_at.strftime("%Y-%m-%d %H:%M:%S") if j.started_at else None,
             "completed_at": j.completed_at.strftime("%Y-%m-%d %H:%M:%S") if j.completed_at else None,
-            "files": files
+            "files": files,
+            "finishing_services": finishing_list
         })
     return result
 
@@ -177,30 +193,39 @@ async def update_job_status(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found.")
 
-    job.status = status
     job.updated_at = datetime.utcnow()
 
     if status == JobStatus.QUEUED:
+        job.status = JobStatus.QUEUED
         job.queued_at = datetime.utcnow()
 
     elif status == JobStatus.PRINTING:
+        job.status = JobStatus.PRINTING
         job.started_at = datetime.utcnow()
 
     elif status == JobStatus.COMPLETED:
-        job.completed_at = datetime.utcnow()
         # Complete this job in queue and update printer count
         completed_job = complete_queue_job(job.job_id, db)
+
+        # If finishing is pending, do not set overall job to completed yet
+        if job.finishing_status == "PENDING":
+            job.status = JobStatus.PRINTING
+        else:
+            job.status = JobStatus.COMPLETED
+            job.completed_at = datetime.utcnow()
 
         # Automatically dispatch next job in queue for this printer
         if completed_job and completed_job.assigned_printer_id:
             next_jobs = get_queue(completed_job.assigned_printer_id, db)
             if next_jobs:
                 await dispatch_job_to_agent(next_jobs[0])
+    else:
+        job.status = status
 
     calculated_seconds = actual_seconds
     if (
         calculated_seconds is None
-        and status == JobStatus.COMPLETED
+        and job.status == JobStatus.COMPLETED
         and job.started_at
         and job.completed_at
     ):
@@ -211,12 +236,13 @@ async def update_job_status(
     db.commit()
     db.refresh(job)
 
-    logger.info(f"Updated Job {job.job_id} status to '{status.value}' (duration: {calculated_seconds}s)")
+    logger.info(f"Updated Job {job.job_id} status to '{job.status.value}' (Finishing: {job.finishing_status})")
 
     return {
         "success": True,
         "job_id": str(job.job_id),
         "status": job.status.value,
+        "finishing_status": job.finishing_status,
         "actual_seconds": calculated_seconds,
         "message": message or "Job status updated."
     }
@@ -242,9 +268,26 @@ def get_job_status(
             (end_time.replace(tzinfo=None) - job.started_at.replace(tzinfo=None)).total_seconds()
         )
 
+    finishing_list = [
+        {
+            "id": str(s.id),
+            "file_id": str(s.file_id) if s.file_id else None,
+            "service_id": str(s.service_id) if s.service_id else None,
+            "service_name": s.service_name,
+            "unit_price": float(s.unit_price),
+            "quantity": s.quantity,
+            "total_price": float(s.total_price)
+        }
+        for s in (job.finishing_services or [])
+    ]
+
     return {
         "job_id": str(job.job_id),
+        "customer_reference": job.customer_reference,
         "status": job.status.value,
+        "finishing_status": job.finishing_status or "NONE",
+        "finishing_completed_at": job.finishing_completed_at,
+        "finishing_services": finishing_list,
         "payment_status": job.payment_status.value,
         "payment_method": job.payment.payment_method.value if job.payment else None,
         "assigned_printer": str(job.assigned_printer_id) if job.assigned_printer_id else None,
@@ -254,6 +297,8 @@ def get_job_status(
         "actual_seconds": actual_seconds,
         "total_files": job.total_files or len(job.files or []),
         "total_pages": job.total_pages or 0,
+        "subtotal": float(job.subtotal or 0),
+        "tax": float(job.tax or 0),
         "total_amount": float(job.total_amount or 0),
         "created_at": job.created_at,
         "queued_at": job.queued_at,

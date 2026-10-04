@@ -10,10 +10,12 @@ from app.database.models import (
     PrintType,
     PaperSize,
     Orientation,
+    FinishingService,
+    JobFinishingService
 )
 
 from app.schemas.file_settings import FileSettingsUpdate
-from app.services.pricing_engine import calculate_job_cost
+from app.services.pricing_engine import calculate_job_cost, seed_default_finishing_services
 
 
 from app.core.config import TEMPLATES_DIR
@@ -62,14 +64,28 @@ async def settings_page(
             detail="File not found."
         )
 
+    owner_id = job_file.job.owner_id
+    seed_default_finishing_services(owner_id, db)
+    services = (
+        db.query(FinishingService)
+        .filter(
+            FinishingService.owner_id == owner_id,
+            FinishingService.is_enabled == True
+        )
+        .order_by(FinishingService.created_at.asc())
+        .all()
+    )
+
     return templates.TemplateResponse(
         request=request,
         name="file_settings.html",
         context={
             "file_id": str(job_file.file_id),
             "job_id": str(job_file.job_id),
+            "owner_id": str(owner_id),
             "file_name": job_file.original_filename,
-            "page_count": job_file.page_count
+            "page_count": job_file.page_count,
+            "finishing_services": services
         }
     )
 
@@ -212,13 +228,19 @@ async def price_summary(
         )
 
     job = job_file.job
+    all_files = db.query(JobFile).filter(JobFile.job_id == job.job_id).all()
+    applied_services = (
+        db.query(JobFinishingService)
+        .filter(JobFinishingService.job_id == job.job_id)
+        .all()
+    )
 
     return templates.TemplateResponse(
         request=request,
         name="price_summary.html",
         context={
             "file_id": str(job_file.file_id),
-            "job_id": str(job_file.job_id),
+            "job_id": str(job.job_id),
             "file_name": job_file.original_filename,
             "page_count": job_file.page_count,
             "copies": job_file.copies,
@@ -238,11 +260,25 @@ async def price_summary(
                 else None
             ),
             "duplex": job_file.duplex,
+            "files": all_files,
+            "subtotal": (
+                job.subtotal
+                if job and job.subtotal is not None
+                else "0.00"
+            ),
+            "tax": (
+                job.tax
+                if job and job.tax is not None
+                else "0.00"
+            ),
             "total_amount": (
                 job.total_amount
                 if job and job.total_amount is not None
                 else "0.00"
-            )
+            ),
+            "customer_reference": job.customer_reference if job else None,
+            "finishing_status": job.finishing_status if job else "NONE",
+            "applied_finishing_services": applied_services
         }
     )
 

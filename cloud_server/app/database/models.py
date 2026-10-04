@@ -200,6 +200,12 @@ class ShopOwner(Base):
         back_populates="owner",
         cascade="all, delete-orphan"
     )
+
+    finishing_services = relationship(
+        "FinishingService",
+        back_populates="owner",
+        cascade="all, delete-orphan"
+    )
 # ==========================================
 # Shop Settings
 # ==========================================
@@ -518,11 +524,28 @@ class ActiveJob(Base):
         nullable=True
     )
 
+    customer_reference = Column(
+        String(100),
+        nullable=True
+    )
+
     # Job Status
     status = Column(
         SQLEnum(JobStatus),
         default=JobStatus.PENDING,
         nullable=False
+    )
+
+    # Finishing Status: NONE, PENDING, COMPLETED
+    finishing_status = Column(
+        String(30),
+        default="NONE",
+        nullable=False
+    )
+
+    finishing_completed_at = Column(
+        DateTime(timezone=True),
+        nullable=True
     )
 
     # Payment Status
@@ -633,6 +656,12 @@ class ActiveJob(Base):
         "Payment",
         back_populates="job",
         uselist=False,
+        cascade="all, delete-orphan"
+    )
+
+    finishing_services = relationship(
+        "JobFinishingService",
+        back_populates="job",
         cascade="all, delete-orphan"
     )
 # ==========================================
@@ -800,6 +829,12 @@ class JobFile(Base):
     job = relationship(
         "ActiveJob",
         back_populates="files"
+    )
+
+    finishing_services = relationship(
+        "JobFinishingService",
+        back_populates="file",
+        cascade="all, delete-orphan"
     )
 
 # ==========================================
@@ -1246,8 +1281,139 @@ class AnalyticsDaily(Base):
         "ShopOwner",
         back_populates="analytics"
     )
-    
 
 
+# ==========================================
+# Finishing / Additional Services
+# ==========================================
+
+class FinishingService(Base):
+    __tablename__ = "finishing_services"
+
+    service_id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+
+    owner_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("shop_owners.owner_id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    service_name = Column(
+        String(100),
+        nullable=False
+    )
+
+    description = Column(
+        String(255),
+        nullable=True
+    )
+
+    price = Column(
+        Numeric(10, 2),
+        nullable=False,
+        default=0.00
+    )
+
+    charge_type = Column(
+        String(50),
+        default="PER_ORDER",
+        nullable=False
+    )
+
+    is_enabled = Column(
+        Boolean,
+        default=True,
+        nullable=False
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
+
+    # Relationships
+    owner = relationship(
+        "ShopOwner",
+        back_populates="finishing_services"
+    )
 
 
+class JobFinishingService(Base):
+    __tablename__ = "job_finishing_services"
+
+    id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+
+    job_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("active_jobs.job_id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    file_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("job_files.file_id", ondelete="CASCADE"),
+        nullable=True
+    )
+
+    service_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("finishing_services.service_id", ondelete="SET NULL"),
+        nullable=True
+    )
+
+    service_name = Column(
+        String(100),
+        nullable=False
+    )
+
+    unit_price = Column(
+        Numeric(10, 2),
+        nullable=False,
+        default=0.00
+    )
+
+    quantity = Column(
+        Integer,
+        default=1,
+        nullable=False
+    )
+
+    total_price = Column(
+        Numeric(10, 2),
+        nullable=False,
+        default=0.00
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+
+    # Relationships
+    job = relationship(
+        "ActiveJob",
+        back_populates="finishing_services"
+    )
+
+    file = relationship(
+        "JobFile",
+        back_populates="finishing_services"
+    )
+
+    service = relationship(
+        "FinishingService"
+    )

@@ -73,6 +73,9 @@ from app.api.download import router as download_router
 from app.api.agent import router as agent_router
 from app.api.settings import router as settings_router
 from app.api.session import router as session_router
+from app.api.services import router as services_router
+from app.api.preview import router as preview_router
+from app.api.receipt import router as receipt_router
 
 
 # ==========================================================
@@ -81,9 +84,12 @@ from app.api.session import router as session_router
 
 app.include_router(owner_router)
 app.include_router(upload_router)
+app.include_router(preview_router)
+app.include_router(receipt_router)
 app.include_router(file_settings_router)
 app.include_router(jobs_router)
 app.include_router(pricing_router)
+app.include_router(services_router)
 app.include_router(printer_router)
 app.include_router(queue_router)
 app.include_router(payment_router)

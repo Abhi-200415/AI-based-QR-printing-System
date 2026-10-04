@@ -19,7 +19,7 @@
             border: 1px solid var(--border);
             border-radius: var(--radius-xl);
             padding: 36px 28px;
-            max-width: 520px;
+            max-width: 560px;
             width: 100%;
             box-shadow: var(--shadow-lg);
         }
@@ -42,6 +42,13 @@
         }
         .summary-row strong {
             color: var(--text-main);
+        }
+        .file-summary-block {
+            background: rgba(15, 23, 42, 0.4);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 12px 14px;
+            margin-bottom: 12px;
         }
         .total-box-highlight {
             display: flex;
@@ -95,6 +102,56 @@
             background: var(--accent);
             box-shadow: 0 0 10px var(--accent);
         }
+
+        /* Modal Preview Viewer */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(6px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            padding: 20px;
+        }
+        .preview-modal-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            width: 100%;
+            max-width: 780px;
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+        .preview-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-surface);
+        }
+        .preview-modal-body {
+            flex: 1;
+            background: #111827;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+        .preview-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
     </style>
 </head>
 <body>
@@ -111,35 +168,88 @@
     <div style="font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 20px;">Review print specifications & choose payment method</div>
     
     <div class="summary-card-inner">
-        <div class="summary-row">
-            <span>Document:</span>
-            <strong style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px;">{{ file_name }}</strong>
+        {% if customer_reference %}
+        <div class="summary-row" style="background: rgba(99, 102, 241, 0.1); padding: 8px 10px; border-radius: var(--radius-sm); margin-bottom: 12px;">
+            <span style="color: var(--accent); font-weight: 600;">Customer Reference:</span>
+            <strong style="color: var(--accent);">{{ customer_reference }}</strong>
         </div>
-        <div class="summary-row">
-            <span>Total Pages:</span>
-            <strong>{{ page_count }} page(s)</strong>
+        {% endif %}
+
+        {% if files and files|length > 0 %}
+            {% for f in files %}
+            <div class="file-summary-block">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <strong style="color: var(--text-main); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px;">
+                        📄 {{ f.original_filename }}
+                    </strong>
+                    <button type="button" class="btn btn-secondary btn-sm btn-preview-file" data-file-id="{{ f.file_id }}" data-file-name="{{ f.original_filename }}" style="padding: 3px 8px; font-size: 11.5px;">
+                        👁 Preview
+                    </button>
+                </div>
+                <div style="font-size: 12.5px; color: var(--text-muted);">
+                    {{ f.page_count }} pg(s) • {{ f.copies }} copy(ies) • {{ f.paper_size.value if f.paper_size else "A4" }} • {{ f.print_type.value if f.print_type else "BW" }} • {{ "2-Sided" if f.duplex else "1-Sided" }}
+                    {% if f.estimated_cost %}<span style="color: #34d399; font-weight: 600; float: right;">₹{{ "%.2f"|format(f.estimated_cost) }}</span>{% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="summary-row">
+                <span>Document:</span>
+                <strong style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px;">{{ file_name }}</strong>
+            </div>
+            <div class="summary-row">
+                <span>Total Pages:</span>
+                <strong>{{ page_count }} page(s)</strong>
+            </div>
+            <div class="summary-row">
+                <span>Copies:</span>
+                <strong>{{ copies }}</strong>
+            </div>
+            <div class="summary-row">
+                <span>Paper Size:</span>
+                <strong>{{ paper_size }}</strong>
+            </div>
+            <div class="summary-row">
+                <span>Print Type:</span>
+                <strong>{{ print_type }}</strong>
+            </div>
+            <div class="summary-row">
+                <span>Duplex:</span>
+                <strong>{{ "Double-Sided (Duplex)" if duplex else "Single-Sided" }}</strong>
+            </div>
+        {% endif %}
+
+        {% if applied_finishing_services and applied_finishing_services|length > 0 %}
+        <div style="border-top: 1px dashed var(--border); margin: 12px 0 10px 0; padding-top: 10px;">
+            <div style="font-size: 12.5px; font-weight: 600; color: var(--accent); margin-bottom: 6px;">
+                Selected Finishing Services:
+            </div>
+            {% for s in applied_finishing_services %}
+            <div class="summary-row" style="margin-bottom: 6px;">
+                <span>✓ {{ s.service_name }}{% if s.quantity > 1 %} (x{{ s.quantity }}){% endif %}</span>
+                <strong style="color: #34d399;">₹{{ "%.2f"|format(s.total_price) }}</strong>
+            </div>
+            {% endfor %}
         </div>
-        <div class="summary-row">
-            <span>Copies:</span>
-            <strong>{{ copies }}</strong>
+        {% endif %}
+
+        {% if tax and tax > 0 %}
+        <div style="border-top: 1px solid var(--border); margin-top: 10px; padding-top: 8px;">
+            <div class="summary-row">
+                <span>Subtotal:</span>
+                <strong>₹{{ "%.2f"|format(subtotal) if subtotal else "0.00" }}</strong>
+            </div>
+            <div class="summary-row">
+                <span>Tax / GST:</span>
+                <strong>₹{{ "%.2f"|format(tax) if tax else "0.00" }}</strong>
+            </div>
         </div>
-        <div class="summary-row">
-            <span>Paper Size:</span>
-            <strong>{{ paper_size }}</strong>
-        </div>
-        <div class="summary-row">
-            <span>Print Type:</span>
-            <strong>{{ print_type }}</strong>
-        </div>
-        <div class="summary-row">
-            <span>Duplex:</span>
-            <strong>{{ "Double-Sided (Duplex)" if duplex else "Single-Sided" }}</strong>
-        </div>
+        {% endif %}
     </div>
 
     <div class="total-box-highlight">
         <span style="font-size: 16px; font-weight: 500;">Total Payable Amount</span>
-        <h3 style="font-size: 28px; font-weight: 800; color: #34d399; margin: 0;">₹<span id="total">{{ total_amount }}</span></h3>
+        <h3 style="font-size: 28px; font-weight: 800; color: #34d399; margin: 0;">₹<span id="total">{{ "%.2f"|format(total_amount|float) if total_amount else "0.00" }}</span></h3>
     </div>
 
     <div id="paymentOptions" style="display: flex; flex-direction: column; gap: 12px; margin-top: 24px;">
@@ -165,6 +275,23 @@
     </div>
 </div>
 
+<!-- Secure In-Page File Preview Modal -->
+<div id="summaryPreviewModal" class="modal-overlay">
+    <div class="preview-modal-box">
+        <div class="preview-modal-header">
+            <div id="summaryPreviewTitle" style="font-weight: 600; font-size: 15px; color: var(--text-main);">
+                📄 Document Preview
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnCloseSummaryPreview">
+                ✕ Close Preview
+            </button>
+        </div>
+        <div class="preview-modal-body">
+            <iframe id="summaryPreviewIframe" class="preview-frame" src="about:blank"></iframe>
+        </div>
+    </div>
+</div>
+
 <script>
 const jobId = "{{ job_id }}";
 let paymentId = null;
@@ -176,6 +303,27 @@ const modal = document.getElementById("paymentModal");
 const modalStatus = document.getElementById("modalStatus");
 const modalDetails = document.getElementById("modalDetails");
 const btnSimulate = document.getElementById("btnSimulateSuccess");
+
+// In-Page Preview Handlers
+const summaryPreviewModal = document.getElementById("summaryPreviewModal");
+const summaryPreviewIframe = document.getElementById("summaryPreviewIframe");
+const summaryPreviewTitle = document.getElementById("summaryPreviewTitle");
+const btnCloseSummaryPreview = document.getElementById("btnCloseSummaryPreview");
+
+document.querySelectorAll(".btn-preview-file").forEach(btn => {
+    btn.addEventListener("click", () => {
+        const fId = btn.dataset.fileId;
+        const fName = btn.dataset.fileName;
+        summaryPreviewTitle.innerText = `📄 ${fName} (Preview Only)`;
+        summaryPreviewIframe.src = `/preview/job/${jobId}/file/${fId}`;
+        summaryPreviewModal.style.display = "flex";
+    });
+});
+
+btnCloseSummaryPreview.addEventListener("click", () => {
+    summaryPreviewModal.style.display = "none";
+    summaryPreviewIframe.src = "about:blank";
+});
 
 async function pollJobStatus() {
     try {
@@ -211,7 +359,7 @@ btnOnline.addEventListener("click", async () => {
         const data = await res.json();
         
         if (!res.ok) {
-            modalStatus.innerText = "Payment Error";
+            modalStatus.innerText = "Payment Unavailable";
             modalDetails.innerText = data.detail || "Unable to initialize payment.";
             btnOnline.disabled = false;
             btnCash.disabled = false;
@@ -219,39 +367,51 @@ btnOnline.addEventListener("click", async () => {
         }
 
         paymentId = data.payment_id;
-        modalStatus.innerText = "Awaiting Payment Verification";
-        modalDetails.innerText = `Payment ID: ${paymentId}. Scan UPI or complete verification below.`;
-        
-        btnSimulate.style.display = "block";
-        btnSimulate.onclick = async () => {
-            btnSimulate.disabled = true;
-            btnSimulate.innerText = "Verifying signature...";
-            const vRes = await fetch("/payment/verify", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    payment_id: paymentId,
-                    provider_payment_id: "TXN_" + Date.now(),
-                    provider_order_id: data.provider_payment_id || "ORDER_MANUAL",
-                    signature: "SIG_VERIFIED"
-                })
-            });
-            const vData = await vRes.json();
-            if (vRes.ok) {
-                pollJobStatus();
-            } else {
-                modalDetails.innerText = vData.detail || "Verification failed.";
-                btnSimulate.disabled = false;
-            }
-        };
+        modalStatus.innerText = "Awaiting Payment Completion";
+        modalDetails.innerText = `Order ID: ${data.job_id.slice(0, 8)} | Amount: ₹${data.amount.toFixed(2)}`;
+        btnSimulate.style.display = "inline-block";
 
         pollInterval = setInterval(pollJobStatus, 2000);
-
-    } catch (err) {
+    } catch (e) {
         modalStatus.innerText = "Connection Error";
-        modalDetails.innerText = "Could not reach payment server.";
+        modalDetails.innerText = "Failed to connect to payment service.";
         btnOnline.disabled = false;
         btnCash.disabled = false;
+    }
+});
+
+btnSimulate.addEventListener("click", async () => {
+    if (!paymentId) return;
+    btnSimulate.disabled = true;
+    btnSimulate.innerText = "Verifying...";
+
+    try {
+        const res = await fetch("/payment/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                payment_id: paymentId,
+                provider_order_id: "ORD_" + jobId.slice(0, 8),
+                provider_payment_id: "PAY_" + Math.floor(Math.random() * 1000000),
+                signature: "SIG_MOCK_VERIFIED"
+            })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            modalStatus.innerText = "✓ Payment Verified!";
+            modalDetails.innerText = "Redirecting to Live Print Tracker...";
+            setTimeout(() => {
+                window.location.href = `/job/tracker/${jobId}`;
+            }, 1000);
+        } else {
+            modalStatus.innerText = "Verification Failed";
+            modalDetails.innerText = data.detail || "Invalid payment signature.";
+            btnSimulate.disabled = false;
+        }
+    } catch (e) {
+        modalStatus.innerText = "Verification Error";
+        modalDetails.innerText = e.message;
+        btnSimulate.disabled = false;
     }
 });
 
@@ -259,31 +419,28 @@ btnCash.addEventListener("click", async () => {
     btnOnline.disabled = true;
     btnCash.disabled = true;
     modal.style.display = "block";
-    btnSimulate.style.display = "none";
-    modalStatus.innerText = "Requesting Cash Payment...";
-    modalDetails.innerText = "Registering counter cash order...";
+    modalStatus.innerText = "Requesting Cash at Counter...";
 
     try {
         const res = await fetch(`/payment/cash/${jobId}`, {
             method: "POST"
         });
         const data = await res.json();
-
         if (res.ok) {
             modalStatus.innerText = "💵 Cash Payment Requested";
-            modalDetails.innerHTML = `Please pay <strong>₹${document.getElementById('total').innerText}</strong> at the shop counter.<br><span style="color:#fbbf24; display:inline-block; margin-top:8px;">⏳ Waiting for shop operator to confirm on dashboard...</span>`;
-            
-            if (pollInterval) clearInterval(pollInterval);
-            pollInterval = setInterval(pollJobStatus, 2000);
+            modalDetails.innerText = "Redirecting to tracker. Please pay the operator at the counter.";
+            setTimeout(() => {
+                window.location.href = `/job/tracker/${jobId}`;
+            }, 1000);
         } else {
-            modalStatus.innerText = "Cash Request Failed";
+            modalStatus.innerText = "Error";
             modalDetails.innerText = data.detail || "Could not request cash payment.";
             btnOnline.disabled = false;
             btnCash.disabled = false;
         }
-    } catch (err) {
-        modalStatus.innerText = "Network Error";
-        modalDetails.innerText = "Unable to connect to server.";
+    } catch (e) {
+        modalStatus.innerText = "Connection Error";
+        modalDetails.innerText = "Failed to connect to server.";
         btnOnline.disabled = false;
         btnCash.disabled = false;
     }
