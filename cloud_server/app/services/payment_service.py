@@ -63,17 +63,42 @@ class PaymentService:
         qr_reference = None
         provider_payment_id = None
 
-        # When live Razorpay/Cashfree credentials are provided via environment variables,
+        # When live Razorpay credentials are provided via environment variables,
         # create the remote gateway order reference
         if provider == PaymentProvider.RAZORPAY and PAYMENT_GATEWAY_KEY_ID and PAYMENT_GATEWAY_KEY_SECRET:
             try:
                 # Razorpay amounts are in paise (INR * 100)
                 amount_in_paise = int(amount * 100)
-                # Simulated order ID or real client call if SDK is installed
-                provider_payment_id = f"order_{job.job_id.hex[:14]}"
-                qr_reference = f"upi://pay?pa=shop@{PAYMENT_GATEWAY_KEY_ID}&pn=PrintShop&am={amount}&tr={provider_payment_id}"
+                key_id = PAYMENT_GATEWAY_KEY_ID.strip()
+                key_secret = PAYMENT_GATEWAY_KEY_SECRET.strip()
+
+                import requests
+                resp = requests.post(
+                    "https://api.razorpay.com/v1/orders",
+                    auth=(key_id, key_secret),
+                    json={
+                        "amount": amount_in_paise,
+                        "currency": "INR",
+                        "receipt": f"job_{job.job_id.hex[:14]}",
+                        "notes": {
+                            "job_id": str(job.job_id),
+                            "owner_id": str(job.owner_id)
+                        }
+                    },
+                    timeout=10
+                )
+                if resp.status_code in (200, 201):
+                    order_data = resp.json()
+                    provider_payment_id = order_data.get("id")
+                    logger.info(f"Created Razorpay order: {provider_payment_id} for job {job.job_id}")
+                else:
+                    logger.warning(f"Razorpay order API returned status {resp.status_code}")
+                    provider_payment_id = f"order_{job.job_id.hex[:14]}"
+
+                qr_reference = f"upi://pay?pa=shop@{key_id}&pn=PrintShop&am={amount}&tr={provider_payment_id}"
             except Exception as e:
                 logger.error(f"Error creating Razorpay order: {e}")
+                provider_payment_id = f"order_{job.job_id.hex[:14]}"
 
         payment = Payment(
             job_id=job.job_id,
@@ -104,9 +129,17 @@ class PaymentService:
         """
         Cryptographic HMAC-SHA256 verification of payment gateway signatures.
         """
-        key = secret or PAYMENT_GATEWAY_KEY_SECRET or PAYMENT_WEBHOOK_SECRET
+        key = (secret or PAYMENT_GATEWAY_KEY_SECRET or PAYMENT_WEBHOOK_SECRET or "").strip()
         if not key:
             logger.warning("No payment secret configured. Rejecting gateway signature verification.")
+            return False
+
+        order_id = (order_id or "").strip()
+        payment_id = (payment_id or "").strip()
+        signature = (signature or "").strip()
+
+        if not order_id or not payment_id or not signature:
+            logger.warning("Incomplete parameters for gateway signature verification.")
             return False
 
         try:

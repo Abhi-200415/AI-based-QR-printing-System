@@ -78,10 +78,10 @@ MAX_UPLOAD_SIZE_MB = int(os.getenv("MAX_UPLOAD_SIZE_MB", "50"))
 ALLOWED_EXTENSIONS = [".pdf", ".docx", ".txt", ".png", ".jpg", ".jpeg"]
 
 # Payment Gateway Configuration
-PAYMENT_GATEWAY_PROVIDER = os.getenv("PAYMENT_GATEWAY_PROVIDER", "MANUAL")  # RAZORPAY, CASHFREE, STRIPE, MANUAL
-PAYMENT_GATEWAY_KEY_ID = os.getenv("PAYMENT_GATEWAY_KEY_ID", "")
-PAYMENT_GATEWAY_KEY_SECRET = os.getenv("PAYMENT_GATEWAY_KEY_SECRET", "")
-PAYMENT_WEBHOOK_SECRET = os.getenv("PAYMENT_WEBHOOK_SECRET", "")
+PAYMENT_GATEWAY_PROVIDER = (os.getenv("PAYMENT_GATEWAY_PROVIDER") or "MANUAL").strip()  # RAZORPAY, CASHFREE, STRIPE, MANUAL
+PAYMENT_GATEWAY_KEY_ID = (os.getenv("PAYMENT_GATEWAY_KEY_ID") or os.getenv("RAZORPAY_KEY_ID") or "").strip()
+PAYMENT_GATEWAY_KEY_SECRET = (os.getenv("PAYMENT_GATEWAY_KEY_SECRET") or os.getenv("RAZORPAY_KEY_SECRET") or "").strip()
+PAYMENT_WEBHOOK_SECRET = (os.getenv("PAYMENT_WEBHOOK_SECRET") or os.getenv("RAZORPAY_WEBHOOK_SECRET") or "").strip()
 
 # AI / ML Model Configuration
 MODEL_PATH = os.getenv("MODEL_PATH", "models/print_time_predictor.joblib")

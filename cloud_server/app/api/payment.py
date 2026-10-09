@@ -51,6 +51,10 @@ class PaymentVerifyRequest(BaseModel):
     provider_order_id: Optional[str] = None
     provider_payment_id: Optional[str] = None
     signature: Optional[str] = None
+    # Support direct Razorpay standard response field names
+    razorpay_order_id: Optional[str] = None
+    razorpay_payment_id: Optional[str] = None
+    razorpay_signature: Optional[str] = None
 
 
 # ==========================================================
@@ -63,9 +67,14 @@ def create_payment(
     payload: Optional[PaymentCreateRequest] = None,
     db: Session = Depends(get_db)
 ):
+    from app.core.config import PAYMENT_GATEWAY_PROVIDER, PAYMENT_GATEWAY_KEY_ID
+
     job = db.query(ActiveJob).filter(ActiveJob.job_id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found.")
+
+    key_id = PAYMENT_GATEWAY_KEY_ID.strip() if PAYMENT_GATEWAY_PROVIDER.upper() == "RAZORPAY" else ""
+    shop_name = job.owner.shop_name if job.owner else "AI Print Shop"
 
     # Return existing payment if already created
     if job.payment:
@@ -74,10 +83,15 @@ def create_payment(
             "job_id": str(job.job_id),
             "status": job.payment.status.value,
             "amount": float(job.payment.amount),
+            "amount_paise": int(job.payment.amount * 100),
             "currency": job.payment.currency,
             "provider": job.payment.provider.value,
+            "key_id": key_id,
+            "provider_order_id": job.payment.provider_payment_id,
             "qr_reference": job.payment.qr_reference,
-            "provider_payment_id": job.payment.provider_payment_id
+            "shop_name": shop_name,
+            "customer_name": job.customer_name or "",
+            "customer_phone": job.customer_phone or ""
         }
 
     # Ensure pricing is calculated
@@ -108,10 +122,15 @@ def create_payment(
         "job_id": str(job.job_id),
         "status": payment.status.value,
         "amount": float(payment.amount),
+        "amount_paise": int(payment.amount * 100),
         "currency": payment.currency,
         "provider": payment.provider.value,
+        "key_id": key_id,
+        "provider_order_id": payment.provider_payment_id,
         "qr_reference": payment.qr_reference,
-        "provider_payment_id": payment.provider_payment_id
+        "shop_name": shop_name,
+        "customer_name": job.customer_name or "",
+        "customer_phone": job.customer_phone or ""
     }
 
 
@@ -142,15 +161,25 @@ async def verify_payment(
             "message": "Payment was already verified."
         }
 
+    order_id = (payload.razorpay_order_id or payload.provider_order_id or "").strip()
+    payment_id = (payload.razorpay_payment_id or payload.provider_payment_id or "").strip()
+    signature = (payload.razorpay_signature or payload.signature or "").strip()
+
+    # If an order ID was previously recorded for a gateway payment, ensure incoming order ID matches
+    if payment.provider == PaymentProvider.RAZORPAY and payment.provider_payment_id and order_id:
+        if payment.provider_payment_id.strip() != order_id:
+            PaymentService.process_failed_payment(payment, failure_reason="Mismatched order ID.", db=db)
+            raise HTTPException(status_code=400, detail="Payment verification failed. Mismatched order ID.")
+
     # Secure verification
     verified = False
-    if payload.signature and payload.provider_order_id and payload.provider_payment_id:
+    if signature and order_id and payment_id:
         verified = PaymentService.verify_gateway_signature(
-            order_id=payload.provider_order_id,
-            payment_id=payload.provider_payment_id,
-            signature=payload.signature
+            order_id=order_id,
+            payment_id=payment_id,
+            signature=signature
         )
-    elif payment.provider == PaymentProvider.MANUAL:
+    elif payment.provider == PaymentProvider.MANUAL and not signature:
         # For manual payment in local/demo environment
         verified = True
 
@@ -161,8 +190,8 @@ async def verify_payment(
     # Process successful payment
     PaymentService.process_successful_payment(
         payment,
-        transaction_id=payload.provider_payment_id or "TXN_MANUAL",
-        provider_payment_id=payload.provider_order_id,
+        transaction_id=payment_id or "TXN_MANUAL",
+        provider_payment_id=order_id or payment.provider_payment_id,
         db=db
     )
 

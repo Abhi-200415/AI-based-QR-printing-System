@@ -6,6 +6,7 @@
     <title>Order Summary & Payment - AI Smart Printing</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
     <style>
         body {
             display: flex;
@@ -367,11 +368,85 @@ btnOnline.addEventListener("click", async () => {
         }
 
         paymentId = data.payment_id;
-        modalStatus.innerText = "Awaiting Payment Completion";
-        modalDetails.innerText = `Order ID: ${data.job_id.slice(0, 8)} | Amount: ₹${data.amount.toFixed(2)}`;
-        btnSimulate.style.display = "inline-block";
 
-        pollInterval = setInterval(pollJobStatus, 2000);
+        // If Razorpay gateway is active and credentials are provided, launch Standard Checkout
+        if (data.provider === "Razorpay" && data.key_id && typeof Razorpay !== "undefined") {
+            modalStatus.innerText = "Opening Razorpay Secure Checkout...";
+            modalDetails.innerText = `Order ID: ${data.provider_order_id || data.job_id.slice(0, 8)} | Amount: ₹${data.amount.toFixed(2)}`;
+
+            const options = {
+                key: data.key_id,
+                amount: data.amount_paise || Math.round(data.amount * 100),
+                currency: data.currency || "INR",
+                name: data.shop_name || "AI Print Shop",
+                description: `Print Job ${jobId.slice(0, 8)}`,
+                order_id: data.provider_order_id,
+                prefill: {
+                    name: data.customer_name || "",
+                    contact: data.customer_phone || ""
+                },
+                theme: {
+                    color: "#6366f1"
+                },
+                handler: async function (response) {
+                    modalStatus.innerText = "Verifying Payment Signature...";
+                    modalDetails.innerText = "Securing transaction with cloud server...";
+                    try {
+                        const vRes = await fetch("/payment/verify", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                payment_id: paymentId,
+                                razorpay_order_id: response.razorpay_order_id,
+                                razorpay_payment_id: response.razorpay_payment_id,
+                                razorpay_signature: response.razorpay_signature
+                            })
+                        });
+                        const vData = await vRes.json();
+                        if (vRes.ok && vData.success) {
+                            modalStatus.innerText = "✓ Payment Verified!";
+                            modalDetails.innerText = "Redirecting to Live Print Queue Tracker...";
+                            setTimeout(() => {
+                                window.location.href = `/job/tracker/${jobId}`;
+                            }, 1000);
+                        } else {
+                            modalStatus.innerText = "Verification Failed";
+                            modalDetails.innerText = vData.detail || "Payment verification failed. Invalid signature.";
+                            btnOnline.disabled = false;
+                            btnCash.disabled = false;
+                        }
+                    } catch (err) {
+                        modalStatus.innerText = "Verification Error";
+                        modalDetails.innerText = "Connection lost during verification.";
+                        btnOnline.disabled = false;
+                        btnCash.disabled = false;
+                    }
+                },
+                modal: {
+                    ondismiss: function () {
+                        modalStatus.innerText = "Payment Incomplete";
+                        modalDetails.innerText = "Checkout was closed before completion.";
+                        btnOnline.disabled = false;
+                        btnCash.disabled = false;
+                    }
+                }
+            };
+
+            const rzp = new Razorpay(options);
+            rzp.on('payment.failed', function (resp) {
+                modalStatus.innerText = "Payment Failed";
+                modalDetails.innerText = (resp.error && resp.error.description) || "Gateway transaction failed.";
+                btnOnline.disabled = false;
+                btnCash.disabled = false;
+            });
+            rzp.open();
+        } else {
+            // Manual / Demo Mode fallback
+            modalStatus.innerText = "Awaiting Payment Completion";
+            modalDetails.innerText = `Order ID: ${data.job_id.slice(0, 8)} | Amount: ₹${data.amount.toFixed(2)}`;
+            btnSimulate.style.display = "inline-block";
+            pollInterval = setInterval(pollJobStatus, 2000);
+        }
     } catch (e) {
         modalStatus.innerText = "Connection Error";
         modalDetails.innerText = "Failed to connect to payment service.";
@@ -391,9 +466,8 @@ btnSimulate.addEventListener("click", async () => {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 payment_id: paymentId,
-                provider_order_id: "ORD_" + jobId.slice(0, 8),
-                provider_payment_id: "PAY_" + Math.floor(Math.random() * 1000000),
-                signature: "SIG_MOCK_VERIFIED"
+                provider_order_id: "order_" + jobId.slice(0, 14),
+                provider_payment_id: "PAY_DEMO_" + Math.floor(Math.random() * 1000000)
             })
         });
         const data = await res.json();
