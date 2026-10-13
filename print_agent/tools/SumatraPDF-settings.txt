@@ -93,7 +93,7 @@ ForwardSearch [
 ]
 
 PrinterDefaults [
-	PrintScale = shrink
+	PrintScale = fit
 ]
 
 SelectionHandlers [

@@ -177,9 +177,7 @@ def apply_devmode(
         )
 
     except Exception as e:
-
-        error(str(e))
-
+        # Standard users without admin rights will encounter Access Denied on SetPrinter
         raise
 
 # ==========================================================

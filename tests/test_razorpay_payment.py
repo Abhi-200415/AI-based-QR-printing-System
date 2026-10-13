@@ -1,4 +1,5 @@
 import os
+os.environ["TESTING"] = "true"
 import sys
 import hmac
 import hashlib
@@ -344,6 +345,144 @@ class TestRazorpayPaymentFlow(unittest.TestCase):
             webhook_secret=webhook_secret
         )
         self.assertFalse(is_tampered_valid, "Tampered webhook payload must fail verification.")
+
+    # ==========================================================
+    # 5. Environment Resolution & Alias Precedence Tests
+    # ==========================================================
+
+    def test_live_mode_selected_when_explicitly_configured(self):
+        from app.core.config import resolve_payment_settings
+        env = {
+            "PAYMENT_MODE": "live",
+            "RAZORPAY_LIVE_KEY_ID": "rzp_live_my_key_123",
+            "RAZORPAY_LIVE_KEY_SECRET": "sec_live_999"
+        }
+        cfg = resolve_payment_settings(env)
+        self.assertEqual(cfg["mode"], "live")
+        self.assertEqual(cfg["key_id"], "rzp_live_my_key_123")
+        self.assertEqual(cfg["key_secret"], "sec_live_999")
+        self.assertEqual(cfg["provider"], "RAZORPAY")
+
+    def test_test_mode_selected_when_explicitly_configured(self):
+        from app.core.config import resolve_payment_settings
+        env = {
+            "PAYMENT_MODE": "test",
+            "RAZORPAY_TEST_KEY_ID": "rzp_test_abc_789",
+            "RAZORPAY_TEST_KEY_SECRET": "sec_test_111"
+        }
+        cfg = resolve_payment_settings(env)
+        self.assertEqual(cfg["mode"], "test")
+        self.assertEqual(cfg["key_id"], "rzp_test_abc_789")
+        self.assertEqual(cfg["key_secret"], "sec_test_111")
+        self.assertEqual(cfg["provider"], "RAZORPAY")
+
+    def test_deterministic_alias_precedence_live_over_stale_test_keys(self):
+        """
+        Exact Render Scenario: User updated RAZORPAY_KEY_ID with LIVE key,
+        but PAYMENT_GATEWAY_KEY_ID still contained the old TEST key.
+        The system must deterministically select the LIVE credentials.
+        """
+        from app.core.config import resolve_payment_settings
+        env = {
+            "PAYMENT_GATEWAY_KEY_ID": "rzp_test_stale_key_111",
+            "PAYMENT_GATEWAY_KEY_SECRET": "sec_test_stale_secret_222",
+            "RAZORPAY_KEY_ID": "rzp_live_fresh_key_333",
+            "RAZORPAY_KEY_SECRET": "sec_live_fresh_secret_444"
+        }
+        cfg = resolve_payment_settings(env)
+        self.assertEqual(cfg["mode"], "live", "Presence of rzp_live_ key must infer live mode.")
+        self.assertEqual(cfg["key_id"], "rzp_live_fresh_key_333", "Live key must take precedence over stale test key.")
+        self.assertEqual(cfg["key_secret"], "sec_live_fresh_secret_444", "Matching live secret must be paired with live key.")
+        self.assertEqual(cfg["provider"], "RAZORPAY")
+
+    def test_provider_auto_detected_when_keys_present_without_explicit_provider(self):
+        from app.core.config import resolve_payment_settings
+        env = {
+            "RAZORPAY_KEY_ID": "rzp_live_test_auto_detect",
+            "RAZORPAY_KEY_SECRET": "sec_auto_detect"
+        }
+        cfg = resolve_payment_settings(env)
+        self.assertEqual(cfg["provider"], "RAZORPAY", "Provider must auto-detect as RAZORPAY when credentials exist.")
+
+    def test_secret_masking_and_no_leak_in_diagnostics(self):
+        from app.core.config import mask_key_id, get_payment_diagnostics
+        masked = mask_key_id("rzp_live_1234567890abcdef")
+        self.assertTrue(masked.startswith("rzp_live_****"))
+        self.assertTrue(masked.endswith("cdef"))
+        self.assertNotIn("1234567890", masked)
+
+        # Check diagnostics endpoint
+        res = self.client.get("/api/status")
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertIn("payment", data)
+        p_diag = data["payment"]
+        self.assertIn("provider", p_diag)
+        self.assertIn("mode", p_diag)
+        self.assertIn("key_id_masked", p_diag)
+        self.assertIn("key_secret_configured", p_diag)
+        # Ensure no secret strings leaked anywhere in response body
+        self.assertNotIn("sec_", res.text)
+        self.assertNotIn("key_secret", p_diag.get("key_id_masked", ""))
+
+    def test_missing_credentials_fails_signature_safely(self):
+        # Empty secret
+        is_valid = PaymentService.verify_gateway_signature(
+            order_id="order_123",
+            payment_id="pay_456",
+            signature="sig_789",
+            secret=""
+        )
+        self.assertFalse(is_valid, "Signature check with missing secret must return False safely.")
+
+    # ==========================================================
+    # 6. Mocked Remote Order Creation & Gateway Error Handling
+    # ==========================================================
+
+    def test_mocked_gateway_order_creation_success(self):
+        from unittest.mock import patch, MagicMock
+        from app.core.config import resolve_payment_settings
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 201
+        mock_resp.json.return_value = {"id": "order_MOCK_RZP_998877"}
+
+        with patch("os.environ", {
+            "PAYMENT_MODE": "live",
+            "RAZORPAY_KEY_ID": "rzp_live_mock_test_key",
+            "RAZORPAY_KEY_SECRET": "sec_live_mock_secret"
+        }):
+            with patch("requests.post", return_value=mock_resp):
+                payment = PaymentService.create_payment_order(
+                    job=self.job,
+                    payment_method=PaymentMethod.UPI,
+                    db=self.db
+                )
+                self.assertEqual(payment.provider_payment_id, "order_MOCK_RZP_998877")
+                self.assertEqual(payment.provider, PaymentProvider.RAZORPAY)
+
+    def test_mocked_gateway_order_creation_failure_raises_502(self):
+        from unittest.mock import patch, MagicMock
+        from fastapi import HTTPException
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 401
+        mock_resp.json.return_value = {"error": {"description": "Invalid key or secret."}}
+
+        with patch("os.environ", {
+            "PAYMENT_MODE": "live",
+            "RAZORPAY_KEY_ID": "rzp_live_mock_test_key",
+            "RAZORPAY_KEY_SECRET": "sec_live_mock_secret"
+        }):
+            with patch("requests.post", return_value=mock_resp):
+                with self.assertRaises(HTTPException) as ctx:
+                    PaymentService.create_payment_order(
+                        job=self.job,
+                        payment_method=PaymentMethod.UPI,
+                        db=self.db
+                    )
+                self.assertEqual(ctx.exception.status_code, 502)
+                self.assertIn("Invalid key or secret", ctx.exception.detail)
 
 
 if __name__ == "__main__":

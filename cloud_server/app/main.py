@@ -145,6 +145,8 @@ async def _periodic_cleanup_runner(interval_seconds: int = 3600):
 async def startup_event():
     """Verify database connection, create tables, and start background workers on startup."""
     init_db()
+    from app.core.config import log_payment_gateway_status
+    log_payment_gateway_status()
     asyncio.create_task(_periodic_cleanup_runner(interval_seconds=3600))
 
 
@@ -192,11 +194,13 @@ async def owner_login_page(request: Request):
 
 @app.api_route("/api/status", methods=["GET", "HEAD"])
 def api_status():
-    """Service status metadata endpoint."""
+    """Service status metadata endpoint with safe payment diagnostics."""
+    from app.core.config import get_payment_diagnostics
     return {
         "project": "Cloud Based AI Smart Printing System",
         "status": "Running",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "payment": get_payment_diagnostics()
     }
 
 

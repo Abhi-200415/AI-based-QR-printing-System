@@ -1,7 +1,11 @@
 import argparse
 import asyncio
+import os
 import signal
 import sys
+
+# Ensure agent directory is in sys.path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from core.logger import (
     info,

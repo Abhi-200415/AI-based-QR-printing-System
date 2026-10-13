@@ -32,7 +32,9 @@ class PaymentService:
 
     @staticmethod
     def get_configured_provider() -> PaymentProvider:
-        provider_name = PAYMENT_GATEWAY_PROVIDER.upper()
+        from app.core.config import get_payment_diagnostics
+        diag = get_payment_diagnostics()
+        provider_name = diag["provider"].upper()
         if provider_name == "RAZORPAY":
             return PaymentProvider.RAZORPAY
         elif provider_name == "CASHFREE":
@@ -51,26 +53,46 @@ class PaymentService:
         Creates or retrieves a pending payment record for the active job.
         If a live payment gateway is configured, prepares gateway order parameters.
         """
-        if job.payment:
-            return job.payment
-
+        from app.core.config import resolve_payment_settings
+        cfg = resolve_payment_settings()
         provider = PaymentService.get_configured_provider()
-        amount = Decimal(str(job.total_amount or 0))
+        key_id = cfg["key_id"].strip()
+        key_secret = cfg["key_secret"].strip()
 
+        amount = Decimal(str(job.total_amount or 0))
         if amount <= 0:
             raise HTTPException(status_code=400, detail="Cannot create payment for job with amount 0.")
+
+        # If job already has a payment:
+        if job.payment:
+            # If already paid or failed, return as-is
+            if job.payment.status != PaymentStatus.PENDING:
+                return job.payment
+
+            # If pending, check if provider or order ID needs updating
+            # (e.g. was previously MANUAL/CASH, or gateway has been reconfigured with live keys)
+            needs_order_refresh = (
+                provider == PaymentProvider.RAZORPAY
+                and key_id
+                and key_secret
+                and (
+                    job.payment.provider != PaymentProvider.RAZORPAY
+                    or not job.payment.provider_payment_id
+                    or not job.payment.provider_payment_id.startswith("order_")
+                    or len(job.payment.provider_payment_id) < 18
+                )
+            )
+            if not needs_order_refresh:
+                return job.payment
 
         qr_reference = None
         provider_payment_id = None
 
-        # When live Razorpay credentials are provided via environment variables,
-        # create the remote gateway order reference
-        if provider == PaymentProvider.RAZORPAY and PAYMENT_GATEWAY_KEY_ID and PAYMENT_GATEWAY_KEY_SECRET:
+        # When Razorpay credentials are provided, create the remote gateway order reference
+        if provider == PaymentProvider.RAZORPAY and key_id and key_secret:
             try:
                 # Razorpay amounts are in paise (INR * 100)
                 amount_in_paise = int(amount * 100)
-                key_id = PAYMENT_GATEWAY_KEY_ID.strip()
-                key_secret = PAYMENT_GATEWAY_KEY_SECRET.strip()
 
                 import requests
                 resp = requests.post(
@@ -92,28 +114,52 @@ class PaymentService:
                     provider_payment_id = order_data.get("id")
                     logger.info(f"Created Razorpay order: {provider_payment_id} for job {job.job_id}")
                 else:
-                    logger.warning(f"Razorpay order API returned status {resp.status_code}")
-                    provider_payment_id = f"order_{job.job_id.hex[:14]}"
+                    err_msg = "Unknown gateway error"
+                    try:
+                        err_data = resp.json()
+                        err_msg = err_data.get("error", {}).get("description") or str(err_data)
+                    except Exception:
+                        err_msg = resp.text[:200]
+                    logger.error(f"Razorpay order API returned status {resp.status_code}: {err_msg}")
+                    raise HTTPException(
+                        status_code=502,
+                        detail=f"Payment gateway error ({resp.status_code}): {err_msg}"
+                    )
 
                 qr_reference = f"upi://pay?pa=shop@{key_id}&pn=PrintShop&am={amount}&tr={provider_payment_id}"
+            except HTTPException:
+                raise
             except Exception as e:
                 logger.error(f"Error creating Razorpay order: {e}")
-                provider_payment_id = f"order_{job.job_id.hex[:14]}"
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Payment gateway order creation failed: {str(e)}"
+                )
 
-        payment = Payment(
-            job_id=job.job_id,
-            provider=provider,
-            payment_method=payment_method,
-            amount=amount,
-            status=PaymentStatus.PENDING,
-            currency="INR",
-            provider_payment_id=provider_payment_id,
-            qr_reference=qr_reference,
-            verified=False
-        )
+        if job.payment:
+            # Update existing pending payment record
+            job.payment.provider = provider
+            job.payment.payment_method = payment_method
+            job.payment.amount = amount
+            job.payment.provider_payment_id = provider_payment_id
+            job.payment.qr_reference = qr_reference
+            payment = job.payment
+        else:
+            payment = Payment(
+                job_id=job.job_id,
+                provider=provider,
+                payment_method=payment_method,
+                amount=amount,
+                status=PaymentStatus.PENDING,
+                currency="INR",
+                provider_payment_id=provider_payment_id,
+                qr_reference=qr_reference,
+                verified=False
+            )
+            if db:
+                db.add(payment)
 
         if db:
-            db.add(payment)
             db.commit()
             db.refresh(payment)
 
@@ -129,7 +175,11 @@ class PaymentService:
         """
         Cryptographic HMAC-SHA256 verification of payment gateway signatures.
         """
-        key = (secret or PAYMENT_GATEWAY_KEY_SECRET or PAYMENT_WEBHOOK_SECRET or "").strip()
+        from app.core.config import resolve_payment_settings
+        cfg = resolve_payment_settings()
+        import app.services.payment_service as ps
+        module_secret = getattr(ps, "PAYMENT_GATEWAY_KEY_SECRET", "")
+        key = (secret or module_secret or cfg["key_secret"] or cfg["webhook_secret"] or "").strip()
         if not key:
             logger.warning("No payment secret configured. Rejecting gateway signature verification.")
             return False
@@ -164,7 +214,12 @@ class PaymentService:
         """
         Verify incoming webhook payload signature.
         """
-        secret = webhook_secret or PAYMENT_WEBHOOK_SECRET or PAYMENT_GATEWAY_KEY_SECRET
+        from app.core.config import resolve_payment_settings
+        cfg = resolve_payment_settings()
+        import app.services.payment_service as ps
+        module_secret = getattr(ps, "PAYMENT_GATEWAY_KEY_SECRET", "")
+        module_webhook = getattr(ps, "PAYMENT_WEBHOOK_SECRET", "")
+        secret = (webhook_secret or module_webhook or cfg["webhook_secret"] or module_secret or cfg["key_secret"] or "").strip()
         if not secret:
             return False
 

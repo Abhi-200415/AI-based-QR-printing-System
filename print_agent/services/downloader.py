@@ -107,7 +107,7 @@ def download_file(job: dict) -> str:
 
             # Resolve proper filename (e.g. .pdf instead of .enc)
             filename = resolve_destination_filename(job, response.headers)
-            destination = os.path.join(DOWNLOAD_FOLDER, filename)
+            destination = os.path.abspath(os.path.join(DOWNLOAD_FOLDER, filename))
 
             info(f"Downloading file: {filename}")
 

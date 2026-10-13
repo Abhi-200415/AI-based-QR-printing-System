@@ -115,7 +115,7 @@ def handle_job(job: dict) -> bool:
             file_print_job = {
                 "job_id": job_id,
                 "file_id": file_info.get("file_id"),
-                "file_path": file_path,
+                "file_path": os.path.abspath(file_path),
                 "printer_name": job.get("printer_name"),
                 "copies": file_info.get("copies", 1),
                 "paper_size": file_info.get("paper_size", "A4"),

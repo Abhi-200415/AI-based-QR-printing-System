@@ -171,6 +171,36 @@ def print_pdf(job):
         )
     )
 
+    orientation = job.get("orientation", "PORTRAIT")
+    color = (job.get("print_type") or "").upper() == "COLOR"
+
+    try:
+        from printers.word_a4_executor import print_via_word_a4
+        info(f"Attempting Word A4 print for guaranteed full-size A4: {file_path}")
+        return print_via_word_a4(
+            printer_name=printer_name,
+            file_path=file_path,
+            copies=copies,
+            orientation=orientation,
+            page_ranges=page_ranges
+        )
+    except Exception as we:
+        warn(f"Word A4 print attempt failed ({we}). Trying native GDI fallback...")
+
+    try:
+        from printers.native_gdi_executor import print_pdf_native_gdi
+        info(f"Attempting native GDI print for full-size A4: {file_path}")
+        return print_pdf_native_gdi(
+            printer_name=printer_name,
+            pdf_path=file_path,
+            copies=copies,
+            orientation=orientation,
+            page_ranges=page_ranges,
+            color=color
+        )
+    except Exception as ne:
+        warn(f"Native GDI print attempt failed ({ne}). Trying SumatraPDF fallback...")
+
     if not os.path.exists(
         SUMATRA_PATH
     ):
@@ -290,6 +320,21 @@ def print_docx(job):
             os.path.abspath(file_path)
         )
 
+        # Enforce target paper size (A4 default) and orientation
+        try:
+            paper_size_req = (job.get("paper_size") or "A4").upper()
+            wd_paper_map = {"A4": 9, "A3": 8, "LEGAL": 5, "LETTER": 2}
+            wd_paper = wd_paper_map.get(paper_size_req, 9)
+
+            ori_req = (job.get("orientation") or "PORTRAIT").upper()
+            wd_ori = 1 if ori_req == "PORTRAIT" else 2
+
+            for s in document.Sections:
+                s.PageSetup.PaperSize = wd_paper
+                s.PageSetup.Orientation = wd_ori
+        except Exception as pe:
+            pass
+
         for _ in range(copies):
 
             document.PrintOut(
@@ -326,6 +371,8 @@ def print_image(job):
 
     file_path = job["file_path"]
 
+    printer_name = job["printer_name"]
+
     copies = int(
         job.get(
             "copies",
@@ -333,9 +380,37 @@ def print_image(job):
         )
     )
 
+    orientation = job.get("orientation", "PORTRAIT")
+    color = (job.get("print_type") or "").upper() == "COLOR"
+
     info(
         f"Printing Image : {file_path}"
     )
+
+    try:
+        from printers.word_a4_executor import print_via_word_a4
+        info(f"Attempting Word A4 print for full-size A4 image: {file_path}")
+        return print_via_word_a4(
+            printer_name=printer_name,
+            file_path=file_path,
+            copies=copies,
+            orientation=orientation
+        )
+    except Exception as we:
+        warn(f"Word A4 image print failed ({we}). Trying native GDI fallback...")
+
+    try:
+        from printers.native_gdi_executor import print_image_native_gdi
+        info(f"Attempting native GDI print for full-size A4 image: {file_path}")
+        return print_image_native_gdi(
+            printer_name=printer_name,
+            image_path=file_path,
+            copies=copies,
+            orientation=orientation,
+            color=color
+        )
+    except Exception as ie:
+        warn(f"Native GDI image print failed ({ie}). Falling back to shell print...")
 
     try:
 

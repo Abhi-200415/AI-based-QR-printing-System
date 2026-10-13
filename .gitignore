@@ -21,6 +21,7 @@ test_*.pdf
 test_*.docx
 abcd.pdf
 aab.txt
+scratch_*.pdf
 
 # Print Agent runtime
 PRINT_AGENT/downloads/

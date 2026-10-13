@@ -34,6 +34,24 @@ class TestPrintAgent(unittest.TestCase):
         physical = get_physical_printers()
         self.assertIsInstance(physical, list)
 
+    def test_image_to_a4_pdf_conversion(self):
+        from services.image_converter import convert_image_to_printable_pdf
+        from PIL import Image
+
+        temp_img = Path("test_sample_img.png")
+        Image.new("RGB", (800, 600), (255, 0, 0)).save(temp_img)
+        pdf_path = None
+        try:
+            pdf_path, orientation = convert_image_to_printable_pdf(str(temp_img), paper_size="A4", orientation="PORTRAIT")
+            self.assertTrue(os.path.exists(pdf_path))
+            self.assertGreater(os.path.getsize(pdf_path), 0)
+            self.assertEqual(orientation, "PORTRAIT")
+        finally:
+            if temp_img.exists():
+                temp_img.unlink()
+            if pdf_path and os.path.exists(pdf_path):
+                os.remove(pdf_path)
+
 
 if __name__ == "__main__":
     unittest.main()

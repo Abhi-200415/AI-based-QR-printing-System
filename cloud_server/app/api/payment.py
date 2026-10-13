@@ -67,17 +67,34 @@ def create_payment(
     payload: Optional[PaymentCreateRequest] = None,
     db: Session = Depends(get_db)
 ):
-    from app.core.config import PAYMENT_GATEWAY_PROVIDER, PAYMENT_GATEWAY_KEY_ID
-
     job = db.query(ActiveJob).filter(ActiveJob.job_id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found.")
 
-    key_id = PAYMENT_GATEWAY_KEY_ID.strip() if PAYMENT_GATEWAY_PROVIDER.upper() == "RAZORPAY" else ""
+    from app.core.config import resolve_payment_settings
+    cfg = resolve_payment_settings()
+    configured_provider = cfg["provider"].upper()
+    key_id = cfg["key_id"].strip() if configured_provider == "RAZORPAY" else ""
     shop_name = job.owner.shop_name if job.owner else "AI Print Shop"
 
-    # Return existing payment if already created
+    # Return existing payment if already created, refreshing pending payment if gateway settings changed
     if job.payment:
+        if (
+            job.payment.status == PaymentStatus.PENDING
+            and configured_provider == "RAZORPAY"
+            and key_id
+            and cfg["key_secret"]
+            and (
+                job.payment.provider != PaymentProvider.RAZORPAY
+                or not job.payment.provider_payment_id
+                or not job.payment.provider_payment_id.startswith("order_")
+                or len(job.payment.provider_payment_id) < 18
+            )
+        ):
+            method = payload.payment_method if payload else PaymentMethod.UPI
+            PaymentService.create_payment_order(job, payment_method=method, db=db)
+            db.refresh(job)
+
         return {
             "payment_id": str(job.payment.payment_id),
             "job_id": str(job.job_id),

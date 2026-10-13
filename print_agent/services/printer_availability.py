@@ -175,9 +175,18 @@ def is_usb_printer_present(
         if (
             status == "ok"
             and
-            device_class == "usb"
+            device_class in ("usb", "printer", "printqueue")
         ):
 
+            return True
+
+    # Check general USB devices if PnP friendly name didn't match directly
+    usb_devices = get_usb_pnp_devices()
+    tokens = [t.lower() for t in printer_name.replace("-", " ").split() if len(t) > 2]
+    for u in usb_devices:
+        status = str(u.get("Status") or "").lower()
+        friendly = str(u.get("FriendlyName") or "").lower()
+        if status == "ok" and any(t in friendly for t in tokens):
             return True
 
     return False

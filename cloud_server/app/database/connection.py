@@ -19,7 +19,7 @@ def create_db_engine(db_url: str):
     sqlite_path = Path(BASE_DIR) / "ai_printing.db"
     sqlite_url = f"sqlite:///{sqlite_path.as_posix()}"
 
-    if not db_url or db_url.startswith("sqlite"):
+    if os.getenv("TESTING", "").lower() in ("true", "1") or not db_url or db_url.startswith("sqlite"):
         return create_engine(
             sqlite_url,
             connect_args={"check_same_thread": False},
