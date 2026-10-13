@@ -44,6 +44,7 @@ def get_ai_recommendation(job: ActiveJob) -> str:
 # ==========================================================
 
 def update_queue_predictions(printer_id, db: Session):
+    printer = db.query(Printer).filter(Printer.printer_id == printer_id).first()
     jobs = (
         db.query(ActiveJob)
         .filter(
@@ -54,9 +55,15 @@ def update_queue_predictions(printer_id, db: Session):
         .all()
     )
 
+    from app.services.ml_prediction_service import predict_job_completion_time
+
     for position, job in enumerate(jobs, start=1):
         job.queue_position = position
-        job.estimated_seconds = position * 45
+        if printer:
+            predicted_seconds, _ = predict_job_completion_time(job, printer, db)
+            job.estimated_seconds = int(round(predicted_seconds))
+        else:
+            job.estimated_seconds = position * 45
 
     db.commit()
 

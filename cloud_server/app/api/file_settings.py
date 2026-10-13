@@ -228,6 +228,22 @@ async def price_summary(
         )
 
     job = job_file.job
+    if job and (job.total_amount is None or job.total_amount <= 0):
+        from app.services.job_service import prepare_job
+        prepare_job(job.job_id, db)
+        db.refresh(job)
+
+    from app.services.assignment_service import get_job_time_estimates
+    timing_estimate = get_job_time_estimates(job, db) if job else {
+        "available": False,
+        "queue_wait_display": "Unavailable",
+        "print_duration_display": "Unavailable",
+        "total_display": "Estimate unavailable",
+        "printer_name": "None",
+        "printer_status": "Unavailable",
+        "disclaimer": "Job not found."
+    }
+
     all_files = db.query(JobFile).filter(JobFile.job_id == job.job_id).all()
     applied_services = (
         db.query(JobFinishingService)
@@ -278,7 +294,8 @@ async def price_summary(
             ),
             "customer_reference": job.customer_reference if job else None,
             "finishing_status": job.finishing_status if job else "NONE",
-            "applied_finishing_services": applied_services
+            "applied_finishing_services": applied_services,
+            "timing_estimate": timing_estimate
         }
     )
 

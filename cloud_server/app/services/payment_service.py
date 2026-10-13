@@ -126,7 +126,8 @@ class PaymentService:
                         detail=f"Payment gateway error ({resp.status_code}): {err_msg}"
                     )
 
-                qr_reference = f"upi://pay?pa=shop@{key_id}&pn=PrintShop&am={amount}&tr={provider_payment_id}"
+                # Razorpay Standard Checkout handles UPI QR codes and mobile app intents natively
+                qr_reference = None
             except HTTPException:
                 raise
             except Exception as e:

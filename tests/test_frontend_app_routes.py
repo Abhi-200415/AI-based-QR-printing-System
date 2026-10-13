@@ -1,4 +1,5 @@
 import os
+os.environ["TESTING"] = "true"
 import sys
 import uuid
 import unittest

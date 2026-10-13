@@ -281,6 +281,9 @@ def get_job_status(
         for s in (job.finishing_services or [])
     ]
 
+    from app.services.assignment_service import get_job_time_estimates
+    timing_estimate = get_job_time_estimates(job, db)
+
     return {
         "job_id": str(job.job_id),
         "customer_reference": job.customer_reference,
@@ -291,10 +294,19 @@ def get_job_status(
         "payment_status": job.payment_status.value,
         "payment_method": job.payment.payment_method.value if job.payment else None,
         "assigned_printer": str(job.assigned_printer_id) if job.assigned_printer_id else None,
-        "assigned_printer_name": job.assigned_printer.printer_name if job.assigned_printer else None,
+        "assigned_printer_name": job.assigned_printer.printer_name if job.assigned_printer else (timing_estimate.get("printer_name") if timing_estimate.get("available") else None),
         "queue_position": job.queue_position,
-        "estimated_seconds": job.estimated_seconds or 0,
+        "estimated_seconds": job.estimated_seconds or (timing_estimate.get("total_seconds") or 0),
         "actual_seconds": actual_seconds,
+        "timing_estimate": timing_estimate,
+        "estimated_queue_wait_seconds": timing_estimate.get("queue_wait_seconds"),
+        "estimated_queue_wait_display": timing_estimate.get("queue_wait_display"),
+        "estimated_print_duration_seconds": timing_estimate.get("print_duration_seconds"),
+        "estimated_print_duration_display": timing_estimate.get("print_duration_display"),
+        "estimated_total_seconds": timing_estimate.get("total_seconds"),
+        "estimated_total_display": timing_estimate.get("total_display"),
+        "estimate_available": timing_estimate.get("available", False),
+        "timing_disclaimer": timing_estimate.get("disclaimer"),
         "total_files": job.total_files or len(job.files or []),
         "total_pages": job.total_pages or 0,
         "subtotal": float(job.subtotal or 0),

@@ -22,6 +22,8 @@ from app.database.models import (
     ShopOwner,
     ActiveJob,
     JobFile,
+    Printer,
+    PrinterStatus,
     Payment,
     PaymentStatus,
     PaymentProvider,
@@ -483,6 +485,230 @@ class TestRazorpayPaymentFlow(unittest.TestCase):
                     )
                 self.assertEqual(ctx.exception.status_code, 502)
                 self.assertIn("Invalid key or secret", ctx.exception.detail)
+
+    # ==========================================================
+    # 7. Price Summary Frontend & Time Estimate Tests
+    # ==========================================================
+
+    def test_price_summary_page_renders_payment_button_with_exact_amount(self):
+        file = JobFile(
+            file_id=uuid.uuid4(),
+            job_id=self.job.job_id,
+            original_filename="TestDocument.pdf",
+            file_path="test_doc.pdf",
+            file_type="application/pdf",
+            file_size=1024,
+            page_count=5,
+            copies=1,
+            print_type=PrintType.BW,
+            paper_size=PaperSize.A4,
+            duplex=False,
+            estimated_cost=Decimal("45.00")
+        )
+        self.db.add(file)
+        self.db.commit()
+
+        res = self.client.get(f"/file/summary/{file.file_id}")
+        self.assertEqual(res.status_code, 200)
+        # Verify the Confirm Order & Pay button text and amount
+        self.assertIn("Confirm Order & Pay", res.text)
+        self.assertIn("45.00", res.text)
+        # Verify the presence of the estimated waiting & printing time section
+        self.assertIn("Estimated Waiting & Printing Time", res.text)
+        self.assertIn("Note:", res.text)
+
+    def test_time_estimates_calculation_with_eligible_online_printer(self):
+        from app.services.assignment_service import get_job_time_estimates
+
+        # Add file to job
+        file = JobFile(
+            file_id=uuid.uuid4(),
+            job_id=self.job.job_id,
+            original_filename="Brochure.pdf",
+            file_path="brochure.pdf",
+            file_type="application/pdf",
+            file_size=2048,
+            page_count=10,
+            copies=1,
+            print_type=PrintType.BW,
+            paper_size=PaperSize.A4,
+            duplex=False,
+            estimated_cost=Decimal("45.00")
+        )
+        self.db.add(file)
+
+        printer = Printer(
+            printer_id=uuid.uuid4(),
+            owner_id=self.owner_id,
+            printer_name="Main Canon Laser",
+            printer_model="Canon LBP2900",
+            status=PrinterStatus.ONLINE,
+            is_physical=True,
+            is_virtual=False,
+            is_available=True,
+            supports_bw=True,
+            supports_color=False,
+            supports_duplex=False,
+            current_queue=0
+        )
+        self.db.add(printer)
+        self.db.commit()
+
+        est = get_job_time_estimates(self.job, self.db)
+        self.assertTrue(est["available"])
+        self.assertEqual(est["queue_wait_seconds"], 0.0)
+        self.assertEqual(est["queue_wait_display"], "0 sec")
+        self.assertGreater(est["print_duration_seconds"], 0.0)
+        self.assertEqual(est["total_seconds"], est["queue_wait_seconds"] + est["print_duration_seconds"])
+        self.assertEqual(est["printer_name"], "Main Canon Laser")
+        self.assertEqual(est["printer_status"], "Eligible & Ready")
+        self.assertIn("Estimates are calculated in real time", est["disclaimer"])
+
+    def test_time_estimates_missing_data_fallback_when_printers_offline(self):
+        from app.services.assignment_service import get_job_time_estimates
+
+        file = JobFile(
+            file_id=uuid.uuid4(),
+            job_id=self.job.job_id,
+            original_filename="OfflineDoc.pdf",
+            file_path="offline_doc.pdf",
+            file_type="application/pdf",
+            file_size=1024,
+            page_count=2,
+            copies=1,
+            print_type=PrintType.BW,
+            paper_size=PaperSize.A4,
+            duplex=False,
+            estimated_cost=Decimal("45.00")
+        )
+        self.db.add(file)
+        self.db.commit()
+
+        # No printer added for this owner
+        est = get_job_time_estimates(self.job, self.db)
+        self.assertFalse(est["available"])
+        self.assertEqual(est["total_display"], "Estimate unavailable")
+        self.assertIn("No compatible printers", est["disclaimer"])
+
+        # Also verify rendering on the summary page displays the defensive fallback
+        res = self.client.get(f"/file/summary/{file.file_id}")
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("Estimate Unavailable", res.text)
+
+    def test_queue_waiting_time_dynamically_includes_jobs_ahead(self):
+        from app.services.assignment_service import get_job_time_estimates
+
+        printer = Printer(
+            printer_id=uuid.uuid4(),
+            owner_id=self.owner_id,
+            printer_name="Queue Test Printer",
+            printer_model="HP LaserJet M404",
+            status=PrinterStatus.ONLINE,
+            is_physical=True,
+            is_virtual=False,
+            is_available=True,
+            supports_bw=True,
+            supports_color=True,
+            supports_duplex=True,
+            current_queue=0
+        )
+        self.db.add(printer)
+
+        # Job 1 (already paid and in queue)
+        job1 = ActiveJob(
+            job_id=uuid.uuid4(),
+            owner_id=self.owner_id,
+            status=JobStatus.QUEUED,
+            payment_status=PaymentStatus.PAID,
+            total_amount=Decimal("30.00"),
+            assigned_printer_id=printer.printer_id,
+            queue_position=1
+        )
+        self.db.add(job1)
+        file1 = JobFile(
+            file_id=uuid.uuid4(),
+            job_id=job1.job_id,
+            original_filename="Job1.pdf",
+            file_path="job1.pdf",
+            file_type="application/pdf",
+            file_size=1024,
+            page_count=10,
+            copies=1,
+            print_type=PrintType.BW,
+            paper_size=PaperSize.A4,
+            duplex=False,
+            estimated_cost=Decimal("30.00")
+        )
+        self.db.add(file1)
+
+        # Job 2 (unassigned, prospective customer at checkout)
+        file2 = JobFile(
+            file_id=uuid.uuid4(),
+            job_id=self.job.job_id,
+            original_filename="Job2.pdf",
+            file_path="job2.pdf",
+            file_type="application/pdf",
+            file_size=1024,
+            page_count=5,
+            copies=1,
+            print_type=PrintType.BW,
+            paper_size=PaperSize.A4,
+            duplex=False,
+            estimated_cost=Decimal("45.00")
+        )
+        self.db.add(file2)
+        self.db.commit()
+
+        # Job 2's queue wait should include Job 1's duration
+        est = get_job_time_estimates(self.job, self.db)
+        self.assertTrue(est["available"])
+        self.assertGreater(est["queue_wait_seconds"], 0.0, "Queue wait must count Job 1 ahead in queue.")
+        self.assertGreater(est["total_seconds"], est["print_duration_seconds"])
+
+    def test_amount_integrity_and_server_side_enforcement(self):
+        # Verify creating payment fails if total_amount is 0 or negative
+        zero_job = ActiveJob(
+            job_id=uuid.uuid4(),
+            owner_id=self.owner_id,
+            status=JobStatus.PENDING,
+            payment_status=PaymentStatus.PENDING,
+            total_amount=Decimal("0.00")
+        )
+        self.db.add(zero_job)
+        self.db.commit()
+
+        res = self.client.post(f"/payment/create/{zero_job.job_id}", json={"payment_method": "UPI"})
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("price could not be calculated", res.json()["detail"])
+
+    def test_duplicate_order_creation_and_idempotency_prevention(self):
+        # First call creates the payment
+        res1 = self.client.post(f"/payment/create/{self.job.job_id}", json={"payment_method": "UPI"})
+        self.assertEqual(res1.status_code, 200)
+        p1 = res1.json()
+
+        # Second call for the same job should return the exact same payment_id without re-creating
+        res2 = self.client.post(f"/payment/create/{self.job.job_id}", json={"payment_method": "UPI"})
+        self.assertEqual(res2.status_code, 200)
+        p2 = res2.json()
+
+        self.assertEqual(p1["payment_id"], p2["payment_id"])
+        self.assertEqual(p1["amount"], p2["amount"])
+
+        # Count in database must remain exactly 1 payment record
+        count = self.db.query(Payment).filter(Payment.job_id == self.job.job_id).count()
+        self.assertEqual(count, 1)
+
+    def test_job_status_api_returns_timing_estimates_without_leaking_others(self):
+        res = self.client.get(f"/jobs/{self.job.job_id}/status")
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertIn("job_id", data)
+        self.assertIn("estimated_queue_wait_display", data)
+        self.assertIn("estimated_print_duration_display", data)
+        self.assertIn("estimated_total_display", data)
+        self.assertIn("timing_disclaimer", data)
+        self.assertNotIn("Alice Customer", str(data.get("other_customers", "")))
 
 
 if __name__ == "__main__":

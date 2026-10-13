@@ -161,21 +161,74 @@ def estimate_job_seconds_deterministic(job: ActiveJob, printer: Printer, db: Opt
     return total
 
 
-def estimate_printer_queue_seconds(printer: Printer, db: Session) -> float:
-    queued_jobs = (
+def format_duration_friendly(seconds: Optional[float]) -> str:
+    """
+    Format duration seconds into human-readable text (e.g., '35 sec', '2 min 10 sec').
+    """
+    if seconds is None or seconds < 0:
+        return "Unavailable"
+    total_secs = int(round(seconds))
+    if total_secs == 0:
+        return "0 sec"
+    if total_secs < 60:
+        return f"{total_secs} sec"
+    minutes = total_secs // 60
+    rem_secs = total_secs % 60
+    if rem_secs == 0:
+        return f"{minutes} min"
+    return f"{minutes} min {rem_secs} sec"
+
+
+def estimate_printer_queue_seconds(
+    printer: Printer,
+    db: Session,
+    exclude_job_id: Optional[Any] = None,
+    exclude_position_gte: Optional[int] = None
+) -> float:
+    """
+    Calculate total estimated queue waiting time ahead on the specified printer.
+    Sums remaining print duration of currently active/printing jobs plus queued jobs ahead.
+    """
+    total = 0.0
+
+    # 1. Check if a job is actively printing on this printer right now
+    printing_jobs = (
+        db.query(ActiveJob)
+        .filter(
+            ActiveJob.assigned_printer_id == printer.printer_id,
+            ActiveJob.status == JobStatus.PRINTING
+        )
+        .all()
+    )
+    now = datetime.utcnow()
+    for pj in printing_jobs:
+        if exclude_job_id and str(pj.job_id) == str(exclude_job_id):
+            continue
+        est_duration = estimate_job_seconds_deterministic(pj, printer, db)
+        if pj.started_at:
+            elapsed = (now - pj.started_at.replace(tzinfo=None)).total_seconds()
+            est_duration = max(0.0, est_duration - elapsed)
+        total += est_duration
+
+    # 2. Add queued jobs ahead
+    query = (
         db.query(ActiveJob)
         .filter(
             ActiveJob.assigned_printer_id == printer.printer_id,
             ActiveJob.status == JobStatus.QUEUED
         )
-        .order_by(ActiveJob.queue_position.asc())
-        .all()
     )
+    if exclude_position_gte is not None:
+        query = query.filter(ActiveJob.queue_position < exclude_position_gte)
 
-    total = 0.0
+    queued_jobs = query.order_by(ActiveJob.queue_position.asc()).all()
+
     for queued_job in queued_jobs:
+        if exclude_job_id and str(queued_job.job_id) == str(exclude_job_id):
+            continue
         total += estimate_job_seconds_deterministic(queued_job, printer, db)
-    return total
+
+    return round(total, 2)
 
 
 # ==========================================================
@@ -204,6 +257,56 @@ def get_ml_model():
         return None
 
 
+def predict_job_time_breakdown(
+    job: ActiveJob,
+    printer: Printer,
+    db: Session,
+    exclude_job_id: Optional[Any] = None
+) -> Dict[str, Any]:
+    """
+    Predict detailed time breakdown for a job on a printer:
+    - queue_wait_seconds: waiting time ahead in queue
+    - print_duration_seconds: estimated print time of this job (ML or deterministic fallback)
+    - total_seconds: queue_wait + print_duration
+    - source: 'ML' | 'DETERMINISTIC_FALLBACK'
+    """
+    exclude_pos = job.queue_position if job.status == JobStatus.QUEUED else None
+    target_exclude_id = exclude_job_id if exclude_job_id is not None else (job.job_id if job.status in (JobStatus.QUEUED, JobStatus.PRINTING) else None)
+    queue_wait = estimate_printer_queue_seconds(
+        printer=printer,
+        db=db,
+        exclude_job_id=target_exclude_id,
+        exclude_position_gte=exclude_pos
+    )
+
+    model = get_ml_model()
+    source = "DETERMINISTIC_FALLBACK"
+    print_duration = None
+
+    if model is not None:
+        try:
+            features = extract_prediction_features(job, printer, db)
+            predicted_job_seconds = float(model.predict(features)[0])
+            predicted_job_seconds = max(predicted_job_seconds, 2.0)
+            print_duration = round(predicted_job_seconds, 2)
+            source = "ML"
+        except Exception as e:
+            logger.warning(f"ML inference error: {e}. Falling back to deterministic estimation.")
+
+    if print_duration is None:
+        print_duration = round(estimate_job_seconds_deterministic(job, printer, db), 2)
+        source = "DETERMINISTIC_FALLBACK"
+
+    total_predicted = round(queue_wait + print_duration, 2)
+
+    return {
+        "queue_wait_seconds": queue_wait,
+        "print_duration_seconds": print_duration,
+        "total_seconds": total_predicted,
+        "source": source
+    }
+
+
 def predict_job_completion_time(
     job: ActiveJob,
     printer: Printer,
@@ -213,24 +316,8 @@ def predict_job_completion_time(
     Predict expected completion time (in seconds) for a job on a printer.
     Returns: (predicted_seconds, prediction_source: 'ML' | 'DETERMINISTIC_FALLBACK')
     """
-    queue_wait = estimate_printer_queue_seconds(printer, db)
-    model = get_ml_model()
-
-    if model is not None:
-        try:
-            features = extract_prediction_features(job, printer, db)
-            predicted_job_seconds = float(model.predict(features)[0])
-            # Enforce reasonable lower bound
-            predicted_job_seconds = max(predicted_job_seconds, 2.0)
-            total_predicted = queue_wait + predicted_job_seconds
-            return (round(total_predicted, 2), "ML")
-        except Exception as e:
-            logger.warning(f"ML inference error: {e}. Falling back to deterministic estimation.")
-
-    # Deterministic fallback
-    job_seconds = estimate_job_seconds_deterministic(job, printer, db)
-    total_predicted = queue_wait + job_seconds
-    return (round(total_predicted, 2), "DETERMINISTIC_FALLBACK")
+    breakdown = predict_job_time_breakdown(job, printer, db)
+    return (breakdown["total_seconds"], breakdown["source"])
 
 
 # ==========================================================

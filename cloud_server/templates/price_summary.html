@@ -69,6 +69,96 @@
             border: 1px solid var(--accent);
             border-radius: var(--radius-lg);
             text-align: center;
+            transition: all 0.3s ease;
+        }
+        .payment-modal-box.state-pending {
+            border-color: var(--accent);
+        }
+        .payment-modal-box.state-success {
+            border-color: #34d399;
+            background: rgba(16, 185, 129, 0.08);
+        }
+        .payment-modal-box.state-failed {
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.08);
+        }
+        .payment-modal-box.state-cancelled {
+            border-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.08);
+        }
+        .timing-estimate-card {
+            background: rgba(30, 41, 59, 0.45);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 16px 18px;
+            margin: 18px 0;
+            backdrop-filter: blur(8px);
+        }
+        .timing-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+        }
+        .timing-icon {
+            font-size: 22px;
+        }
+        .timing-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .timing-cell {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            text-align: left;
+        }
+        .timing-cell.highlight {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(16, 185, 129, 0.12) 100%);
+            border-color: rgba(99, 102, 241, 0.35);
+        }
+        .timing-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+        .timing-value {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+        .timing-value.total {
+            color: #34d399;
+            font-size: 16px;
+        }
+        .timing-hint {
+            font-size: 10.5px;
+            color: var(--text-muted);
+        }
+        .timing-disclaimer {
+            margin-top: 12px;
+            padding-top: 8px;
+            border-top: 1px dashed var(--border);
+            font-size: 11.5px;
+            color: var(--text-muted);
+            line-height: 1.4;
+            text-align: left;
+        }
+        .timing-unavailable-box {
+            text-align: center;
+            padding: 14px;
+            background: rgba(245, 158, 11, 0.08);
+            border: 1px dashed rgba(245, 158, 11, 0.3);
+            border-radius: var(--radius-md);
         }
         .spinner {
             display: inline-block;
@@ -253,9 +343,62 @@
         <h3 style="font-size: 28px; font-weight: 800; color: #34d399; margin: 0;">₹<span id="total">{{ "%.2f"|format(total_amount|float) if total_amount else "0.00" }}</span></h3>
     </div>
 
-    <div id="paymentOptions" style="display: flex; flex-direction: column; gap: 12px; margin-top: 24px;">
+    <!-- Real-Time Estimated Waiting & Printing Time Section -->
+    <div class="timing-estimate-card" id="timingEstimateCard">
+        <div class="timing-header">
+            <span class="timing-icon">⏱️</span>
+            <div>
+                <strong style="color: var(--text-main); font-size: 14.5px;">Estimated Waiting & Printing Time</strong>
+                <div style="font-size: 11.5px; color: var(--text-muted);">Real-time queue workload & AI print duration</div>
+            </div>
+            {% if timing_estimate and timing_estimate.available %}
+            <span class="badge badge-success" style="margin-left: auto; font-size: 11px;">{{ timing_estimate.source_display }}</span>
+            {% else %}
+            <span class="badge badge-warning" style="margin-left: auto; font-size: 11px;">Estimate Unavailable</span>
+            {% endif %}
+        </div>
+
+        {% if timing_estimate and timing_estimate.available %}
+        <div class="timing-grid">
+            <div class="timing-cell">
+                <span class="timing-label">Queue Waiting Time</span>
+                <span class="timing-value" id="estQueueWait">{{ timing_estimate.queue_wait_display }}</span>
+                <span class="timing-hint">ahead in printer queue</span>
+            </div>
+            <div class="timing-cell">
+                <span class="timing-label">Printing Duration</span>
+                <span class="timing-value" id="estPrintDuration">{{ timing_estimate.print_duration_display }}</span>
+                <span class="timing-hint">document printing time</span>
+            </div>
+            <div class="timing-cell highlight">
+                <span class="timing-label">Total Time to Complete</span>
+                <span class="timing-value total" id="estTotalTime">~{{ timing_estimate.total_display }}</span>
+                <span class="timing-hint">estimated ready time</span>
+            </div>
+            <div class="timing-cell">
+                <span class="timing-label">Target Printer</span>
+                <span class="timing-value" id="estPrinterName" style="font-size: 13.5px;">🖨️ {{ timing_estimate.printer_name }}</span>
+                <span class="timing-hint" style="color: #38bdf8;">{{ timing_estimate.printer_status }}</span>
+            </div>
+        </div>
+        {% else %}
+        <div class="timing-unavailable-box">
+            <div style="font-size: 20px; margin-bottom: 4px;">⏳</div>
+            <strong style="color: #f59e0b; font-size: 13.5px;">Estimate Unavailable</strong>
+            <p style="font-size: 12px; color: var(--text-muted); margin: 4px 0 0 0;">
+                No compatible printer is currently online. Your order will be held securely and routed immediately once a printer connects.
+            </p>
+        </div>
+        {% endif %}
+
+        <div class="timing-disclaimer">
+            ℹ️ <strong>Note:</strong> {{ timing_estimate.disclaimer if timing_estimate else "Estimates may change as active queue conditions change." }}
+        </div>
+    </div>
+
+    <div id="paymentOptions" style="display: flex; flex-direction: column; gap: 12px; margin-top: 20px;">
         <button type="button" class="btn btn-lg" id="btnOnlinePayment">
-            ⚡ Pay Online (UPI / Card)
+            💳 Confirm Order & Pay ₹<span id="btnPayAmount">{{ "%.2f"|format(total_amount|float) if total_amount else "0.00" }}</span>
         </button>
         <button type="button" class="btn btn-secondary btn-lg" id="btnCashPayment">
             💵 Pay Cash at Counter
@@ -263,15 +406,18 @@
     </div>
 
     <div id="paymentModal" class="payment-modal-box">
-        <div class="spinner"></div>
-        <div id="modalStatus" style="font-weight: 600; font-size: 16px; margin-bottom: 8px;">
+        <div class="spinner" id="modalSpinner"></div>
+        <div id="modalStatus" style="font-weight: 700; font-size: 16px; margin-bottom: 8px;">
             Processing Payment...
         </div>
-        <div id="modalDetails" style="font-size: 13px; color: var(--text-muted);">
+        <div id="modalDetails" style="font-size: 13px; color: var(--text-muted); line-height: 1.5;">
             Please complete payment or wait for counter confirmation.
         </div>
         <button type="button" class="btn btn-sm" id="btnSimulateSuccess" style="margin-top: 14px; display: none; width: 100%;">
             Confirm Payment Verification
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" id="btnDismissModal" style="margin-top: 14px; display: none; width: 100%;">
+            ✕ Close & Try Again
         </button>
     </div>
 </div>
@@ -301,9 +447,11 @@ let pollInterval = null;
 const btnOnline = document.getElementById("btnOnlinePayment");
 const btnCash = document.getElementById("btnCashPayment");
 const modal = document.getElementById("paymentModal");
+const modalSpinner = document.getElementById("modalSpinner");
 const modalStatus = document.getElementById("modalStatus");
 const modalDetails = document.getElementById("modalDetails");
 const btnSimulate = document.getElementById("btnSimulateSuccess");
+const btnDismiss = document.getElementById("btnDismissModal");
 
 // In-Page Preview Handlers
 const summaryPreviewModal = document.getElementById("summaryPreviewModal");
@@ -326,6 +474,32 @@ btnCloseSummaryPreview.addEventListener("click", () => {
     summaryPreviewIframe.src = "about:blank";
 });
 
+function setPaymentUIState(state, title, details, showSpinner = true) {
+    modal.style.display = "block";
+    modal.className = "payment-modal-box state-" + state;
+    if (modalSpinner) modalSpinner.style.display = showSpinner ? "inline-block" : "none";
+    modalStatus.innerText = title;
+    modalDetails.innerText = details;
+
+    if (state === "failed" || state === "cancelled") {
+        btnDismiss.style.display = "inline-block";
+        btnOnline.disabled = false;
+        btnCash.disabled = false;
+    } else if (state === "success") {
+        btnDismiss.style.display = "none";
+        btnOnline.disabled = true;
+        btnCash.disabled = true;
+    } else {
+        btnDismiss.style.display = "none";
+    }
+}
+
+btnDismiss.addEventListener("click", () => {
+    modal.style.display = "none";
+    btnOnline.disabled = false;
+    btnCash.disabled = false;
+});
+
 async function pollJobStatus() {
     try {
         const res = await fetch(`/jobs/${jobId}/status`);
@@ -334,8 +508,7 @@ async function pollJobStatus() {
 
         if (job.payment_status === "Paid" || job.status === "Queued" || job.status === "Printing" || job.status === "Completed") {
             clearInterval(pollInterval);
-            modalStatus.innerText = "✓ Payment Verified!";
-            modalDetails.innerText = "Redirecting to Live Print Queue Tracker...";
+            setPaymentUIState("success", "✓ Payment Verified!", "Redirecting to Live Print Queue Tracker...", false);
             setTimeout(() => {
                 window.location.href = `/job/tracker/${jobId}`;
             }, 1000);
@@ -348,8 +521,8 @@ async function pollJobStatus() {
 btnOnline.addEventListener("click", async () => {
     btnOnline.disabled = true;
     btnCash.disabled = true;
-    modal.style.display = "block";
-    modalStatus.innerText = "Creating Secure Payment Order...";
+    btnSimulate.style.display = "none";
+    setPaymentUIState("pending", "Initializing Secure Payment Order...", "Contacting payment gateway to generate order reference...", true);
 
     try {
         const res = await fetch(`/payment/create/${jobId}`, {
@@ -360,37 +533,40 @@ btnOnline.addEventListener("click", async () => {
         const data = await res.json();
         
         if (!res.ok) {
-            modalStatus.innerText = "Payment Unavailable";
-            modalDetails.innerText = data.detail || "Unable to initialize payment.";
-            btnOnline.disabled = false;
-            btnCash.disabled = false;
+            setPaymentUIState("failed", "❌ Order Initialization Failed", data.detail || "Unable to initialize payment gateway order.", false);
             return;
         }
 
         paymentId = data.payment_id;
 
         // If Razorpay gateway is active and credentials are provided, launch Standard Checkout
-        if (data.provider === "Razorpay" && data.key_id && typeof Razorpay !== "undefined") {
-            modalStatus.innerText = "Opening Razorpay Secure Checkout...";
-            modalDetails.innerText = `Order ID: ${data.provider_order_id || data.job_id.slice(0, 8)} | Amount: ₹${data.amount.toFixed(2)}`;
+        if (data.provider === "Razorpay" && data.key_id) {
+            if (typeof Razorpay === "undefined") {
+                setPaymentUIState("failed", "❌ Checkout Script Blocked", "Razorpay Checkout script could not be loaded. Please disable ad-blockers and refresh the page, or pay cash at the counter.", false);
+                return;
+            }
+
+            setPaymentUIState("pending", "Waiting for Payment Completion", `Order ID: ${data.provider_order_id || data.job_id.slice(0, 8)} | Amount: ₹${data.amount.toFixed(2)}. Complete payment via UPI (GPay, PhonePe, Paytm, QR), Card, or NetBanking.`, true);
 
             const options = {
                 key: data.key_id,
                 amount: data.amount_paise || Math.round(data.amount * 100),
                 currency: data.currency || "INR",
                 name: data.shop_name || "AI Print Shop",
-                description: `Print Job ${jobId.slice(0, 8)}`,
+                description: `Print Order #${jobId.slice(0, 8)}`,
                 order_id: data.provider_order_id,
                 prefill: {
                     name: data.customer_name || "",
                     contact: data.customer_phone || ""
                 },
+                notes: {
+                    job_id: jobId
+                },
                 theme: {
                     color: "#6366f1"
                 },
                 handler: async function (response) {
-                    modalStatus.innerText = "Verifying Payment Signature...";
-                    modalDetails.innerText = "Securing transaction with cloud server...";
+                    setPaymentUIState("pending", "Verifying Payment Signature...", "Validating cryptographic signature with cloud server...", true);
                     try {
                         const vRes = await fetch("/payment/verify", {
                             method: "POST",
@@ -404,54 +580,38 @@ btnOnline.addEventListener("click", async () => {
                         });
                         const vData = await vRes.json();
                         if (vRes.ok && vData.success) {
-                            modalStatus.innerText = "✓ Payment Verified!";
-                            modalDetails.innerText = "Redirecting to Live Print Queue Tracker...";
+                            setPaymentUIState("success", "✓ Payment Successful!", "Payment verified. Job queued for printing. Redirecting to Live Print Queue Tracker...", false);
                             setTimeout(() => {
                                 window.location.href = `/job/tracker/${jobId}`;
-                            }, 1000);
+                            }, 1200);
                         } else {
-                            modalStatus.innerText = "Verification Failed";
-                            modalDetails.innerText = vData.detail || "Payment verification failed. Invalid signature.";
-                            btnOnline.disabled = false;
-                            btnCash.disabled = false;
+                            setPaymentUIState("failed", "❌ Payment Verification Failed", vData.detail || "Payment verification failed. Invalid gateway signature.", false);
                         }
                     } catch (err) {
-                        modalStatus.innerText = "Verification Error";
-                        modalDetails.innerText = "Connection lost during verification.";
-                        btnOnline.disabled = false;
-                        btnCash.disabled = false;
+                        setPaymentUIState("failed", "❌ Network Verification Error", "Lost connection while verifying transaction. Check your internet connection.", false);
                     }
                 },
                 modal: {
                     ondismiss: function () {
-                        modalStatus.innerText = "Payment Incomplete";
-                        modalDetails.innerText = "Checkout was closed before completion.";
-                        btnOnline.disabled = false;
-                        btnCash.disabled = false;
+                        setPaymentUIState("cancelled", "⚠️ Payment Cancelled", "The payment checkout was closed before completing the transaction. You can try again whenever you are ready.", false);
                     }
                 }
             };
 
             const rzp = new Razorpay(options);
             rzp.on('payment.failed', function (resp) {
-                modalStatus.innerText = "Payment Failed";
-                modalDetails.innerText = (resp.error && resp.error.description) || "Gateway transaction failed.";
-                btnOnline.disabled = false;
-                btnCash.disabled = false;
+                const failReason = (resp.error && resp.error.description) || "Payment transaction could not be completed by your bank/UPI app.";
+                setPaymentUIState("failed", "❌ Payment Failed", failReason, false);
             });
             rzp.open();
         } else {
             // Manual / Demo Mode fallback
-            modalStatus.innerText = "Awaiting Payment Completion";
-            modalDetails.innerText = `Order ID: ${data.job_id.slice(0, 8)} | Amount: ₹${data.amount.toFixed(2)}`;
+            setPaymentUIState("pending", "Awaiting Counter or Manual Confirmation", `Order ID: ${data.job_id.slice(0, 8)} | Amount: ₹${data.amount.toFixed(2)}`, true);
             btnSimulate.style.display = "inline-block";
             pollInterval = setInterval(pollJobStatus, 2000);
         }
     } catch (e) {
-        modalStatus.innerText = "Connection Error";
-        modalDetails.innerText = "Failed to connect to payment service.";
-        btnOnline.disabled = false;
-        btnCash.disabled = false;
+        setPaymentUIState("failed", "❌ Connection Error", "Failed to communicate with payment service: " + e.message, false);
     }
 });
 
@@ -459,6 +619,7 @@ btnSimulate.addEventListener("click", async () => {
     if (!paymentId) return;
     btnSimulate.disabled = true;
     btnSimulate.innerText = "Verifying...";
+    setPaymentUIState("pending", "Verifying Demo Payment...", "Processing test verification...", true);
 
     try {
         const res = await fetch("/payment/verify", {
@@ -472,28 +633,26 @@ btnSimulate.addEventListener("click", async () => {
         });
         const data = await res.json();
         if (res.ok && data.success) {
-            modalStatus.innerText = "✓ Payment Verified!";
-            modalDetails.innerText = "Redirecting to Live Print Tracker...";
+            setPaymentUIState("success", "✓ Payment Verified!", "Redirecting to Live Print Tracker...", false);
             setTimeout(() => {
                 window.location.href = `/job/tracker/${jobId}`;
             }, 1000);
         } else {
-            modalStatus.innerText = "Verification Failed";
-            modalDetails.innerText = data.detail || "Invalid payment signature.";
+            setPaymentUIState("failed", "❌ Verification Failed", data.detail || "Invalid payment signature.", false);
             btnSimulate.disabled = false;
+            btnSimulate.innerText = "Confirm Payment Verification";
         }
     } catch (e) {
-        modalStatus.innerText = "Verification Error";
-        modalDetails.innerText = e.message;
+        setPaymentUIState("failed", "❌ Verification Error", e.message, false);
         btnSimulate.disabled = false;
+        btnSimulate.innerText = "Confirm Payment Verification";
     }
 });
 
 btnCash.addEventListener("click", async () => {
     btnOnline.disabled = true;
     btnCash.disabled = true;
-    modal.style.display = "block";
-    modalStatus.innerText = "Requesting Cash at Counter...";
+    setPaymentUIState("pending", "Requesting Cash at Counter...", "Notifying shop operator dashboard...", true);
 
     try {
         const res = await fetch(`/payment/cash/${jobId}`, {
@@ -501,22 +660,15 @@ btnCash.addEventListener("click", async () => {
         });
         const data = await res.json();
         if (res.ok) {
-            modalStatus.innerText = "💵 Cash Payment Requested";
-            modalDetails.innerText = "Redirecting to tracker. Please pay the operator at the counter.";
+            setPaymentUIState("success", "💵 Cash Payment Requested", "Redirecting to tracker. Please pay the operator at the counter.", false);
             setTimeout(() => {
                 window.location.href = `/job/tracker/${jobId}`;
             }, 1000);
         } else {
-            modalStatus.innerText = "Error";
-            modalDetails.innerText = data.detail || "Could not request cash payment.";
-            btnOnline.disabled = false;
-            btnCash.disabled = false;
+            setPaymentUIState("failed", "❌ Cash Request Failed", data.detail || "Could not request cash payment.", false);
         }
     } catch (e) {
-        modalStatus.innerText = "Connection Error";
-        modalDetails.innerText = "Failed to connect to server.";
-        btnOnline.disabled = false;
-        btnCash.disabled = false;
+        setPaymentUIState("failed", "❌ Connection Error", "Failed to connect to server.", false);
     }
 });
 </script>
