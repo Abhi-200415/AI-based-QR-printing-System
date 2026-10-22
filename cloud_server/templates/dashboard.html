@@ -258,6 +258,9 @@
         </nav>
 
         <div class="sidebar-footer">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="toggleTheme()" id="sidebarThemeBtn" style="width: 100%; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12.5px; padding: 8px 12px; font-weight: 600;" title="Switch Light/Dark Theme">
+                <span id="sidebarThemeIcon">🌙</span> <span id="sidebarThemeText">Dark Theme</span>
+            </button>
             <div class="agent-status-card">
                 <div style="font-size: 11px; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                     <span>Print Agent Sync</span>
@@ -292,6 +295,9 @@
             </div>
 
             <div class="header-right">
+                <button type="button" class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggleBtn" aria-label="Toggle Light/Dark Theme" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;">
+                    🌙 Dark
+                </button>
                 <span class="live-pulse">
                     <span class="pulse-dot"></span>
                     <span>Live Sync</span>
@@ -304,9 +310,6 @@
                 </a>
                 <button class="btn btn-secondary btn-sm" onclick="refreshCurrentView()" title="Refresh Data">
                     🔄
-                </button>
-                <button type="button" class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggleBtn" aria-label="Toggle Light/Dark Theme">
-                    🌙 Dark
                 </button>
                 <div class="live-clock-badge" id="liveClock">--:--:--</div>
                 <a class="btn btn-sm" onclick="navigate('profile')" style="background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); color: #c7d2fe; cursor: pointer;">
@@ -1601,30 +1604,33 @@ function filterJobsList() {
                         <code style="color: #a5b4fc;">${j.job_id.slice(0, 8)}...</code>
                     </div>
                 </td>
-                <td>
-                    <strong>${j.customer_name}</strong>
+                <td style="min-width: 140px; white-space: nowrap;">
+                    ${(j.customer_name_cleared || (j.status === 'Completed' && (!j.raw_customer_name || (j.customer_name && j.customer_name.includes('Protected'))))) ?
+                        `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); font-size: 11px; font-weight: 600; white-space: nowrap; padding: 3px 8px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;" title="Customer PII scrubbed from database following print completion"><span>🔒</span> Privacy Protected</span>` :
+                        `<strong style="font-size: 13.5px; color: var(--text-main);">${j.customer_name || 'Walk-in Customer'}</strong>`
+                    }
                     ${j.customer_reference && j.customer_reference !== j.customer_name ? `<div style="display: inline-block; background: rgba(99, 102, 241, 0.2); color: #c7d2fe; font-size: 11px; padding: 1px 6px; border-radius: 4px; font-weight: 600; margin-top: 2px;">Ref: ${j.customer_reference}</div>` : ''}
-                    <div style="font-size: 11px; color: var(--text-muted);">${j.customer_phone}</div>
+                    ${(j.customer_phone && j.customer_phone !== '-' && j.customer_phone !== 'null') ? `<div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">📞 ${j.customer_phone}</div>` : ''}
                 </td>
                 <td>
-                    <div><strong>${j.total_files} file(s)</strong>, ${j.total_pages} pg</div>
+                    <div style="white-space: nowrap;"><strong>${j.total_files} file(s)</strong>, ${j.total_pages} pg</div>
                     <div style="font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px;">
                         ${file ? file.filename : 'Document'}
                     </div>
                 </td>
-                <td>
+                <td style="white-space: nowrap;">
                     <span class="tag">${printTypeTag}</span>
                     <span class="tag">${duplexTag}</span>
                     <span class="tag">${file ? file.paper_size : 'A4'}</span>
                 </td>
-                <td><strong style="color: #34d399;">₹${j.total_amount.toFixed(2)}</strong></td>
-                <td><span class="badge badge-${j.payment_status.toLowerCase()}">${j.payment_status}</span></td>
-                <td>
+                <td style="white-space: nowrap;"><strong style="color: #34d399;">₹${j.total_amount.toFixed(2)}</strong></td>
+                <td style="white-space: nowrap;"><span class="badge badge-${j.payment_status.toLowerCase()}">${j.payment_status}</span></td>
+                <td style="white-space: nowrap;">
                     <span class="badge badge-${j.status.toLowerCase()}">${j.status}</span>
                     ${isFinishingPending ? `<div style="color: #fbbf24; font-size: 10.5px; font-weight: 700; margin-top: 4px;">⚠️ FINISHING: ${finishingNames || 'Required'}</div>` : ''}
                 </td>
-                <td style="font-size: 12.5px;">${j.assigned_printer_name || '<span style="color:var(--text-muted);">Auto Assign</span>'}</td>
-                <td style="font-size: 12px; color: var(--text-muted);">${j.created_at}</td>
+                <td style="font-size: 12.5px; white-space: nowrap;">${j.assigned_printer_name || '<span style="color:var(--text-muted);">Auto Assign</span>'}</td>
+                <td style="font-size: 12px; color: var(--text-muted); white-space: nowrap;">${j.created_at}</td>
                 <td style="text-align: right; white-space: nowrap;">
                     ${isFinishingPending ? `<button class="btn btn-success btn-sm" style="margin-right: 4px; font-size: 11px;" onclick="completeFinishing('${j.job_id}')">✓ Done Finishing</button>` : ''}
                     ${isFailedOrCancelled ? `<button class="btn btn-warning btn-sm" style="margin-right: 4px; font-size: 11px;" onclick="retryJob('${j.job_id}')" title="Safe retry of unfinished child files">🔄 Retry</button>` : ''}
@@ -1635,7 +1641,7 @@ function filterJobsList() {
             <tr id="child-row-${j.job_id}" style="display: none; background: rgba(99, 102, 241, 0.03);">
                 <td colspan="10" style="padding: 10px 18px 14px 28px;">
                     <div style="font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 8px;">
-                        📄 Child Documents (${childFiles.length}) — Customer: <strong>${j.customer_name}</strong>
+                        📄 Child Documents (${childFiles.length}) — Customer: ${(j.customer_name_cleared || (j.status === 'Completed' && (!j.raw_customer_name || (j.customer_name && j.customer_name.includes('Protected'))))) ? '<span style="color: #34d399; font-weight: 600;">🔒 Privacy Protected</span>' : `<strong>${j.customer_name || 'Walk-in Customer'}</strong>`}
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 6px;">
                         ${childFiles.map(cf => `
@@ -2532,7 +2538,12 @@ function updateThemeToggleIcons() {
     const isLight = document.documentElement.getAttribute('data-theme') === 'light';
     const btn = document.getElementById('themeToggleBtn');
     if (btn) btn.innerHTML = isLight ? '☀️ Light' : '🌙 Dark';
+    const sIcon = document.getElementById('sidebarThemeIcon');
+    if (sIcon) sIcon.innerText = isLight ? '☀️' : '🌙';
+    const sText = document.getElementById('sidebarThemeText');
+    if (sText) sText.innerText = isLight ? 'Light Theme' : 'Dark Theme';
 }
+updateThemeToggleIcons();
 document.addEventListener('DOMContentLoaded', updateThemeToggleIcons);
 </script>
 

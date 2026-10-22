@@ -142,19 +142,22 @@ def get_owner_jobs(
             })
 
         display_cust_name = j.customer_name
+        is_cleared = False
         if not display_cust_name:
             if j.status == JobStatus.COMPLETED:
-                display_cust_name = "[Completed - Protected]"
+                display_cust_name = "[Privacy Protected]"
+                is_cleared = True
             elif j.customer_reference:
                 display_cust_name = j.customer_reference
             else:
-                display_cust_name = "Customer"
+                display_cust_name = "Walk-in Customer"
 
         result.append({
             "job_id": str(j.job_id),
             "customer_name": display_cust_name,
+            "customer_name_cleared": is_cleared,
             "raw_customer_name": j.customer_name,
-            "customer_phone": j.customer_phone or "-",
+            "customer_phone": j.customer_phone or "",
             "customer_reference": j.customer_reference,
             "status": j.status.value,
             "finishing_status": j.finishing_status or "NONE",
