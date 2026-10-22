@@ -102,11 +102,20 @@ def complete_job(
 
         printer.status = PrinterStatus.ONLINE
 
+    for f in (job.files or []):
+        f.print_completed = True
+        f.status = JobStatus.COMPLETED
+        if not f.completed_at:
+            f.completed_at = datetime.utcnow()
+
     db.commit()
+
+    from app.services.customer_service import clear_customer_name_after_completion
+    clear_customer_name_after_completion(job, db)
     
     cleanup_job_files(
-    job.job_id,
-    db
+        job.job_id,
+        db
     )
 
     return job

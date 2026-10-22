@@ -6,6 +6,16 @@
     <title>Order Summary & Payment - AI Smart Printing</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
+    <script>
+        (function() {
+            const saved = localStorage.getItem('theme');
+            if (saved === 'light' || (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            } else {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
     <style>
         body {
@@ -248,6 +258,11 @@
 <body>
 
 <div class="summary-container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <span style="font-size: 12px; color: var(--text-muted); font-weight: 500;">AI Smart Printing</span>
+        <button type="button" class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggleBtn" aria-label="Toggle Light/Dark Theme">🌙 Dark</button>
+    </div>
+
     <div class="step-progress-bar">
         <div class="step-dot done" title="Upload"></div>
         <div class="step-dot done" title="Print Settings"></div>
@@ -396,6 +411,19 @@
         </div>
     </div>
 
+    <!-- Mandatory Customer Name (Objective 2.1) -->
+    <div class="form-group" style="margin: 20px 0 16px 0;">
+        <label for="customerNameInput" class="form-label" style="font-weight: 600; display: flex; justify-content: space-between; align-items: center;">
+            <span style="color: var(--text-main); font-size: 13.5px;">Customer Name <span style="color: #ef4444;">*</span></span>
+            <span style="font-size: 11px; color: var(--text-muted); font-weight: normal;">Mandatory for pickup identification</span>
+        </label>
+        <input type="text" id="customerNameInput" class="form-control" style="font-size: 14.5px; padding: 11px 14px;" placeholder="e.g. Rahul Sharma" value="{{ customer_name or customer_reference or '' }}" maxlength="100" required autocomplete="name">
+        <div id="customerNameError" style="display: none; color: #ef4444; font-size: 12px; margin-top: 5px; font-weight: 500;"></div>
+        <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 5px; line-height: 1.4;">
+            🔒 <em>Temporary Retention:</em> Stored temporarily to identify your order at the counter and on your receipt. It is automatically scrubbed from system records once printing is completed.
+        </div>
+    </div>
+
     <div id="paymentOptions" style="display: flex; flex-direction: column; gap: 12px; margin-top: 20px;">
         <button type="button" class="btn btn-lg" id="btnOnlinePayment">
             💳 Confirm Order & Pay ₹<span id="btnPayAmount">{{ "%.2f"|format(total_amount|float) if total_amount else "0.00" }}</span>
@@ -403,6 +431,9 @@
         <button type="button" class="btn btn-secondary btn-lg" id="btnCashPayment">
             💵 Pay Cash at Counter
         </button>
+        <a class="btn btn-secondary btn-sm" id="btnDownloadReceiptLink" href="/receipt/job/{{ job_id }}/download" style="margin-top: 6px; text-decoration: none; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+            ⬇ Download PDF Receipt
+        </a>
     </div>
 
     <div id="paymentModal" class="payment-modal-box">
@@ -518,7 +549,45 @@ async function pollJobStatus() {
     }
 }
 
+function getValidatedCustomerName() {
+    const input = document.getElementById("customerNameInput");
+    const errDiv = document.getElementById("customerNameError");
+    if (errDiv) {
+        errDiv.style.display = "none";
+        errDiv.innerText = "";
+    }
+    const name = (input ? input.value : "").trim();
+    if (!name) {
+        if (errDiv) {
+            errDiv.innerText = "Customer Name is mandatory before order confirmation. Please enter your name.";
+            errDiv.style.display = "block";
+        }
+        if (input) input.focus();
+        return null;
+    }
+    if (name.length < 2 || name.length > 100) {
+        if (errDiv) {
+            errDiv.innerText = "Customer Name must be between 2 and 100 characters.";
+            errDiv.style.display = "block";
+        }
+        if (input) input.focus();
+        return null;
+    }
+    if (name.includes("<") || name.includes(">")) {
+        if (errDiv) {
+            errDiv.innerText = "Customer Name contains invalid characters.";
+            errDiv.style.display = "block";
+        }
+        if (input) input.focus();
+        return null;
+    }
+    return name;
+}
+
 btnOnline.addEventListener("click", async () => {
+    const customerName = getValidatedCustomerName();
+    if (!customerName) return;
+
     btnOnline.disabled = true;
     btnCash.disabled = true;
     btnSimulate.style.display = "none";
@@ -528,7 +597,10 @@ btnOnline.addEventListener("click", async () => {
         const res = await fetch(`/payment/create/${jobId}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ payment_method: "UPI" })
+            body: JSON.stringify({
+                payment_method: "UPI",
+                customer_name: customerName
+            })
         });
         const data = await res.json();
         
@@ -556,7 +628,7 @@ btnOnline.addEventListener("click", async () => {
                 description: `Print Order #${jobId.slice(0, 8)}`,
                 order_id: data.provider_order_id,
                 prefill: {
-                    name: data.customer_name || "",
+                    name: customerName || data.customer_name || "",
                     contact: data.customer_phone || ""
                 },
                 notes: {
@@ -650,13 +722,20 @@ btnSimulate.addEventListener("click", async () => {
 });
 
 btnCash.addEventListener("click", async () => {
+    const customerName = getValidatedCustomerName();
+    if (!customerName) return;
+
     btnOnline.disabled = true;
     btnCash.disabled = true;
     setPaymentUIState("pending", "Requesting Cash at Counter...", "Notifying shop operator dashboard...", true);
 
     try {
         const res = await fetch(`/payment/cash/${jobId}`, {
-            method: "POST"
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                customer_name: customerName
+            })
         });
         const data = await res.json();
         if (res.ok) {
@@ -671,6 +750,21 @@ btnCash.addEventListener("click", async () => {
         setPaymentUIState("failed", "❌ Connection Error", "Failed to connect to server.", false);
     }
 });
+
+function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    updateThemeToggleIcons();
+}
+
+function updateThemeToggleIcons() {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const btn = document.getElementById('themeToggleBtn');
+    if (btn) btn.innerHTML = isLight ? '☀️ Light' : '🌙 Dark';
+}
+document.addEventListener('DOMContentLoaded', updateThemeToggleIcons);
 </script>
 
 </body>

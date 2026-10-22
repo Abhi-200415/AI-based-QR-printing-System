@@ -6,6 +6,16 @@
     <title>Print Settings - AI Smart Printing</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
+    <script>
+        (function() {
+            const saved = localStorage.getItem('theme');
+            if (saved === 'light' || (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            } else {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
     <style>
         body {
             display: flex;
@@ -158,6 +168,10 @@
 <body>
 
 <div class="settings-container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <span style="font-size: 12px; color: var(--text-muted); font-weight: 500;">AI Smart Printing</span>
+        <button type="button" class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggleBtn" aria-label="Toggle Light/Dark Theme">🌙 Dark</button>
+    </div>
     <div class="settings-card">
         <div class="step-progress-bar">
             <div class="step-dot done" title="Upload"></div>
@@ -276,11 +290,11 @@
                 <input type="text" id="color_page_ranges" class="form-control" placeholder="e.g. 2, 4, 7">
             </div>
 
-            <!-- Customer Reference Name -->
+            <!-- Customer Name -->
             <div class="form-group">
-                <label class="form-label">Customer Reference Name (Optional)</label>
-                <input type="text" id="customer_reference" class="form-control" placeholder="e.g. Rahul (For active order identification)">
-                <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 4px;">Used only to identify your order at the counter.</div>
+                <label class="form-label">Customer Name (Mandatory for pickup)</label>
+                <input type="text" id="customer_reference" class="form-control" placeholder="e.g. Rahul Sharma" maxlength="100">
+                <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 4px;">Identifies your order at the counter. Scrubbed automatically once printed.</div>
             </div>
 
             <!-- Finishing / Additional Services Section -->
@@ -575,6 +589,21 @@ document.getElementById("settingsForm").addEventListener("submit", async functio
         saveBtn.innerText = "Save & Proceed to Order Summary →";
     }
 });
+
+function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    updateThemeToggleIcons();
+}
+
+function updateThemeToggleIcons() {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const btn = document.getElementById('themeToggleBtn');
+    if (btn) btn.innerHTML = isLight ? '☀️ Light' : '🌙 Dark';
+}
+document.addEventListener('DOMContentLoaded', updateThemeToggleIcons);
 </script>
 
 </body>

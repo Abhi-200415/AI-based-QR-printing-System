@@ -106,7 +106,11 @@ def init_db():
             "ALTER TABLE active_jobs ADD COLUMN customer_reference VARCHAR(100)",
             "ALTER TABLE active_jobs ADD COLUMN finishing_status VARCHAR(30) DEFAULT 'NONE'",
             "ALTER TABLE active_jobs ADD COLUMN finishing_completed_at TIMESTAMP WITH TIME ZONE",
-            "ALTER TABLE job_finishing_services ADD COLUMN file_id UUID REFERENCES job_files(file_id) ON DELETE CASCADE"
+            "ALTER TABLE job_finishing_services ADD COLUMN file_id UUID REFERENCES job_files(file_id) ON DELETE CASCADE",
+            "ALTER TABLE job_files ADD COLUMN assigned_printer_id UUID REFERENCES printers(printer_id) ON DELETE SET NULL",
+            "ALTER TABLE job_files ADD COLUMN status VARCHAR(20) DEFAULT 'Pending'",
+            "ALTER TABLE job_files ADD COLUMN started_at TIMESTAMP WITH TIME ZONE",
+            "ALTER TABLE job_files ADD COLUMN completed_at TIMESTAMP WITH TIME ZONE"
         ]:
             try:
                 with engine.begin() as conn:

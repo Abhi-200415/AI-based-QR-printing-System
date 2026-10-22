@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Smart Printing - Owner Portal</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        (function() {
+            const saved = localStorage.getItem('theme');
+            if (saved === 'light' || (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            } else {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
     <style>
         :root {
             --bg-primary: #0b0f19;
@@ -16,6 +26,17 @@
             --text-muted: #94a3b8;
             --border: #233044;
             --input-bg: #0f172a;
+        }
+        [data-theme="light"] {
+            --bg-primary: #f8fafc;
+            --bg-card: #ffffff;
+            --accent: #4f46e5;
+            --accent-hover: #4338ca;
+            --success: #059669;
+            --text: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --input-bg: #f8fafc;
         }
         * { box-sizing: border-box; }
         body {
@@ -41,8 +62,23 @@
             padding: 32px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
         }
+        .theme-toggle-btn {
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 5px 12px;
+            border-radius: 8px;
+            font-size: 12.5px;
+            cursor: pointer;
+            margin-bottom: 12px;
+            float: right;
+        }
+        [data-theme="light"] .theme-toggle-btn {
+            background: #f1f5f9;
+        }
         .logo {
             text-align: center;
+            clear: both;
             margin-bottom: 24px;
         }
         h1 {
@@ -212,6 +248,7 @@
 
 <div class="container">
     <div class="card">
+        <button type="button" class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggleBtn" aria-label="Toggle Light/Dark Theme">🌙 Dark</button>
         <div class="logo">
             <h1>AI Smart Printing</h1>
             <p class="subtitle" id="headerSubtitle">Shop Owner & Operator Portal</p>
@@ -566,7 +603,23 @@ async function handleResetPassword(e) {
         btn.innerText = "Reset Password";
     }
 }
+
+function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    updateThemeToggleIcons();
+}
+
+function updateThemeToggleIcons() {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const btn = document.getElementById('themeToggleBtn');
+    if (btn) btn.innerHTML = isLight ? '☀️ Light' : '🌙 Dark';
+}
+document.addEventListener('DOMContentLoaded', updateThemeToggleIcons);
 </script>
 
 </body>
 </html>
+

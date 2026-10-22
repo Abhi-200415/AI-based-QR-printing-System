@@ -6,6 +6,16 @@
     <title>{{ shop_name }} - Shop Operations & Operator Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
+    <script>
+        (function() {
+            const saved = localStorage.getItem('theme');
+            if (saved === 'light' || (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            } else {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
         /* In-page styling extensions */
@@ -294,6 +304,9 @@
                 </a>
                 <button class="btn btn-secondary btn-sm" onclick="refreshCurrentView()" title="Refresh Data">
                     🔄
+                </button>
+                <button type="button" class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggleBtn" aria-label="Toggle Light/Dark Theme">
+                    🌙 Dark
                 </button>
                 <div class="live-clock-badge" id="liveClock">--:--:--</div>
                 <a class="btn btn-sm" onclick="navigate('profile')" style="background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); color: #c7d2fe; cursor: pointer;">
@@ -1577,13 +1590,20 @@ function filterJobsList() {
         const duplexTag = file && file.duplex ? '2-Sided' : '1-Sided';
         const isFinishingPending = j.finishing_status === "PENDING";
         const finishingNames = (j.finishing_services || []).map(s => s.service_name).join(", ");
+        const isFailedOrCancelled = j.status === "Failed" || j.status === "Cancelled";
+        const childFiles = (j.files || []);
 
         return `
             <tr style="${isFinishingPending ? 'background: rgba(99, 102, 241, 0.05);' : ''}">
-                <td><code style="color: #a5b4fc;">${j.job_id.slice(0, 8)}...</code></td>
+                <td>
+                    <div style="display: flex; align-items: center;">
+                        ${childFiles.length > 0 ? `<button type="button" class="btn btn-secondary btn-sm" id="child-btn-${j.job_id}" onclick="toggleChildFiles('${j.job_id}')" style="padding: 2px 6px; font-size: 10px; margin-right: 6px; line-height: 1;" title="View Child Documents">▾</button>` : ''}
+                        <code style="color: #a5b4fc;">${j.job_id.slice(0, 8)}...</code>
+                    </div>
+                </td>
                 <td>
                     <strong>${j.customer_name}</strong>
-                    ${j.customer_reference ? `<div style="display: inline-block; background: rgba(99, 102, 241, 0.2); color: #c7d2fe; font-size: 11px; padding: 1px 6px; border-radius: 4px; font-weight: 600; margin-top: 2px;">Ref: ${j.customer_reference}</div>` : ''}
+                    ${j.customer_reference && j.customer_reference !== j.customer_name ? `<div style="display: inline-block; background: rgba(99, 102, 241, 0.2); color: #c7d2fe; font-size: 11px; padding: 1px 6px; border-radius: 4px; font-weight: 600; margin-top: 2px;">Ref: ${j.customer_reference}</div>` : ''}
                     <div style="font-size: 11px; color: var(--text-muted);">${j.customer_phone}</div>
                 </td>
                 <td>
@@ -1605,13 +1625,67 @@ function filterJobsList() {
                 </td>
                 <td style="font-size: 12.5px;">${j.assigned_printer_name || '<span style="color:var(--text-muted);">Auto Assign</span>'}</td>
                 <td style="font-size: 12px; color: var(--text-muted);">${j.created_at}</td>
-                <td style="text-align: right;">
+                <td style="text-align: right; white-space: nowrap;">
                     ${isFinishingPending ? `<button class="btn btn-success btn-sm" style="margin-right: 4px; font-size: 11px;" onclick="completeFinishing('${j.job_id}')">✓ Done Finishing</button>` : ''}
+                    ${isFailedOrCancelled ? `<button class="btn btn-warning btn-sm" style="margin-right: 4px; font-size: 11px;" onclick="retryJob('${j.job_id}')" title="Safe retry of unfinished child files">🔄 Retry</button>` : ''}
+                    <a href="/receipt/job/${j.job_id}/download" class="btn btn-secondary btn-sm" style="margin-right: 4px; font-size: 11px;" title="Download PDF Receipt">⬇ PDF</a>
                     <button class="btn btn-secondary btn-sm" onclick="viewJobDetails('${j.job_id}')">Details</button>
+                </td>
+            </tr>
+            <tr id="child-row-${j.job_id}" style="display: none; background: rgba(99, 102, 241, 0.03);">
+                <td colspan="10" style="padding: 10px 18px 14px 28px;">
+                    <div style="font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 8px;">
+                        📄 Child Documents (${childFiles.length}) — Customer: <strong>${j.customer_name}</strong>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        ${childFiles.map(cf => `
+                            <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 12px;">
+                                <div>
+                                    <strong>📑 ${cf.filename}</strong>
+                                    <span style="color: var(--text-muted); margin-left: 8px;">
+                                        ${cf.page_count} pg • ${cf.copies} cpy • ${cf.paper_size} • ${cf.print_type === 'COLOR' ? 'Color' : 'B/W'} • ${cf.duplex ? '2-Sided' : '1-Sided'}
+                                    </span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <span style="color: #38bdf8; font-size: 11.5px;">🖨️ ${cf.assigned_printer_name || 'Routing pending'}</span>
+                                    <span class="badge ${cf.print_completed || cf.status === 'Completed' ? 'badge-success' : (cf.status === 'Printing' ? 'badge-cyan' : 'badge-pending')}" style="font-size: 10.5px;">
+                                        ${cf.status}
+                                    </span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
                 </td>
             </tr>
         `;
     }).join("");
+}
+
+function toggleChildFiles(jobId) {
+    const el = document.getElementById(`child-row-${jobId}`);
+    const btn = document.getElementById(`child-btn-${jobId}`);
+    if (el) {
+        const isHidden = el.style.display === "none";
+        el.style.display = isHidden ? "table-row" : "none";
+        if (btn) btn.innerText = isHidden ? "▴" : "▾";
+    }
+}
+
+async function retryJob(jobId) {
+    if (!confirm("Are you sure you want to retry this failed/cancelled print job?")) return;
+    try {
+        const res = await fetch(`/jobs/${jobId}/retry`, { method: "POST" });
+        const data = await res.json();
+        if (res.ok) {
+            showToast("✓ " + (data.message || "Job queued for retry successfully."));
+            loadJobsTable();
+            loadDashboard();
+        } else {
+            alert(data.detail || "Unable to retry job.");
+        }
+    } catch (e) {
+        alert("Network error retrying job: " + e.message);
+    }
 }
 
 function viewJobDetails(jobId) {
@@ -2445,7 +2519,23 @@ loadQrData();
 
 // Start live sync polling (every 3.5 seconds)
 pollInterval = setInterval(loadDashboard, 3500);
+
+function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    updateThemeToggleIcons();
+}
+
+function updateThemeToggleIcons() {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const btn = document.getElementById('themeToggleBtn');
+    if (btn) btn.innerHTML = isLight ? '☀️ Light' : '🌙 Dark';
+}
+document.addEventListener('DOMContentLoaded', updateThemeToggleIcons);
 </script>
 
 </body>
 </html>
+

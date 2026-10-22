@@ -6,6 +6,16 @@
     <title>Live Print Tracker - AI Smart Printing</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
+    <script>
+        (function() {
+            const saved = localStorage.getItem('theme');
+            if (saved === 'light' || (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            } else {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
     <style>
         body {
             display: flex;
@@ -145,6 +155,11 @@
 <body>
 
 <div class="tracker-container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <span style="font-size: 12px; color: var(--text-muted); font-weight: 500;">AI Smart Printing</span>
+        <button type="button" class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggleBtn" aria-label="Toggle Light/Dark Theme">🌙 Dark</button>
+    </div>
+
     <h2 style="font-size: 24px; font-weight: 700; margin-bottom: 4px;">Live Print Order Tracker</h2>
     <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Real-time automated print agent synchronization</div>
     
@@ -200,31 +215,39 @@
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 32px 0 16px 0; text-align: left;">
         <div class="pricing-box">
             <div class="stat-label">Assigned Printer</div>
-            <div id="printerName" style="font-size: 16px; font-weight: 600; color: var(--text-main);">Pending Payment...</div>
+            <div id="printerName" style="font-size: 15px; font-weight: 600; color: var(--text-main);">Pending Payment...</div>
         </div>
         <div class="pricing-box">
             <div class="stat-label">Queue Position</div>
-            <div id="queuePos" style="font-size: 16px; font-weight: 600; color: #a5b4fc;">Waiting Confirmation</div>
+            <div id="queuePos" style="font-size: 15px; font-weight: 600; color: #a5b4fc;">Waiting Confirmation</div>
         </div>
         <div class="pricing-box">
             <div class="stat-label">Queue Waiting Time</div>
-            <div id="queueWaitVal" style="font-size: 16px; font-weight: 600; color: #38bdf8;">-</div>
+            <div id="queueWaitVal" style="font-size: 15px; font-weight: 600; color: #38bdf8;">-</div>
         </div>
         <div class="pricing-box">
             <div class="stat-label">Est. Completion Time</div>
-            <div id="totalEstVal" style="font-size: 16px; font-weight: 600; color: #34d399;">-</div>
+            <div id="totalEstVal" style="font-size: 15px; font-weight: 600; color: #34d399;">-</div>
         </div>
         <div class="pricing-box">
-            <div class="stat-label">Customer Ref</div>
-            <div id="customerRefVal" style="font-size: 16px; font-weight: 600; color: var(--text-main);">-</div>
+            <div class="stat-label">Customer Name</div>
+            <div id="customerRefVal" style="font-size: 15px; font-weight: 600; color: var(--text-main);">-</div>
         </div>
         <div class="pricing-box">
             <div class="stat-label">Total Amount</div>
-            <div id="totalAmountVal" style="font-size: 16px; font-weight: 600; color: #34d399;">-</div>
+            <div id="totalAmountVal" style="font-size: 15px; font-weight: 600; color: #34d399;">-</div>
         </div>
     </div>
     <div style="font-size: 11.5px; color: var(--text-muted); text-align: center; margin-bottom: 20px;">
         ℹ️ Estimates adjust in real time as printer queue conditions progress.
+    </div>
+
+    <!-- Multi-Document Progress Section -->
+    <div id="multiFilesContainer" style="display: none; margin: 20px 0; text-align: left;">
+        <div style="font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px;">
+            📄 Document Print Jobs:
+        </div>
+        <div id="multiFilesList" style="display: flex; flex-direction: column; gap: 8px;"></div>
     </div>
 
     <!-- Receipt Action Bar -->
@@ -233,7 +256,7 @@
             📄 View Receipt
         </button>
         <a class="btn btn-primary" id="btnDownloadReceipt" href="#">
-            ⬇ Download Receipt
+            ⬇ Download PDF Receipt
         </a>
     </div>
 
@@ -285,9 +308,42 @@ async function fetchStatus() {
         if (!res.ok) return;
         const data = await res.json();
 
-        document.getElementById("customerRefVal").innerText = data.customer_reference || "Walk-in";
+        const custRefEl = document.getElementById("customerRefVal");
+        if (data.customer_name) {
+            custRefEl.innerText = data.customer_name;
+        } else if (data.customer_name_cleared) {
+            custRefEl.innerHTML = '<span style="color:#94a3b8; font-size:12px;">🔒 Cleared (Privacy)</span>';
+        } else {
+            custRefEl.innerText = data.customer_reference || "Walk-in";
+        }
+
         document.getElementById("totalAmountVal").innerText = "₹" + (data.total_amount || 0).toFixed(2);
         document.getElementById("cashAmount").innerText = (data.total_amount || 0).toFixed(2);
+
+        // Render child files list for multi-document / multi-printer orders
+        const multiFilesContainer = document.getElementById("multiFilesContainer");
+        const multiFilesList = document.getElementById("multiFilesList");
+        if (data.files && data.files.length > 0) {
+            multiFilesContainer.style.display = "block";
+            multiFilesList.innerHTML = data.files.map(f => {
+                const isDone = f.print_completed || f.status === "Completed";
+                const badgeClass = isDone ? "badge-success" : (f.status === "Printing" ? "badge-cyan" : "badge-pending");
+                const printerDisplay = f.assigned_printer_name ? `🖨️ ${f.assigned_printer_name}` : "Auto Routing";
+                return `
+                    <div style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px;">
+                            <div style="font-weight: 600; font-size: 13px; color: var(--text-main);">📄 ${f.filename}</div>
+                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+                                ${f.page_count} pg • ${f.copies} cpy • ${f.paper_size} • ${f.print_type} • <span style="color:#38bdf8;">${printerDisplay}</span>
+                            </div>
+                        </div>
+                        <span class="badge ${badgeClass}" style="font-size: 11px;">${f.status}</span>
+                    </div>
+                `;
+            }).join("");
+        } else {
+            multiFilesContainer.style.display = "none";
+        }
 
         const qWaitEl = document.getElementById("queueWaitVal");
         if (qWaitEl) {
@@ -392,9 +448,25 @@ async function fetchStatus() {
     }
 }
 
+function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    updateThemeToggleIcons();
+}
+
+function updateThemeToggleIcons() {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const btn = document.getElementById('themeToggleBtn');
+    if (btn) btn.innerHTML = isLight ? '☀️ Light' : '🌙 Dark';
+}
+document.addEventListener('DOMContentLoaded', updateThemeToggleIcons);
+
 fetchStatus();
 const trackerInterval = setInterval(fetchStatus, 2000);
 </script>
 
 </body>
 </html>
+

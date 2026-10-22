@@ -146,14 +146,46 @@ def view_receipt_html(
     )
 
 
+from app.services.receipt_pdf_service import get_receipt_pdf_bytes, build_receipt_dict_for_job
+
+
 @router.get("/job/{job_id}/download")
+@router.get("/job/{job_id}/pdf")
+def download_receipt_pdf(
+    job_id: UUID,
+    db: Session = Depends(get_db)
+):
+    """
+    Downloads an authentic, professional PDF receipt generated via ReportLab.
+    Content-Type: application/pdf
+    File Attachment: Receipt_Order_<ID>.pdf
+    """
+    job = db.query(ActiveJob).filter(ActiveJob.job_id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Order not found.")
+
+    pdf_bytes, filename = get_receipt_pdf_bytes(job, db)
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
+
+
+@router.get("/job/{job_id}/download-html")
 def download_receipt_html(
     request: Request,
     job_id: UUID,
     db: Session = Depends(get_db)
 ):
     """
-    Secure receipt download endpoint (allowed separate from document verification).
+    Optional HTML receipt download endpoint.
     """
     job = db.query(ActiveJob).filter(ActiveJob.job_id == job_id).first()
     if not job:

@@ -365,11 +365,19 @@ class TestPreviewReceiptVoicePrinterFeature(unittest.TestCase):
         self.assertIn("Spiral Binding", res_view.text)
         self.assertIn("₹83.00", res_view.text)
 
-        # 3. Test Download Attachment
+        # 3. Test Download Attachment (Genuine PDF as per Objective 3)
         res_dl = self.client.get(f"/receipt/job/{job.job_id}/download")
         self.assertEqual(res_dl.status_code, 200)
+        self.assertEqual(res_dl.headers["content-type"], "application/pdf")
         self.assertIn("attachment", res_dl.headers.get("content-disposition", ""))
-        self.assertIn(".html", res_dl.headers.get("content-disposition", ""))
+        self.assertIn(".pdf", res_dl.headers.get("content-disposition", ""))
+        self.assertTrue(res_dl.content.startswith(b"%PDF"))
+
+        # 4. Test Optional HTML download
+        res_html = self.client.get(f"/receipt/job/{job.job_id}/download-html")
+        self.assertEqual(res_html.status_code, 200)
+        self.assertIn("attachment", res_html.headers.get("content-disposition", ""))
+        self.assertIn(".html", res_html.headers.get("content-disposition", ""))
 
     # ==========================================================
     # 3. PER-FILE FINISHING & HISTORICAL SNAPSHOT TESTS

@@ -73,9 +73,14 @@ def create_new_job(
     data: JobCreate,
     db: Session = Depends(get_db)
 ):
+    valid_name = None
+    if data.customer_name:
+        from app.services.customer_service import validate_customer_name
+        valid_name = validate_customer_name(data.customer_name)
+
     job = ActiveJob(
         owner_id=owner_id,
-        customer_name=data.customer_name,
+        customer_name=valid_name,
         customer_phone=data.customer_phone,
         status=JobStatus.PENDING,
         payment_status=PaymentStatus.PENDING
@@ -117,7 +122,11 @@ def get_owner_jobs(
                 "orientation": f.orientation.value if hasattr(f.orientation, "value") else str(f.orientation),
                 "page_ranges": f.page_ranges,
                 "color_page_ranges": f.color_page_ranges,
-                "estimated_cost": float(f.estimated_cost or 0.0)
+                "estimated_cost": float(f.estimated_cost or 0.0),
+                "assigned_printer_id": str(f.assigned_printer_id) if f.assigned_printer_id else str(j.assigned_printer_id) if j.assigned_printer_id else None,
+                "assigned_printer_name": f.assigned_printer.printer_name if f.assigned_printer else (j.assigned_printer.printer_name if j.assigned_printer else None),
+                "status": f.status.value if hasattr(f.status, "value") else str(f.status or "Pending"),
+                "print_completed": bool(f.print_completed)
             })
         pmt = j.payment
         finishing_list = []
@@ -132,9 +141,19 @@ def get_owner_jobs(
                 "total_price": float(s.total_price)
             })
 
+        display_cust_name = j.customer_name
+        if not display_cust_name:
+            if j.status == JobStatus.COMPLETED:
+                display_cust_name = "[Completed - Protected]"
+            elif j.customer_reference:
+                display_cust_name = j.customer_reference
+            else:
+                display_cust_name = "Customer"
+
         result.append({
             "job_id": str(j.job_id),
-            "customer_name": j.customer_name or "Walk-in Customer",
+            "customer_name": display_cust_name,
+            "raw_customer_name": j.customer_name,
             "customer_phone": j.customer_phone or "-",
             "customer_reference": j.customer_reference,
             "status": j.status.value,
@@ -213,6 +232,14 @@ async def update_job_status(
         else:
             job.status = JobStatus.COMPLETED
             job.completed_at = datetime.utcnow()
+            for f in (job.files or []):
+                f.print_completed = True
+                f.status = JobStatus.COMPLETED
+                if not f.completed_at:
+                    f.completed_at = datetime.utcnow()
+
+            from app.services.customer_service import clear_customer_name_after_completion
+            clear_customer_name_after_completion(job, db)
 
         # Automatically dispatch next job in queue for this printer
         if completed_job and completed_job.assigned_printer_id:
@@ -284,9 +311,27 @@ def get_job_status(
     from app.services.assignment_service import get_job_time_estimates
     timing_estimate = get_job_time_estimates(job, db)
 
+    files_data = [
+        {
+            "file_id": str(f.file_id),
+            "filename": f.original_filename,
+            "page_count": f.page_count,
+            "copies": f.copies,
+            "paper_size": f.paper_size.value if f.paper_size else "A4",
+            "print_type": f.print_type.value if f.print_type else "BW",
+            "duplex": bool(f.duplex),
+            "status": f.status.value if getattr(f, 'status', None) else ("Completed" if f.print_completed else job.status.value),
+            "print_completed": bool(f.print_completed),
+            "assigned_printer_name": f.assigned_printer.printer_name if getattr(f, 'assigned_printer', None) else (job.assigned_printer.printer_name if job.assigned_printer else None)
+        }
+        for f in (job.files or [])
+    ]
+
     return {
         "job_id": str(job.job_id),
+        "customer_name": job.customer_name,
         "customer_reference": job.customer_reference,
+        "customer_name_cleared": bool(not job.customer_name and (job.customer_reference or job.status == JobStatus.COMPLETED)),
         "status": job.status.value,
         "finishing_status": job.finishing_status or "NONE",
         "finishing_completed_at": job.finishing_completed_at,
@@ -312,6 +357,7 @@ def get_job_status(
         "subtotal": float(job.subtotal or 0),
         "tax": float(job.tax or 0),
         "total_amount": float(job.total_amount or 0),
+        "files": files_data,
         "created_at": job.created_at,
         "queued_at": job.queued_at,
         "started_at": job.started_at,
@@ -337,4 +383,107 @@ def cancel_job_endpoint(
         "job_id": str(job.job_id),
         "status": job.status.value,
         "message": "Job cancelled."
+    }
+
+
+# ==========================================================
+# Update Customer Name Endpoint (Objective 2.1)
+# ==========================================================
+
+from pydantic import BaseModel
+
+class CustomerNameUpdateRequest(BaseModel):
+    customer_name: str
+
+@router.put("/{job_id}/customer-name")
+def update_job_customer_name(
+    job_id: UUID,
+    data: CustomerNameUpdateRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Validates and updates customer name on an active print order.
+    """
+    job = get_job(job_id, db)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found.")
+
+    from app.services.customer_service import validate_customer_name
+    valid_name = validate_customer_name(data.customer_name)
+
+    job.customer_name = valid_name
+    job.customer_reference = valid_name
+    db.commit()
+    db.refresh(job)
+
+    return {
+        "success": True,
+        "job_id": str(job.job_id),
+        "customer_name": job.customer_name,
+        "message": "Customer name updated successfully."
+    }
+
+
+# ==========================================================
+# Safe Job Retry Endpoint (Objective 6.3)
+# ==========================================================
+
+@router.post("/{job_id}/retry")
+async def retry_failed_job(
+    job_id: UUID,
+    db: Session = Depends(get_db)
+):
+    """
+    Safely retries an eligible failed or blocked print job.
+    Enforces strict state validation to prevent duplicate printing:
+    - Verifies payment is already confirmed (PAID).
+    - Verifies job is currently in FAILED or CANCELLED status.
+    - Preserves already printed files; only retries unfinished files.
+    - Re-evaluates printer assignment and re-queues job.
+    """
+    job = get_job(job_id, db)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found.")
+
+    if job.status not in (JobStatus.FAILED, JobStatus.CANCELLED):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot retry job in '{job.status.value}' state. Only Failed or Cancelled jobs may be retried."
+        )
+
+    if job.payment_status != PaymentStatus.PAID:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot retry job without confirmed payment."
+        )
+
+    # Reset status of unfinished files only (prevents re-printing completed files)
+    for f in (job.files or []):
+        if not f.print_completed and f.status != JobStatus.COMPLETED:
+            f.status = JobStatus.QUEUED
+            f.started_at = None
+            f.completed_at = None
+
+    from app.services.job_service import assign_paid_job
+    prepared = assign_paid_job(job.job_id, db)
+    if not prepared:
+        raise HTTPException(status_code=500, detail="Unable to assign printer for retry.")
+
+    prepared.status = JobStatus.QUEUED
+    prepared.queued_at = datetime.utcnow()
+    db.commit()
+    db.refresh(prepared)
+
+    # If first in queue, dispatch to agent
+    if prepared.queue_position == 1 and prepared.assigned_printer_id:
+        await dispatch_job_to_agent(prepared)
+
+    logger.info(f"Safely re-queued failed job {job.job_id} for retry.")
+    return {
+        "success": True,
+        "job_id": str(prepared.job_id),
+        "status": prepared.status.value,
+        "queue_position": prepared.queue_position,
+        "assigned_printer": str(prepared.assigned_printer_id) if prepared.assigned_printer_id else None,
+        "message": "Job re-queued for printing successfully."
     }

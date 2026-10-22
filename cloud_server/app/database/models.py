@@ -18,6 +18,8 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
+from sqlalchemy.types import TypeDecorator
+
 from app.database.connection import Base
 # ==========================
 # Job Status
@@ -31,6 +33,31 @@ class JobStatus(str, Enum):
     COMPLETED = "Completed"
     FAILED = "Failed"
     CANCELLED = "Cancelled"
+
+
+class SafeJobStatusType(TypeDecorator):
+    """
+    Robust enum storage that safely handles both member names (e.g. 'PENDING')
+    and values (e.g. 'Pending') across SQLite and PostgreSQL.
+    """
+    impl = String(30)
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return "PENDING"
+        if isinstance(value, JobStatus):
+            return value.name
+        return str(value).upper()
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return JobStatus.PENDING
+        val_str = str(value).strip().upper()
+        for member in JobStatus:
+            if member.name.upper() == val_str or member.value.upper() == val_str:
+                return member
+        return JobStatus.PENDING
 
 
 # ==========================
@@ -809,12 +836,34 @@ class JobFile(Base):
     )
 
     # ==========================
-    # Print Status
+    # Print Status & Child Job Tracking
     # ==========================
 
     print_completed = Column(
         Boolean,
         default=False
+    )
+
+    assigned_printer_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("printers.printer_id", ondelete="SET NULL"),
+        nullable=True
+    )
+
+    status = Column(
+        SafeJobStatusType,
+        default=JobStatus.PENDING,
+        nullable=False
+    )
+
+    started_at = Column(
+        DateTime(timezone=True),
+        nullable=True
+    )
+
+    completed_at = Column(
+        DateTime(timezone=True),
+        nullable=True
     )
 
     created_at = Column(
@@ -829,6 +878,11 @@ class JobFile(Base):
     job = relationship(
         "ActiveJob",
         back_populates="files"
+    )
+
+    assigned_printer = relationship(
+        "Printer",
+        foreign_keys=[assigned_printer_id]
     )
 
     finishing_services = relationship(

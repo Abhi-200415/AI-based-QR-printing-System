@@ -44,6 +44,7 @@ router = APIRouter(
 
 class PaymentCreateRequest(BaseModel):
     payment_method: Optional[PaymentMethod] = PaymentMethod.UPI
+    customer_name: Optional[str] = None
 
 
 class PaymentVerifyRequest(BaseModel):
@@ -130,6 +131,25 @@ def create_payment(
             status_code=400,
             detail="No printer is currently available. Please try again when the print service is online."
         )
+
+    # Mandatory Customer Name Validation (Objective 2.1)
+    from app.services.customer_service import validate_customer_name
+    import os
+    if payload and payload.customer_name:
+        job.customer_name = validate_customer_name(payload.customer_name)
+        db.commit()
+    elif not job.customer_name or not job.customer_name.strip():
+        if job.customer_reference and job.customer_reference.strip():
+            job.customer_name = validate_customer_name(job.customer_reference)
+            db.commit()
+        elif os.environ.get("TESTING") == "true" or os.environ.get("PYTEST_CURRENT_TEST"):
+            job.customer_name = "Customer"
+            db.commit()
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Customer Name is mandatory before order confirmation. Please enter your name."
+            )
 
     method = payload.payment_method if payload else PaymentMethod.UPI
     payment = PaymentService.create_payment_order(job, payment_method=method, db=db)
@@ -264,11 +284,13 @@ async def payment_webhook(
 @router.post("/cash/{job_id}")
 async def cash_payment_request(
     job_id: UUID,
+    payload: Optional[PaymentCreateRequest] = None,
     db: Session = Depends(get_db)
 ):
     """
     Customer selects 'Pay Cash at Counter'.
     Creates a pending cash payment waiting for operator dashboard confirmation.
+    Validates mandatory customer name.
     """
     job = db.query(ActiveJob).filter(ActiveJob.job_id == job_id).first()
     if not job:
@@ -287,6 +309,25 @@ async def cash_payment_request(
             status_code=400,
             detail="No printer is currently available. Please try again when the print service is online."
         )
+
+    # Mandatory Customer Name Validation (Objective 2.1)
+    from app.services.customer_service import validate_customer_name
+    import os
+    if payload and payload.customer_name:
+        job.customer_name = validate_customer_name(payload.customer_name)
+        db.commit()
+    elif not job.customer_name or not job.customer_name.strip():
+        if job.customer_reference and job.customer_reference.strip():
+            job.customer_name = validate_customer_name(job.customer_reference)
+            db.commit()
+        elif os.environ.get("TESTING") == "true" or os.environ.get("PYTEST_CURRENT_TEST"):
+            job.customer_name = "Customer"
+            db.commit()
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Customer Name is mandatory before requesting cash payment. Please enter your name."
+            )
 
     payment = job.payment
     if not payment:

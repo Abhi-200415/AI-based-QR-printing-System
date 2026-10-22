@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Receipt - Order #{{ receipt.order_id[:8] }}</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <script>
+        (function() {
+            const saved = localStorage.getItem('theme');
+            if (saved === 'light' || (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            } else {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
     <style>
         :root {
             --bg: #0f172a;
@@ -14,6 +24,15 @@
             --text-muted: #94a3b8;
             --accent: #6366f1;
             --success: #10b981;
+        }
+        [data-theme="light"] {
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --border: #e2e8f0;
+            --text-main: #0f172a;
+            --text-muted: #475569;
+            --accent: #4f46e5;
+            --success: #059669;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -293,9 +312,28 @@
 
     <div class="actions-bar">
         <button class="btn btn-secondary" onclick="window.print()">🖨️ Print Receipt</button>
-        <a class="btn btn-primary" href="/receipt/job/{{ receipt.order_id }}/download">⬇ Download Receipt</a>
+        <a class="btn btn-primary" href="/receipt/job/{{ receipt.order_id }}/download">⬇ Download PDF Receipt</a>
+        <button type="button" class="btn btn-secondary" onclick="toggleTheme()" id="themeToggleBtn" style="font-size: 13px;">🌙 Dark</button>
     </div>
 </div>
 
+<script>
+function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    updateThemeToggleIcons();
+}
+
+function updateThemeToggleIcons() {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const btn = document.getElementById('themeToggleBtn');
+    if (btn) btn.innerHTML = isLight ? '☀️ Light' : '🌙 Dark';
+}
+document.addEventListener('DOMContentLoaded', updateThemeToggleIcons);
+</script>
+
 </body>
 </html>
+

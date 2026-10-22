@@ -257,8 +257,17 @@ def complete_operator_finishing(
     job.status = JobStatus.COMPLETED
     job.completed_at = func.now()
 
+    for f in (job.files or []):
+        f.print_completed = True
+        f.status = JobStatus.COMPLETED
+
     db.commit()
     db.refresh(job)
+
+    from app.services.customer_service import clear_customer_name_after_completion
+    clear_customer_name_after_completion(job, db)
+    db.refresh(job)
+
     logger.info(f"Operator completed finishing for job {job_id}. Finishing status: COMPLETED, Job status: {job.status.value}")
 
     return {
