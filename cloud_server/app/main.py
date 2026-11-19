@@ -144,10 +144,12 @@ async def _periodic_cleanup_runner(interval_seconds: int = 3600):
 @app.on_event("startup")
 async def startup_event():
     """Verify database connection, create tables, and start background workers on startup."""
+    logger.info("Initializing Cloud Server startup...")
     init_db()
     from app.core.config import log_payment_gateway_status
     log_payment_gateway_status()
     asyncio.create_task(_periodic_cleanup_runner(interval_seconds=3600))
+    logger.info("Cloud Server startup completed. Listening for incoming connections.")
 
 
 @app.exception_handler(Exception)

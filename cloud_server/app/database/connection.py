@@ -65,66 +65,43 @@ def init_db():
     """Create all database tables on application startup and verify columns."""
     try:
         from app.database import models  # noqa: F401
+        logger.info("Verifying database schema...")
         Base.metadata.create_all(bind=engine)
 
-        with engine.connect() as conn:
-            # Create finishing tables if not exist
-            try:
-                conn.execute(text("""
-                    CREATE TABLE IF NOT EXISTS finishing_services (
-                        service_id UUID PRIMARY KEY,
-                        owner_id UUID NOT NULL REFERENCES shop_owners(owner_id) ON DELETE CASCADE,
-                        service_name VARCHAR(100) NOT NULL,
-                        description VARCHAR(255),
-                        price NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                        charge_type VARCHAR(50) NOT NULL DEFAULT 'PER_ORDER',
-                        is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
-                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                    )
-                """))
-            except Exception:
-                pass
+        is_postgres = "postgres" in str(engine.url)
+        with engine.begin() as conn:
+            if is_postgres:
+                conn.execute(text("SET lock_timeout = '3s'"))
 
-            try:
-                conn.execute(text("""
-                    CREATE TABLE IF NOT EXISTS job_finishing_services (
-                        id UUID PRIMARY KEY,
-                        job_id UUID NOT NULL REFERENCES active_jobs(job_id) ON DELETE CASCADE,
-                        service_id UUID REFERENCES finishing_services(service_id) ON DELETE SET NULL,
-                        service_name VARCHAR(100) NOT NULL,
-                        unit_price NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                        quantity INTEGER NOT NULL DEFAULT 1,
-                        total_price NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                    )
-                """))
-            except Exception:
-                pass
+            alter_statements = [
+                "ALTER TABLE active_jobs ADD COLUMN IF NOT EXISTS customer_reference VARCHAR(100)",
+                "ALTER TABLE active_jobs ADD COLUMN IF NOT EXISTS finishing_status VARCHAR(30) DEFAULT 'NONE'",
+                "ALTER TABLE active_jobs ADD COLUMN IF NOT EXISTS finishing_completed_at TIMESTAMP WITH TIME ZONE",
+                "ALTER TABLE job_finishing_services ADD COLUMN IF NOT EXISTS file_id UUID REFERENCES job_files(file_id) ON DELETE CASCADE",
+                "ALTER TABLE job_files ADD COLUMN IF NOT EXISTS assigned_printer_id UUID REFERENCES printers(printer_id) ON DELETE SET NULL",
+                "ALTER TABLE job_files ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'Pending'",
+                "ALTER TABLE job_files ADD COLUMN IF NOT EXISTS started_at TIMESTAMP WITH TIME ZONE",
+                "ALTER TABLE job_files ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP WITH TIME ZONE"
+            ] if is_postgres else [
+                "ALTER TABLE active_jobs ADD COLUMN customer_reference VARCHAR(100)",
+                "ALTER TABLE active_jobs ADD COLUMN finishing_status VARCHAR(30) DEFAULT 'NONE'",
+                "ALTER TABLE active_jobs ADD COLUMN finishing_completed_at TIMESTAMP WITH TIME ZONE",
+                "ALTER TABLE job_finishing_services ADD COLUMN file_id UUID REFERENCES job_files(file_id) ON DELETE CASCADE",
+                "ALTER TABLE job_files ADD COLUMN assigned_printer_id UUID REFERENCES printers(printer_id) ON DELETE SET NULL",
+                "ALTER TABLE job_files ADD COLUMN status VARCHAR(20) DEFAULT 'Pending'",
+                "ALTER TABLE job_files ADD COLUMN started_at TIMESTAMP WITH TIME ZONE",
+                "ALTER TABLE job_files ADD COLUMN completed_at TIMESTAMP WITH TIME ZONE"
+            ]
 
-        for alter_stmt in [
-            "ALTER TABLE active_jobs ADD COLUMN customer_reference VARCHAR(100)",
-            "ALTER TABLE active_jobs ADD COLUMN finishing_status VARCHAR(30) DEFAULT 'NONE'",
-            "ALTER TABLE active_jobs ADD COLUMN finishing_completed_at TIMESTAMP WITH TIME ZONE",
-            "ALTER TABLE job_finishing_services ADD COLUMN file_id UUID REFERENCES job_files(file_id) ON DELETE CASCADE",
-            "ALTER TABLE job_files ADD COLUMN assigned_printer_id UUID REFERENCES printers(printer_id) ON DELETE SET NULL",
-            "ALTER TABLE job_files ADD COLUMN status VARCHAR(20) DEFAULT 'Pending'",
-            "ALTER TABLE job_files ADD COLUMN started_at TIMESTAMP WITH TIME ZONE",
-            "ALTER TABLE job_files ADD COLUMN completed_at TIMESTAMP WITH TIME ZONE"
-        ]:
-            try:
-                with engine.begin() as conn:
-                    conn.execute(text(alter_stmt))
-            except Exception:
-                pass
+            for stmt in alter_statements:
+                try:
+                    conn.execute(text(stmt))
+                except Exception:
+                    pass
 
         logger.info("Database schema initialized and tables verified.")
     except Exception as e:
         logger.error(f"Error initializing database schema: {e}")
-
-
-# Initialize tables immediately upon engine creation
-init_db()
 
 
 def get_db():
