@@ -84,8 +84,10 @@ def register_agent(
     now = datetime.utcnow()
     for printer in printers:
         printer.last_seen = now
-        printer.status = PrinterStatus.ONLINE
-        printer.is_available = True
+        # Keep existing offline printers offline unless explicitly re-registered
+        if printer.status != PrinterStatus.OFFLINE:
+            printer.status = PrinterStatus.ONLINE
+            printer.is_available = True
 
     db.commit()
 
@@ -93,10 +95,10 @@ def register_agent(
 
     return {
         "success": True,
-        "message": "Agent registered and printers marked online.",
+        "message": "Agent registered and printers synchronized.",
         "agent_id": final_agent_id,
         "printers_count": len(printers),
-        "available_printers": len(printers)
+        "available_printers": sum(1 for p in printers if p.is_available)
     }
 
 
@@ -132,9 +134,13 @@ def heartbeat(
     now = datetime.utcnow()
     for printer in printers:
         printer.last_seen = now
+        # Do not force offline printers to online during periodic heartbeat
+        if printer.status == PrinterStatus.OFFLINE:
+            printer.is_available = False
+            continue
         if printer.status != PrinterStatus.BUSY:
             printer.status = PrinterStatus.ONLINE
-        printer.is_available = True
+            printer.is_available = True
 
     db.commit()
 

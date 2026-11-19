@@ -1,7 +1,122 @@
+import socket
+try:
+    import winreg
+except ImportError:
+    winreg = None
+
 try:
     import win32print
 except ImportError:
     win32print = None
+
+
+# ==========================================================
+# Hardware Port Connectivity Check
+# ==========================================================
+
+def check_hardware_port_active(port_name: str) -> bool:
+    """
+    Checks whether a Windows printer port corresponds to an active,
+    physically attached hardware device or reachable network printer.
+    """
+    if not port_name or winreg is None:
+        return True
+
+    port = str(port_name).upper().strip()
+
+    # 1. Virtual / output prompt ports
+    if port in ("FILE:", "PORTPROMPT:", "NUL:", "NULL:", "NUL"):
+        return False
+
+    # 2. Legacy parallel ports (LPT1:, LPT2:, LPT3:, etc.)
+    if port.startswith("LPT"):
+        try:
+            k = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DEVICEMAP\PARALLEL PORTS")
+            sub_count, val_count, _ = winreg.QueryInfoKey(k)
+            winreg.CloseKey(k)
+            if val_count == 0 and sub_count == 0:
+                return False
+        except OSError:
+            # Motherboard has no physical parallel port hardware
+            return False
+
+    # 3. Legacy serial ports (COM1:, COM2:, etc.)
+    if port.startswith("COM"):
+        try:
+            k = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DEVICEMAP\SERIALCOMM")
+            vals = []
+            i = 0
+            while True:
+                try:
+                    _, val, _ = winreg.EnumValue(k, i)
+                    vals.append(str(val).upper().rstrip(":"))
+                    i += 1
+                except OSError:
+                    break
+            winreg.CloseKey(k)
+            if port.rstrip(":") not in vals:
+                return False
+        except OSError:
+            return False
+
+    # 4. USB Ports (USB001, USB002, etc.)
+    if port.startswith("USB"):
+        active_usb = set()
+        usbprint_path = r"SYSTEM\CurrentControlSet\Enum\USBPRINT"
+        try:
+            root = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, usbprint_path)
+            i = 0
+            while True:
+                try:
+                    sub = winreg.EnumKey(root, i)
+                    sub_k = winreg.OpenKey(root, sub)
+                    j = 0
+                    while True:
+                        try:
+                            inst = winreg.EnumKey(sub_k, j)
+                            inst_k = winreg.OpenKey(sub_k, inst)
+                            try:
+                                cf, _ = winreg.QueryValueEx(inst_k, "ConfigFlags")
+                            except OSError:
+                                cf = 0
+                            if cf == 0:
+                                try:
+                                    dp = winreg.OpenKey(inst_k, "Device Parameters")
+                                    pname, _ = winreg.QueryValueEx(dp, "PortName")
+                                    active_usb.add(str(pname).upper().strip())
+                                    winreg.CloseKey(dp)
+                                except OSError:
+                                    pass
+                                for part in inst.split("&"):
+                                    if part.upper().startswith("USB"):
+                                        active_usb.add(part.upper().strip())
+                            winreg.CloseKey(inst_k)
+                            j += 1
+                        except OSError:
+                            break
+                    winreg.CloseKey(sub_k)
+                    i += 1
+                except OSError:
+                    break
+            winreg.CloseKey(root)
+        except OSError:
+            pass
+
+        if port not in active_usb and port.rstrip(":") not in active_usb:
+            return False
+
+    # 5. TCP/IP Network Ports
+    if port.startswith("IP_") or (port.replace(".", "").isdigit() and "." in port):
+        ip = port[3:] if port.startswith("IP_") else port
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(0.5)
+            s.connect((ip, 9100))
+            s.close()
+        except Exception:
+            return False
+
+    return True
 
 
 # ==========================================================
@@ -69,6 +184,14 @@ def get_printer_status(printer_name: str):
                 0
             )
 
+            port_name = printer_info.get(
+                "pPortName",
+                ""
+            )
+
+            is_virtual = is_virtual_printer(printer_name)
+            port_active = check_hardware_port_active(port_name) if not is_virtual else True
+
             # ------------------------------------------------
             # Windows Status Flags & Attributes
             # ------------------------------------------------
@@ -80,6 +203,9 @@ def get_printer_status(printer_name: str):
 
                 "work_offline":
                     is_work_offline,
+
+                "port_disconnected":
+                    not port_active,
 
                 "paused":
                     bool(
@@ -115,7 +241,7 @@ def get_printer_status(printer_name: str):
                     bool(
                         status &
                         win32print.PRINTER_STATUS_OFFLINE
-                    ) or is_work_offline,
+                    ) or is_work_offline or (not port_active),
 
                 "busy":
                     bool(
@@ -167,6 +293,7 @@ def get_printer_status(printer_name: str):
                 or status_flags["offline"]
                 or status_flags["not_available"]
                 or status_flags["output_bin_full"]
+                or status_flags["port_disconnected"]
                 or is_work_offline
             )
 
