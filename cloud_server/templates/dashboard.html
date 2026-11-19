@@ -1290,19 +1290,44 @@ window.addEventListener('hashchange', () => {
 });
 
 function toggleSidebar(forceState) {
+    const isMobile = window.innerWidth <= 1024;
     const sidebar = document.getElementById('appSidebar');
     const overlay = document.getElementById('drawerOverlay');
-    const isOpen = sidebar.classList.contains('open');
-    const shouldOpen = forceState !== undefined ? forceState : !isOpen;
-    
-    if (shouldOpen) {
-        sidebar.classList.add('open');
-        overlay.classList.add('active');
+    const main = document.querySelector('.app-main');
+
+    if (isMobile) {
+        const isOpen = sidebar.classList.contains('open');
+        const shouldOpen = forceState !== undefined ? forceState : !isOpen;
+        if (shouldOpen) {
+            sidebar.classList.add('open');
+            overlay.classList.add('active');
+        } else {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('active');
+        }
     } else {
-        sidebar.classList.remove('open');
-        overlay.classList.remove('active');
+        // Desktop collapse/expand toggle
+        const isCollapsed = sidebar.classList.contains('collapsed');
+        const shouldCollapse = forceState !== undefined ? forceState : !isCollapsed;
+        if (shouldCollapse) {
+            sidebar.classList.add('collapsed');
+            if (main) main.classList.add('sidebar-collapsed');
+            try { localStorage.setItem('sidebar_collapsed', '1'); } catch(e) {}
+        } else {
+            sidebar.classList.remove('collapsed');
+            if (main) main.classList.remove('sidebar-collapsed');
+            try { localStorage.setItem('sidebar_collapsed', '0'); } catch(e) {}
+        }
     }
 }
+
+// Restore desktop sidebar collapsed preference on load
+try {
+    if (window.innerWidth > 1024 && localStorage.getItem('sidebar_collapsed') === '1') {
+        document.getElementById('appSidebar')?.classList.add('collapsed');
+        document.querySelector('.app-main')?.classList.add('sidebar-collapsed');
+    }
+} catch (e) {}
 
 // ==========================================================
 // Toast Notification Engine
@@ -1603,42 +1628,46 @@ function filterJobsList() {
             <tr style="${isFinishingPending ? 'background: rgba(99, 102, 241, 0.05);' : ''}">
                 <td>
                     <div style="display: flex; align-items: center;">
-                        ${childFiles.length > 0 ? `<button type="button" class="btn btn-secondary btn-sm" id="child-btn-${j.job_id}" onclick="toggleChildFiles('${j.job_id}')" style="padding: 2px 6px; font-size: 10px; margin-right: 6px; line-height: 1;" title="View Child Documents">▾</button>` : ''}
-                        <code style="color: #a5b4fc;">${j.job_id.slice(0, 8)}...</code>
+                        ${childFiles.length > 0 ? `<button type="button" class="btn btn-secondary btn-sm" id="child-btn-${j.job_id}" onclick="toggleChildFiles('${j.job_id}')" style="padding: 2px 5px; font-size: 10px; margin-right: 4px; line-height: 1;" title="View Child Documents">▾</button>` : ''}
+                        <code style="color: #a5b4fc; font-size: 12px;">${j.job_id.slice(0, 8)}...</code>
                     </div>
                 </td>
-                <td style="min-width: 140px; white-space: nowrap;">
+                <td style="max-width: 140px;">
                     ${(j.customer_name_cleared || (j.status === 'Completed' && (!j.raw_customer_name || (j.customer_name && j.customer_name.includes('Protected'))))) ?
-                        `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); font-size: 11px; font-weight: 600; white-space: nowrap; padding: 3px 8px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;" title="Customer PII scrubbed from database following print completion"><span>🔒</span> Privacy Protected</span>` :
-                        `<strong style="font-size: 13.5px; color: var(--text-main);">${j.customer_name || 'Walk-in Customer'}</strong>`
+                        `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); font-size: 10.5px; font-weight: 600; white-space: nowrap; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;" title="Customer PII scrubbed from database following print completion"><span>🔒</span> Protected</span>` :
+                        `<div style="font-size: 12.5px; font-weight: 600; color: var(--text-main); word-break: break-word; line-height: 1.25;">${j.customer_name || 'Walk-in Customer'}</div>`
                     }
-                    ${j.customer_reference && j.customer_reference !== j.customer_name ? `<div style="display: inline-block; background: rgba(99, 102, 241, 0.2); color: #c7d2fe; font-size: 11px; padding: 1px 6px; border-radius: 4px; font-weight: 600; margin-top: 2px;">Ref: ${j.customer_reference}</div>` : ''}
-                    ${(j.customer_phone && j.customer_phone !== '-' && j.customer_phone !== 'null') ? `<div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">📞 ${j.customer_phone}</div>` : ''}
+                    ${j.customer_reference && j.customer_reference !== j.customer_name ? `<div style="display: inline-block; background: rgba(99, 102, 241, 0.2); color: #c7d2fe; font-size: 10.5px; padding: 1px 5px; border-radius: 4px; font-weight: 600; margin-top: 2px;">Ref: ${j.customer_reference}</div>` : ''}
+                    ${(j.customer_phone && j.customer_phone !== '-' && j.customer_phone !== 'null') ? `<div style="font-size: 10.5px; color: var(--text-muted); margin-top: 2px;">📞 ${j.customer_phone}</div>` : ''}
                 </td>
                 <td>
-                    <div style="white-space: nowrap;"><strong>${j.total_files} file(s)</strong>, ${j.total_pages} pg</div>
-                    <div style="font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px;">
+                    <div style="white-space: nowrap; font-size: 12px;"><strong>${j.total_files} file(s)</strong>, ${j.total_pages} pg</div>
+                    <div style="font-size: 10.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px;" title="${file ? file.filename : 'Document'}">
                         ${file ? file.filename : 'Document'}
                     </div>
                 </td>
                 <td style="white-space: nowrap;">
-                    <span class="tag">${printTypeTag}</span>
-                    <span class="tag">${duplexTag}</span>
-                    <span class="tag">${file ? file.paper_size : 'A4'}</span>
+                    <span class="tag" style="font-size: 10.5px; padding: 1px 5px;">${printTypeTag}</span>
+                    <span class="tag" style="font-size: 10.5px; padding: 1px 5px;">${duplexTag}</span>
+                    <span class="tag" style="font-size: 10.5px; padding: 1px 5px;">${file ? file.paper_size : 'A4'}</span>
                 </td>
-                <td style="white-space: nowrap;"><strong style="color: #34d399;">₹${j.total_amount.toFixed(2)}</strong></td>
+                <td style="white-space: nowrap;"><strong style="color: #34d399; font-size: 13px;">₹${j.total_amount.toFixed(2)}</strong></td>
                 <td style="white-space: nowrap;"><span class="badge badge-${j.payment_status.toLowerCase()}">${j.payment_status}</span></td>
                 <td style="white-space: nowrap;">
                     <span class="badge badge-${j.status.toLowerCase()}">${j.status}</span>
-                    ${isFinishingPending ? `<div style="color: #fbbf24; font-size: 10.5px; font-weight: 700; margin-top: 4px;">⚠️ FINISHING: ${finishingNames || 'Required'}</div>` : ''}
+                    ${isFinishingPending ? `<div style="color: #fbbf24; font-size: 10px; font-weight: 700; margin-top: 2px;">⚠️ Finishing</div>` : ''}
                 </td>
-                <td style="font-size: 12.5px; white-space: nowrap;">${j.assigned_printer_name || '<span style="color:var(--text-muted);">Auto Assign</span>'}</td>
-                <td style="font-size: 12px; color: var(--text-muted); white-space: nowrap;">${j.created_at}</td>
+                <td style="font-size: 11.5px; max-width: 140px; word-break: break-word; line-height: 1.25;">
+                    ${j.assigned_printer_name ? `<span style="color: #cbd5e1;">${j.assigned_printer_name}</span>` : '<span style="color:var(--text-muted);">Auto Assign</span>'}
+                </td>
+                <td style="font-size: 11px; color: var(--text-muted); white-space: nowrap;">${j.created_at}</td>
                 <td style="text-align: right; white-space: nowrap;">
-                    ${isFinishingPending ? `<button class="btn btn-success btn-sm" style="margin-right: 4px; font-size: 11px;" onclick="completeFinishing('${j.job_id}')">✓ Done Finishing</button>` : ''}
-                    ${isFailedOrCancelled ? `<button class="btn btn-warning btn-sm" style="margin-right: 4px; font-size: 11px;" onclick="retryJob('${j.job_id}')" title="Safe retry of unfinished child files">🔄 Retry</button>` : ''}
-                    <a href="/receipt/job/${j.job_id}/download" class="btn btn-secondary btn-sm" style="margin-right: 4px; font-size: 11px;" title="Download PDF Receipt">⬇ PDF</a>
-                    <button class="btn btn-secondary btn-sm" onclick="viewJobDetails('${j.job_id}')">Details</button>
+                    <div style="display: inline-flex; gap: 4px; justify-content: flex-end; align-items: center;">
+                        ${isFinishingPending ? `<button class="btn btn-success btn-sm" style="font-size: 10.5px; padding: 4px 7px;" onclick="completeFinishing('${j.job_id}')">✓ Done</button>` : ''}
+                        ${isFailedOrCancelled ? `<button class="btn btn-warning btn-sm" style="font-size: 10.5px; padding: 4px 7px;" onclick="retryJob('${j.job_id}')" title="Safe retry of unfinished child files">🔄 Retry</button>` : ''}
+                        <a href="/receipt/job/${j.job_id}/download" class="btn btn-secondary btn-sm" style="font-size: 10.5px; padding: 4px 7px;" title="Download PDF Receipt">⬇ PDF</a>
+                        <button class="btn btn-secondary btn-sm" style="font-size: 10.5px; padding: 4px 7px;" onclick="viewJobDetails('${j.job_id}')">Details</button>
+                    </div>
                 </td>
             </tr>
             <tr id="child-row-${j.job_id}" style="display: none; background: rgba(99, 102, 241, 0.03);">
