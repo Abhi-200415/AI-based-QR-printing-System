@@ -76,6 +76,12 @@ async def settings_page(
         .all()
     )
 
+    selected_service_ids = [
+        str(s.service_id)
+        for s in (job_file.finishing_services or [])
+        if s.service_id
+    ]
+
     return templates.TemplateResponse(
         request=request,
         name="file_settings.html",
@@ -85,7 +91,8 @@ async def settings_page(
             "owner_id": str(owner_id),
             "file_name": job_file.original_filename,
             "page_count": job_file.page_count,
-            "finishing_services": services
+            "finishing_services": services,
+            "selected_service_ids": selected_service_ids
         }
     )
 

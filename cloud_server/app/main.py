@@ -148,7 +148,8 @@ async def startup_event():
     init_db()
     from app.core.config import log_payment_gateway_status
     log_payment_gateway_status()
-    asyncio.create_task(_periodic_cleanup_runner(interval_seconds=3600))
+    if os.getenv("TESTING", "").lower() not in ("true", "1"):
+        asyncio.create_task(_periodic_cleanup_runner(interval_seconds=3600))
     logger.info("Cloud Server startup completed. Listening for incoming connections.")
 
 

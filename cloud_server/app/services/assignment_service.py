@@ -28,27 +28,43 @@ def is_printer_eligible_for_file(
 ) -> bool:
     """
     Strict capability check for an individual document.
-    Ensures printer supports document color, duplex, and paper size.
+    Ensures printer is online, available, and supports document color, duplex, and paper size.
+    Hard gate: faster or default printers must NEVER bypass capability requirements.
     """
     if printer.status != PrinterStatus.ONLINE or not printer.is_available:
         return False
 
-    # Color mode check
-    if file.print_type == PrintType.BW:
-        if not printer.supports_bw:
-            return False
-    elif file.print_type in (PrintType.COLOR, PrintType.MIXED):
+    p_type = file.print_type
+    if isinstance(p_type, str):
+        try:
+            p_type = PrintType(p_type.strip().upper())
+        except Exception:
+            p_type = PrintType.BW
+
+    # Color mode check: Hard gate
+    if p_type in (PrintType.COLOR, PrintType.MIXED):
         if not printer.supports_color:
             return False
+    elif p_type == PrintType.BW:
+        # Printer must support black-and-white printing
+        if not printer.supports_bw:
+            return False
 
-    # Duplex check
+    # Duplex check: Hard gate
     if file.duplex and not printer.supports_duplex:
         return False
 
-    # Paper size check
-    if file.paper_size == PaperSize.A3 and not printer.supports_a3:
+    # Paper size check: Hard gate
+    p_size = file.paper_size
+    if isinstance(p_size, str):
+        try:
+            p_size = PaperSize(p_size.strip().upper())
+        except Exception:
+            p_size = PaperSize.A4
+
+    if p_size == PaperSize.A3 and not printer.supports_a3:
         return False
-    elif file.paper_size == PaperSize.LEGAL and not printer.supports_legal:
+    elif p_size == PaperSize.LEGAL and not printer.supports_legal:
         return False
 
     return True
@@ -119,21 +135,87 @@ def has_eligible_online_printer(
 
 
 # ==========================================================
-# Compatibility Scoring
+# Capability Affinity & Transparent Scoring
 # ==========================================================
+
+def calculate_printer_affinity_tier(
+    printer: Printer,
+    job_or_file
+) -> int:
+    """
+    Capability-based affinity tier calculation.
+    Hard compatibility must be verified before calling this ranking function.
+    
+    Tier 0: Ideal specialization match.
+      - Dedicated Monochrome printer (supports_bw=True, supports_color=False) for B/W jobs.
+      - Colour printer (supports_color=True) for Colour/Mixed jobs.
+    Tier 1: Acceptable fallback.
+      - Colour printer (supports_color=True) used for B/W jobs when no dedicated monochrome
+        printer is available or when monochrome queue is heavily backlogged.
+    """
+    needs_color = False
+    if isinstance(job_or_file, JobFile):
+        p_type = job_or_file.print_type
+        if isinstance(p_type, str):
+            needs_color = p_type.strip().upper() in ("COLOR", "MIXED")
+        else:
+            needs_color = p_type in (PrintType.COLOR, PrintType.MIXED)
+    elif hasattr(job_or_file, "files") and job_or_file.files:
+        needs_color = any(
+            (f.print_type in (PrintType.COLOR, PrintType.MIXED) if not isinstance(f.print_type, str)
+             else f.print_type.strip().upper() in ("COLOR", "MIXED"))
+            for f in job_or_file.files
+        )
+    elif hasattr(job_or_file, "print_type") and job_or_file.print_type:
+        p_type = job_or_file.print_type
+        if isinstance(p_type, str):
+            needs_color = p_type.strip().upper() in ("COLOR", "MIXED")
+        else:
+            needs_color = p_type in (PrintType.COLOR, PrintType.MIXED)
+
+    if needs_color:
+        return 0
+    else:
+        # B/W job: dedicated monochrome printers get Tier 0; color printers get Tier 1 fallback
+        if printer.supports_bw and not printer.supports_color:
+            return 0
+        return 1
+
+
+def calculate_printer_selection_score(
+    printer: Printer,
+    job_or_file,
+    predicted_seconds: float
+) -> float:
+    """
+    Transparent scoring mechanism for compatible printers:
+    - Affinity tier penalty (0 for ideal match, +1000.0 for color fallback on B/W)
+    - Estimated completion time in seconds (predicted_seconds)
+    - Queue backlog wait penalty (15.0s per queued job)
+    - Default printer preference bonus (-5.0s)
+    Lowest score represents the best printer.
+    """
+    tier = calculate_printer_affinity_tier(printer, job_or_file)
+    queue_count = printer.current_queue or 0
+    queue_wait_penalty = queue_count * 15.0
+    default_bonus = 5.0 if printer.is_default else 0.0
+
+    return (tier * 1000.0) + predicted_seconds + queue_wait_penalty - default_bonus
+
 
 def calculate_printer_score(
     printer: Printer,
     job: ActiveJob
 ) -> int:
     """
-    Score printer compatibility (legacy / ranking helper).
-    Returns -1 if incompatible.
+    Legacy integer score compatibility helper (0-100 scale).
+    Higher is better for legacy callers.
     """
     if not is_printer_eligible(printer, job):
         return -1
 
-    score = 100
+    tier = calculate_printer_affinity_tier(printer, job)
+    score = 100 - (tier * 40)
 
     # Queue load penalty
     queue = printer.current_queue or 0
@@ -159,18 +241,21 @@ def assign_printer(
     db: Session
 ) -> Optional[Printer]:
     """
-    Selects the optimal printer(s) for the job using AI/ML prediction.
-    - If a single printer can satisfy all files, assigns it to the job and files.
-    - If mixed files require different printers (e.g., Color + BW or A3 + A4),
-      distributes each child file to its optimal compatible printer safely.
+    Selects the optimal printer(s) for the job using capability matching and AI/ML prediction.
+    - If customer selected BLACK AND WHITE, prefers a compatible monochrome printer over color.
+    - If customer selected COLOUR, only selects a printer supporting colour.
+    - If mixed files require different printers, distributes each child file to its optimal compatible printer.
+    - If no compatible printer is available, keeps job safely pending and returns None.
     """
     # If already assigned, return existing printer
     if job.assigned_printer_id:
-        return (
+        existing = (
             db.query(Printer)
             .filter(Printer.printer_id == job.assigned_printer_id)
             .first()
         )
+        if existing and existing.status == PrinterStatus.ONLINE and existing.is_available:
+            return existing
 
     candidate_printers = (
         db.query(Printer)
@@ -195,17 +280,18 @@ def assign_printer(
     ]
 
     if eligible_printers:
-        evaluated_printers: List[Tuple[float, int, str, Printer, str]] = []
+        evaluated_printers: List[Tuple[float, int, int, str, Printer, str, float]] = []
         for printer in eligible_printers:
             predicted_seconds, source = predict_job_completion_time(job, printer, db)
+            score = calculate_printer_selection_score(printer, job, predicted_seconds)
             queue_count = printer.current_queue or 0
             printer_key = str(printer.printer_id)
             evaluated_printers.append(
-                (predicted_seconds, queue_count, printer_key, printer, source)
+                (score, queue_count, -(printer.total_jobs_printed or 0), printer_key, printer, source, predicted_seconds)
             )
 
-        evaluated_printers.sort(key=lambda x: (x[0], x[1], x[2]))
-        best_pred_seconds, _, _, best_printer, pred_source = evaluated_printers[0]
+        evaluated_printers.sort(key=lambda x: (x[0], x[1], x[2], x[3]))
+        best_score, _, _, _, best_printer, pred_source, best_pred_seconds = evaluated_printers[0]
 
         job.assigned_printer_id = best_printer.printer_id
         job.estimated_seconds = int(best_pred_seconds)
@@ -220,7 +306,7 @@ def assign_printer(
         db.refresh(job)
         logger.info(
             f"Assigned Job {job.job_id} -> Single Printer '{best_printer.printer_name}' "
-            f"via {pred_source} (ETA: {best_pred_seconds}s)"
+            f"via {pred_source} (Score: {best_score:.1f}, ETA: {best_pred_seconds}s)"
         )
         return best_printer
 
@@ -240,9 +326,17 @@ def assign_printer(
             logger.warning(f"File {file.original_filename} in job {job.job_id} has no compatible online printer.")
             return None
 
-        # Sort eligible printers by current queue length and completion time
-        eligible_for_file.sort(key=lambda p: (p.current_queue or 0, -(p.total_jobs_printed or 0)))
-        best_for_file = eligible_for_file[0]
+        # Score and rank eligible printers for this file using capability affinity
+        scored_for_file = []
+        for p in eligible_for_file:
+            pred_sec, _ = predict_job_completion_time(job, p, db)
+            file_score = calculate_printer_selection_score(p, file, pred_sec)
+            scored_for_file.append((file_score, p.current_queue or 0, -(p.total_jobs_printed or 0), p, pred_sec))
+
+        scored_for_file.sort(key=lambda x: (x[0], x[1], x[2]))
+        best_for_file = scored_for_file[0][3]
+        file_eta = scored_for_file[0][4]
+        max_eta = max(max_eta, file_eta)
 
         file.assigned_printer_id = best_for_file.printer_id
         file.status = JobStatus.QUEUED

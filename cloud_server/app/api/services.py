@@ -198,7 +198,8 @@ def select_job_finishing_services(
         job=job,
         service_selections=request.services,
         customer_reference=request.customer_reference,
-        db=db
+        db=db,
+        target_file_id=request.file_id
     )
 
     # Authoritatively recalculate final job total

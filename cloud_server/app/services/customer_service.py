@@ -118,8 +118,11 @@ def clear_customer_name_after_completion(job_or_id, db: Session) -> bool:
     except Exception as e:
         logger.warning(f"Could not pre-generate PDF receipt prior to customer name cleanup: {e}")
 
-    # Transactional cleanup
+    # Transactional cleanup (enforce retention policy while preserving reference for pickup)
     try:
+        # Preserve customer name in customer_reference for pickup identification if not already set
+        if job.customer_name and not job.customer_reference:
+            job.customer_reference = job.customer_name
         job.customer_name = None
         job.customer_phone = None
         db.commit()
@@ -127,5 +130,5 @@ def clear_customer_name_after_completion(job_or_id, db: Session) -> bool:
         return True
     except Exception as e:
         db.rollback()
-        logger.error(f"Failed to scrub customer name for completed order {job.job_id}: {e}")
+        logger.error(f"Failed in completion processing for order {job.job_id}: {e}")
         return False

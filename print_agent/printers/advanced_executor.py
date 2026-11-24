@@ -301,9 +301,14 @@ def execute_print_job(job):
 
         if job.get("duplex"):
             settings_parts.append("duplex")
+        else:
+            settings_parts.append("simplex")
 
-        if (job.get("print_type") or "").upper() == "COLOR":
+        ptype = (job.get("print_type") or "").upper()
+        if ptype in ("COLOR", "MIXED"):
             settings_parts.append("color")
+        elif ptype == "BW":
+            settings_parts.append("monochrome")
 
         if page_ranges:
             settings_parts.append(str(page_ranges))

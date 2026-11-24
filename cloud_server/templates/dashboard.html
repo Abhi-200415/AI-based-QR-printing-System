@@ -561,17 +561,20 @@
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Position</th>
+                                    <th>Pos</th>
                                     <th>Job ID</th>
-                                    <th>Status</th>
+                                    <th>Customer</th>
+                                    <th>File(s) & Pages</th>
+                                    <th>Print Specs</th>
+                                    <th>Finishing</th>
                                     <th>Assigned Printer</th>
-                                    <th>Estimated Wait</th>
+                                    <th>Est. Wait</th>
                                     <th>Queued At</th>
                                     <th style="text-align: right;">Action</th>
                                 </tr>
                             </thead>
                             <tbody id="queueLiveTable">
-                                <tr><td colspan="7" style="text-align:center; color: var(--text-muted); padding: 24px;">Scanning active queue...</td></tr>
+                                <tr><td colspan="10" style="text-align:center; color: var(--text-muted); padding: 24px;">Scanning active queue...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -1633,47 +1636,46 @@ function filterJobsList() {
                     </div>
                 </td>
                 <td style="max-width: 140px;">
-                    ${(j.customer_name_cleared || (j.status === 'Completed' && (!j.raw_customer_name || (j.customer_name && j.customer_name.includes('Protected'))))) ?
-                        `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); font-size: 10.5px; font-weight: 600; white-space: nowrap; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;" title="Customer PII scrubbed from database following print completion"><span>🔒</span> Protected</span>` :
-                        `<div style="font-size: 12.5px; font-weight: 600; color: var(--text-main); word-break: break-word; line-height: 1.25;">${j.customer_name || 'Walk-in Customer'}</div>`
-                    }
+                    <div style="font-size: 12.5px; font-weight: 600; color: var(--text-main); word-break: break-word; line-height: 1.25;">${j.customer_name || j.customer_reference || 'Customer'}</div>
                     ${j.customer_reference && j.customer_reference !== j.customer_name ? `<div style="display: inline-block; background: rgba(99, 102, 241, 0.2); color: #c7d2fe; font-size: 10.5px; padding: 1px 5px; border-radius: 4px; font-weight: 600; margin-top: 2px;">Ref: ${j.customer_reference}</div>` : ''}
                     ${(j.customer_phone && j.customer_phone !== '-' && j.customer_phone !== 'null') ? `<div style="font-size: 10.5px; color: var(--text-muted); margin-top: 2px;">📞 ${j.customer_phone}</div>` : ''}
                 </td>
                 <td>
-                    <div style="white-space: nowrap; font-size: 12px;"><strong>${j.total_files} file(s)</strong>, ${j.total_pages} pg</div>
-                    <div style="font-size: 10.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px;" title="${file ? file.filename : 'Document'}">
+                    <div style="white-space: nowrap; font-size: 11.5px;"><strong>${j.total_files} file(s)</strong>, ${j.total_pages} pg</div>
+                    <div style="font-size: 10.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 110px;" title="${file ? file.filename : 'Document'}">
                         ${file ? file.filename : 'Document'}
                     </div>
                 </td>
                 <td style="white-space: nowrap;">
-                    <span class="tag" style="font-size: 10.5px; padding: 1px 5px;">${printTypeTag}</span>
-                    <span class="tag" style="font-size: 10.5px; padding: 1px 5px;">${duplexTag}</span>
-                    <span class="tag" style="font-size: 10.5px; padding: 1px 5px;">${file ? file.paper_size : 'A4'}</span>
+                    <span class="tag" style="font-size: 10px; padding: 1px 4px;">${printTypeTag}</span>
+                    <span class="tag" style="font-size: 10px; padding: 1px 4px;">${duplexTag}</span>
+                    <span class="tag" style="font-size: 10px; padding: 1px 4px;">${file ? file.paper_size : 'A4'}</span>
                 </td>
-                <td style="white-space: nowrap;"><strong style="color: #34d399; font-size: 13px;">₹${j.total_amount.toFixed(2)}</strong></td>
+                <td style="white-space: nowrap;"><strong style="color: #34d399; font-size: 12.5px;">₹${j.total_amount.toFixed(2)}</strong></td>
                 <td style="white-space: nowrap;"><span class="badge badge-${j.payment_status.toLowerCase()}">${j.payment_status}</span></td>
                 <td style="white-space: nowrap;">
                     <span class="badge badge-${j.status.toLowerCase()}">${j.status}</span>
-                    ${isFinishingPending ? `<div style="color: #fbbf24; font-size: 10px; font-weight: 700; margin-top: 2px;">⚠️ Finishing</div>` : ''}
+                    ${isFinishingPending ? `<div style="color: #fbbf24; font-size: 9.5px; font-weight: 700; margin-top: 2px;">⚠️ Finishing</div>` : ''}
                 </td>
-                <td style="font-size: 11.5px; max-width: 140px; word-break: break-word; line-height: 1.25;">
-                    ${j.assigned_printer_name ? `<span style="color: #cbd5e1;">${j.assigned_printer_name}</span>` : '<span style="color:var(--text-muted);">Auto Assign</span>'}
+                <td>
+                    <div style="font-size: 11px; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${j.assigned_printer_name || 'Auto Assign'}">
+                        ${j.assigned_printer_name ? `<span style="color: #cbd5e1;">${j.assigned_printer_name}</span>` : '<span style="color:var(--text-muted);">Auto Assign</span>'}
+                    </div>
                 </td>
-                <td style="font-size: 11px; color: var(--text-muted); white-space: nowrap;">${j.created_at}</td>
+                <td style="font-size: 10.5px; color: var(--text-muted); white-space: nowrap;">${j.created_at ? j.created_at.replace(/^\d{4}-/, '') : '-'}</td>
                 <td style="text-align: right; white-space: nowrap;">
-                    <div style="display: inline-flex; gap: 4px; justify-content: flex-end; align-items: center;">
-                        ${isFinishingPending ? `<button class="btn btn-success btn-sm" style="font-size: 10.5px; padding: 4px 7px;" onclick="completeFinishing('${j.job_id}')">✓ Done</button>` : ''}
-                        ${isFailedOrCancelled ? `<button class="btn btn-warning btn-sm" style="font-size: 10.5px; padding: 4px 7px;" onclick="retryJob('${j.job_id}')" title="Safe retry of unfinished child files">🔄 Retry</button>` : ''}
-                        <a href="/receipt/job/${j.job_id}/download" class="btn btn-secondary btn-sm" style="font-size: 10.5px; padding: 4px 7px;" title="Download PDF Receipt">⬇ PDF</a>
-                        <button class="btn btn-secondary btn-sm" style="font-size: 10.5px; padding: 4px 7px;" onclick="viewJobDetails('${j.job_id}')">Details</button>
+                    <div style="display: inline-flex; gap: 3px; justify-content: flex-end; align-items: center;">
+                        ${isFinishingPending ? `<button class="btn btn-success btn-sm" style="font-size: 10px; padding: 3px 6px;" onclick="completeFinishing('${j.job_id}')">✓ Done</button>` : ''}
+                        ${isFailedOrCancelled ? `<button class="btn btn-warning btn-sm" style="font-size: 10px; padding: 3px 6px;" onclick="retryJob('${j.job_id}')" title="Safe retry of unfinished child files">🔄 Retry</button>` : ''}
+                        <a href="/receipt/job/${j.job_id}/download" class="btn btn-secondary btn-sm" style="font-size: 10px; padding: 3px 6px;" title="Download PDF Receipt">⬇ PDF</a>
+                        <button class="btn btn-secondary btn-sm" style="font-size: 10px; padding: 3px 6px;" onclick="viewJobDetails('${j.job_id}')">Details</button>
                     </div>
                 </td>
             </tr>
             <tr id="child-row-${j.job_id}" style="display: none; background: rgba(99, 102, 241, 0.03);">
                 <td colspan="10" style="padding: 10px 18px 14px 28px;">
                     <div style="font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 8px;">
-                        📄 Child Documents (${childFiles.length}) — Customer: ${(j.customer_name_cleared || (j.status === 'Completed' && (!j.raw_customer_name || (j.customer_name && j.customer_name.includes('Protected'))))) ? '<span style="color: #34d399; font-weight: 600;">🔒 Privacy Protected</span>' : `<strong>${j.customer_name || 'Walk-in Customer'}</strong>`}
+                        📄 Child Documents (${childFiles.length}) — Customer: <strong>${j.customer_name || j.customer_reference || 'Customer'}</strong>
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 6px;">
                         ${childFiles.map(cf => `
@@ -1683,6 +1685,11 @@ function filterJobsList() {
                                     <span style="color: var(--text-muted); margin-left: 8px;">
                                         ${cf.page_count} pg • ${cf.copies} cpy • ${cf.paper_size} • ${cf.print_type === 'COLOR' ? 'Color' : 'B/W'} • ${cf.duplex ? '2-Sided' : '1-Sided'}
                                     </span>
+                                    <div style="margin-top: 4px; display: flex; gap: 4px; flex-wrap: wrap;">
+                                        ${cf.lamination ? '<span class="tag" style="background: rgba(236, 72, 153, 0.2); color: #f472b6; border: 1px solid rgba(236, 72, 153, 0.4); font-size: 10px; padding: 1px 5px;">✨ Lamination</span>' : ''}
+                                        ${cf.spiral_binding ? '<span class="tag" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); font-size: 10px; padding: 1px 5px;">📚 Spiral Binding</span>' : ''}
+                                        ${(cf.finishing_services || []).filter(s => !s.toLowerCase().includes('laminat') && !s.toLowerCase().includes('spiral') && !s.toLowerCase().includes('bind')).map(s => `<span class="tag" style="font-size: 10px; padding: 1px 5px;">${s}</span>`).join(' ')}
+                                    </div>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 12px;">
                                     <span style="color: #38bdf8; font-size: 11.5px;">🖨️ ${cf.assigned_printer_name || 'Routing pending'}</span>
@@ -2008,23 +2015,100 @@ async function loadQueueTable() {
 
         const table = document.getElementById("queueLiveTable");
         if (qJobs.length === 0) {
-            table.innerHTML = `<tr><td colspan="7" style="text-align:center; color: var(--text-muted); padding: 24px;">✓ No active jobs in queue. Printers are idle and ready.</td></tr>`;
+            table.innerHTML = `<tr><td colspan="10" style="text-align:center; color: var(--text-muted); padding: 24px;">✓ No active jobs in queue. Printers are idle and ready.</td></tr>`;
             return;
         }
 
-        table.innerHTML = qJobs.map(q => `
-            <tr>
-                <td><strong style="color: #a5b4fc; font-size: 15px;">#${q.queue_position || 1}</strong></td>
-                <td><code>${q.job_id.slice(0, 8)}...</code></td>
-                <td><span class="badge badge-${q.status.toLowerCase()}">${q.status}</span></td>
-                <td>${q.assigned_printer_id ? q.assigned_printer_id.slice(0, 8) + '...' : 'Auto Assigned'}</td>
-                <td><strong>${q.estimated_seconds || 0}s</strong></td>
-                <td style="font-size: 12px; color: var(--text-muted);">${q.queued_at ? new Date(q.queued_at).toLocaleTimeString() : '-'}</td>
-                <td style="text-align: right;">
-                    <button class="btn btn-danger btn-sm" onclick="cancelQueueJob('${q.job_id}')">Cancel</button>
-                </td>
-            </tr>
-        `).join("");
+        table.innerHTML = qJobs.map(q => {
+            const files = q.files || [];
+            const primaryFile = files[0] || null;
+            const printType = primaryFile ? (primaryFile.print_type === 'COLOR' ? 'Color' : 'B/W') : 'B/W';
+            const duplexStr = primaryFile ? (primaryFile.duplex ? '2-Sided' : '1-Sided') : '1-Sided';
+            const paperStr = primaryFile ? primaryFile.paper_size : 'A4';
+            
+            // Finishing services check
+            const hasLamination = files.some(f => f.lamination) || (files.some(f => (f.finishing_services || []).some(s => s.toLowerCase().includes('laminat'))));
+            const hasSpiral = files.some(f => f.spiral_binding) || (files.some(f => (f.finishing_services || []).some(s => s.toLowerCase().includes('spiral') || s.toLowerCase().includes('bind'))));
+            const otherFinishing = [];
+            files.forEach(f => {
+                (f.finishing_services || []).forEach(s => {
+                    const low = s.toLowerCase();
+                    if (!low.includes('laminat') && !low.includes('spiral') && !low.includes('bind') && !otherFinishing.includes(s)) {
+                        otherFinishing.push(s);
+                    }
+                });
+            });
+
+            const printerDisplayName = q.assigned_printer_name || (q.assigned_printer_id ? q.assigned_printer_id.slice(0, 8) + '...' : 'Auto Assign');
+
+            return `
+                <tr>
+                    <td><strong style="color: #a5b4fc; font-size: 14px;">#${q.queue_position || 1}</strong></td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            ${files.length > 1 ? `<button type="button" class="btn btn-secondary btn-sm" id="queue-btn-${q.job_id}" onclick="toggleQueueChildFiles('${q.job_id}')" style="padding: 2px 5px; font-size: 10px; line-height: 1;" title="View Child Files">▾</button>` : ''}
+                            <code style="color: #a5b4fc; font-size: 11.5px;">${q.job_id.slice(0, 8)}...</code>
+                        </div>
+                    </td>
+                    <td>
+                        <div style="font-size: 12.5px; font-weight: 600; color: var(--text-main);">${q.customer_name || 'Customer'}</div>
+                        ${q.customer_reference && q.customer_reference !== q.customer_name ? `<div style="font-size: 10.5px; color: var(--accent);">Ref: ${q.customer_reference}</div>` : ''}
+                    </td>
+                    <td>
+                        <div style="font-size: 12px; font-weight: 600; color: var(--text-main);">${q.total_files || 1} file(s), ${q.total_pages || 1} pg</div>
+                        <div style="font-size: 11px; color: var(--text-muted); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${primaryFile ? primaryFile.filename : 'Document'}">
+                            ${primaryFile ? primaryFile.filename : 'Document'}
+                        </div>
+                    </td>
+                    <td style="white-space: nowrap;">
+                        <span class="tag" style="font-size: 10.5px; padding: 1px 5px; ${printType === 'Color' ? 'background: rgba(236, 72, 153, 0.2); color: #f472b6; border-color: rgba(236, 72, 153, 0.4);' : ''}">${printType}</span>
+                        <span class="tag" style="font-size: 10.5px; padding: 1px 5px;">${duplexStr}</span>
+                        <span class="tag" style="font-size: 10.5px; padding: 1px 5px;">${paperStr}</span>
+                    </td>
+                    <td style="white-space: nowrap;">
+                        ${hasLamination ? `<span class="tag" style="background: rgba(236, 72, 153, 0.2); color: #f472b6; border: 1px solid rgba(236, 72, 153, 0.4); font-size: 10px; padding: 1px 5px; font-weight: 600;">✨ Lamination</span> ` : ''}
+                        ${hasSpiral ? `<span class="tag" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); font-size: 10px; padding: 1px 5px; font-weight: 600;">📚 Spiral Binding</span> ` : ''}
+                        ${otherFinishing.map(s => `<span class="tag" style="font-size: 10px; padding: 1px 5px;">${s}</span>`).join(' ')}
+                        ${(!hasLamination && !hasSpiral && otherFinishing.length === 0) ? `<span style="color: var(--text-muted); font-size: 11px;">None</span>` : ''}
+                    </td>
+                    <td style="font-size: 12px; color: #cbd5e1; font-weight: 500;">
+                        ${printerDisplayName}
+                    </td>
+                    <td><strong>${q.estimated_seconds || 0}s</strong></td>
+                    <td style="font-size: 11.5px; color: var(--text-muted); white-space: nowrap;">${q.queued_at ? new Date(q.queued_at).toLocaleTimeString() : '-'}</td>
+                    <td style="text-align: right; white-space: nowrap;">
+                        <button class="btn btn-danger btn-sm" style="font-size: 10.5px; padding: 3px 8px;" onclick="cancelQueueJob('${q.job_id}')">Cancel</button>
+                    </td>
+                </tr>
+                ${files.length > 1 ? `
+                <tr id="queue-child-row-${q.job_id}" style="display: none; background: rgba(99, 102, 241, 0.03);">
+                    <td colspan="10" style="padding: 10px 18px 14px 28px;">
+                        <div style="font-size: 11.5px; font-weight: 600; color: var(--accent); margin-bottom: 6px;">
+                            📄 Child Files (${files.length})
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            ${files.map(f => `
+                                <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 12px; font-size: 11.5px;">
+                                    <div>
+                                        <strong>📑 ${f.filename}</strong>
+                                        <span style="color: var(--text-muted); margin-left: 8px;">
+                                            ${f.page_count} pg • ${f.copies} cpy • ${f.paper_size} • ${f.print_type === 'COLOR' ? 'Color' : 'B/W'} • ${f.duplex ? '2-Sided' : '1-Sided'}
+                                        </span>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        ${f.lamination ? '<span class="tag" style="background: rgba(236, 72, 153, 0.2); color: #f472b6; border: 1px solid rgba(236, 72, 153, 0.4); font-size: 10px;">✨ Lamination</span>' : ''}
+                                        ${f.spiral_binding ? '<span class="tag" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); font-size: 10px;">📚 Spiral Binding</span>' : ''}
+                                        ${(f.finishing_services || []).filter(s => !s.toLowerCase().includes('laminat') && !s.toLowerCase().includes('spiral')).map(s => `<span class="tag" style="font-size: 10px;">${s}</span>`).join(' ')}
+                                        <span style="color: #38bdf8; font-size: 11px;">🖨️ ${f.assigned_printer_name || printerDisplayName}</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </td>
+                </tr>
+                ` : ''}
+            `;
+        }).join("");
     } catch (e) {
         console.error("Queue load error:", e);
     }
@@ -2040,6 +2124,16 @@ async function cancelQueueJob(jobId) {
         }
     } catch (e) {
         showToast("Error cancelling job.", true);
+    }
+}
+
+function toggleQueueChildFiles(jobId) {
+    const el = document.getElementById(`queue-child-row-${jobId}`);
+    const btn = document.getElementById(`queue-btn-${jobId}`);
+    if (el) {
+        const isHidden = el.style.display === "none";
+        el.style.display = isHidden ? "table-row" : "none";
+        if (btn) btn.innerText = isHidden ? "▴" : "▾";
     }
 }
 

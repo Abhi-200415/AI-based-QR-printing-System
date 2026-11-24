@@ -110,6 +110,14 @@ def get_owner_jobs(
     for j in jobs:
         files = []
         for f in (j.files or []):
+            file_finishing = [
+                s.service_name
+                for s in (j.finishing_services or [])
+                if s.file_id == f.file_id
+            ]
+            is_lam = any("laminat" in s.lower() for s in file_finishing)
+            is_spiral = any("spiral" in s.lower() or "bind" in s.lower() for s in file_finishing)
+
             files.append({
                 "file_id": str(f.file_id),
                 "filename": f.original_filename,
@@ -126,7 +134,10 @@ def get_owner_jobs(
                 "assigned_printer_id": str(f.assigned_printer_id) if f.assigned_printer_id else str(j.assigned_printer_id) if j.assigned_printer_id else None,
                 "assigned_printer_name": f.assigned_printer.printer_name if f.assigned_printer else (j.assigned_printer.printer_name if j.assigned_printer else None),
                 "status": f.status.value if hasattr(f.status, "value") else str(f.status or "Pending"),
-                "print_completed": bool(f.print_completed)
+                "print_completed": bool(f.print_completed),
+                "finishing_services": file_finishing,
+                "lamination": is_lam,
+                "spiral_binding": is_spiral
             })
         pmt = j.payment
         finishing_list = []
@@ -141,16 +152,8 @@ def get_owner_jobs(
                 "total_price": float(s.total_price)
             })
 
-        display_cust_name = j.customer_name
+        display_cust_name = j.customer_name or j.customer_reference or "Customer"
         is_cleared = False
-        if not display_cust_name:
-            if j.status == JobStatus.COMPLETED:
-                display_cust_name = "[Privacy Protected]"
-                is_cleared = True
-            elif j.customer_reference:
-                display_cust_name = j.customer_reference
-            else:
-                display_cust_name = "Walk-in Customer"
 
         result.append({
             "job_id": str(j.job_id),

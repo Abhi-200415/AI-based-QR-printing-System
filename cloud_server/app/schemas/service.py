@@ -62,6 +62,7 @@ class JobFinishingServiceItem(BaseModel):
 
 class JobFinishingSelectRequest(BaseModel):
     customer_reference: Optional[str] = None
+    file_id: Optional[UUID] = None
     services: List[JobFinishingServiceItem] = []
 
 

@@ -311,7 +311,7 @@
                         {% for s in finishing_services %}
                         <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 10px 14px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 13.5px; transition: all 0.2s ease;">
                             <div style="display: flex; align-items: center; gap: 10px;">
-                                <input type="checkbox" class="service-checkbox" value="{{ s.service_id }}" data-price="{{ s.price }}" data-name="{{ s.service_name }}" style="width: 18px; height: 18px; accent-color: var(--accent);">
+                                <input type="checkbox" class="service-checkbox" value="{{ s.service_id }}" data-price="{{ s.price }}" data-name="{{ s.service_name }}" {% if selected_service_ids and s.service_id|string in selected_service_ids %}checked{% endif %} style="width: 18px; height: 18px; accent-color: var(--accent);">
                                 <div>
                                     <div style="font-weight: 600; color: var(--text-main);">{{ s.service_name }}</div>
                                     {% if s.description %}
@@ -556,6 +556,7 @@ document.getElementById("settingsForm").addEventListener("submit", async functio
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 customer_reference: customerRef,
+                file_id: fileId,
                 services: selectedServices
             })
         });

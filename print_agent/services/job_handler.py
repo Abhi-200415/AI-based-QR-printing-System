@@ -111,12 +111,13 @@ def handle_job(job: dict) -> bool:
             if not validate_file(file_path):
                 raise Exception(f"Validation failed for file {idx} ({file_info.get('stored_filename')})")
 
+            target_printer = file_info.get("printer_name") or job.get("printer_name")
             # Prepare print execution payload for this file
             file_print_job = {
                 "job_id": job_id,
                 "file_id": file_info.get("file_id"),
                 "file_path": os.path.abspath(file_path),
-                "printer_name": job.get("printer_name"),
+                "printer_name": target_printer,
                 "copies": file_info.get("copies", 1),
                 "paper_size": file_info.get("paper_size", "A4"),
                 "orientation": file_info.get("orientation", "PORTRAIT"),
@@ -126,7 +127,7 @@ def handle_job(job: dict) -> bool:
                 "page_ranges": file_info.get("page_ranges")
             }
 
-            info(f"Printing file {idx}/{total_files} on '{job.get('printer_name')}'...")
+            info(f"Printing file {idx}/{total_files} on '{target_printer}'...")
             print_success = execute_print_job(file_print_job)
 
             if not print_success:

@@ -1,4 +1,5 @@
 import uuid
+from uuid import UUID
 from decimal import Decimal
 from typing import Optional
 from sqlalchemy.orm import Session
@@ -277,34 +278,74 @@ def calculate_file_cost(
 # Apply Finishing Services to Job
 # ==========================================================
 
+def _safe_uuid(val) -> Optional[UUID]:
+    if val is None:
+        return None
+    if isinstance(val, UUID):
+        return val
+    try:
+        return UUID(str(val))
+    except Exception:
+        return None
+
+
 def apply_finishing_services_to_job(
     job: ActiveJob,
     service_selections: list,
     customer_reference: Optional[str],
-    db: Session
+    db: Session,
+    target_file_id: Optional[UUID] = None
 ):
     """
     Applies authoritative finishing service selections to an active job.
+    Supports file-level scoping: if target_file_id or item.file_id is specified,
+    preserves finishing services for other files in the same order.
     Enforces shop isolation, active status, creates price snapshot records,
     and updates customer reference.
     """
     if customer_reference is not None:
         job.customer_reference = customer_reference.strip() if customer_reference else None
 
-    # Clear existing selections for this job
-    db.query(JobFinishingService).filter(JobFinishingService.job_id == job.job_id).delete()
+    target_fid_clean = _safe_uuid(target_file_id)
+
+    # Determine which file(s) are being updated to prevent wiping other files' services
+    items_file_ids = set()
+    for item in (service_selections or []):
+        raw_fid = item.file_id if hasattr(item, "file_id") else (item.get("file_id") if isinstance(item, dict) else None)
+        cleaned_fid = _safe_uuid(raw_fid)
+        if cleaned_fid:
+            items_file_ids.add(cleaned_fid)
+
+    if target_fid_clean is not None:
+        # Clear only the specific file's existing finishing services
+        db.query(JobFinishingService).filter(
+            JobFinishingService.job_id == job.job_id,
+            JobFinishingService.file_id == target_fid_clean
+        ).delete()
+    elif items_file_ids:
+        # Clear only the affected file(s)' existing finishing services
+        db.query(JobFinishingService).filter(
+            JobFinishingService.job_id == job.job_id,
+            JobFinishingService.file_id.in_(items_file_ids)
+        ).delete()
+    else:
+        # Whole-job replacement (legacy or order-level services)
+        db.query(JobFinishingService).filter(JobFinishingService.job_id == job.job_id).delete()
 
     if not service_selections:
-        job.finishing_status = "NONE"
+        # Check if any services remain on other files in this job
+        remaining = db.query(JobFinishingService).filter(JobFinishingService.job_id == job.job_id).count()
+        job.finishing_status = "PENDING" if remaining > 0 else "NONE"
         db.commit()
         return
 
-    has_services = False
     for item in service_selections:
-        srv_id = item.service_id if hasattr(item, "service_id") else item.get("service_id")
+        raw_srv = item.service_id if hasattr(item, "service_id") else item.get("service_id")
+        srv_id = _safe_uuid(raw_srv)
         qty = item.quantity if hasattr(item, "quantity") else item.get("quantity", 1)
         qty = max(1, int(qty or 1))
-        fid = item.file_id if hasattr(item, "file_id") else item.get("file_id")
+        raw_item_fid = item.file_id if hasattr(item, "file_id") else item.get("file_id")
+        fid = _safe_uuid(raw_item_fid) or target_fid_clean
 
         if fid:
             # Verify file belongs to this job
@@ -345,9 +386,10 @@ def apply_finishing_services_to_job(
             total_price=total_p
         )
         db.add(job_service)
-        has_services = True
 
-    job.finishing_status = "PENDING" if has_services else "NONE"
+    db.flush()
+    active_count = db.query(JobFinishingService).filter(JobFinishingService.job_id == job.job_id).count()
+    job.finishing_status = "PENDING" if active_count > 0 else "NONE"
     db.commit()
 
 

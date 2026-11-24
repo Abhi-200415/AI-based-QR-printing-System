@@ -1,4 +1,6 @@
 from app.core.config import BASE_URL
+from app.database.connection import SessionLocal
+from app.database.models import PrinterStatus
 from app.websocket.manager import send_job_to_agent, send_job_to_shop
 from app.utils.logger import logger
 
@@ -6,12 +8,30 @@ from app.utils.logger import logger
 async def dispatch_job_to_agent(job):
     """
     Dispatch a print job (with all files) to the selected printer's connected agent.
+    Revalidates printer availability immediately before transmission.
     """
     printer = job.assigned_printer
 
-    if not printer:
-        logger.error(f"Cannot dispatch job {job.job_id}: No assigned printer.")
-        return False
+    # Revalidate printer availability immediately before dispatch
+    if not printer or printer.status != PrinterStatus.ONLINE or not printer.is_available:
+        logger.warning(
+            f"Assigned printer for job {job.job_id} is unavailable or offline. Attempting revalidation..."
+        )
+        db = SessionLocal()
+        try:
+            from app.services.assignment_service import assign_printer
+            reassigned = assign_printer(job, db)
+            if reassigned:
+                printer = reassigned
+                logger.info(f"Revalidated job {job.job_id} to online printer '{printer.printer_name}'.")
+            else:
+                logger.warning(
+                    f"Cannot dispatch job {job.job_id}: No compatible online printer available. "
+                    f"Job remains safely queued until a compatible printer is online."
+                )
+                return False
+        finally:
+            db.close()
 
     if not job.files:
         logger.error(f"Cannot dispatch job {job.job_id}: Job has no files.")
@@ -20,6 +40,25 @@ async def dispatch_job_to_agent(job):
     # Build files list for multi-file print job dispatch
     files_payload = []
     for file in job.files:
+        assigned_pname = (
+            file.assigned_printer.printer_name
+            if file.assigned_printer
+            else printer.printer_name
+        )
+        
+        file_finishing = []
+        if hasattr(file, "finishing_services") and file.finishing_services:
+            file_finishing = [s.service_name for s in file.finishing_services]
+        elif hasattr(job, "finishing_services") and job.finishing_services:
+            file_finishing = [
+                s.service_name
+                for s in job.finishing_services
+                if s.file_id == file.file_id
+            ]
+
+        is_lam = any("laminat" in s.lower() for s in file_finishing)
+        is_spiral = any("spiral" in s.lower() or "bind" in s.lower() for s in file_finishing)
+
         files_payload.append({
             "file_id": str(file.file_id),
             "original_filename": file.original_filename,
@@ -33,7 +72,12 @@ async def dispatch_job_to_agent(job):
             "duplex": bool(file.duplex),
             "print_type": (file.print_type.value if file.print_type else "BW"),
             "color_mode": file.color_mode or "AUTO",
-            "page_ranges": file.page_ranges
+            "page_ranges": file.page_ranges,
+            "printer_name": assigned_pname,
+            "assigned_printer_name": assigned_pname,
+            "lamination": is_lam,
+            "spiral_binding": is_spiral,
+            "finishing_services": file_finishing
         })
 
     # Legacy/first file shortcut for single-file compatibility
@@ -42,6 +86,8 @@ async def dispatch_job_to_agent(job):
     job_payload = {
         "job_id": str(job.job_id),
         "owner_id": str(job.owner_id),
+        "customer_name": job.customer_name or job.customer_reference or "Customer",
+        "customer_reference": job.customer_reference,
         "printer_id": str(printer.printer_id),
         "printer_name": printer.printer_name,
         "agent_id": printer.agent_id,
@@ -51,6 +97,7 @@ async def dispatch_job_to_agent(job):
         "file_id": primary_file["file_id"],
         "download_url": primary_file["download_url"],
         "stored_filename": primary_file["stored_filename"],
+        "original_filename": primary_file["original_filename"],
         "file_type": primary_file["file_type"],
         "page_count": primary_file["page_count"],
         "copies": primary_file["copies"],
