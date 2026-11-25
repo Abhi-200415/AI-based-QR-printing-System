@@ -134,7 +134,7 @@ def handle_job(job: dict) -> bool:
                 raise Exception(f"Physical printing failed for file {idx} ({file_info.get('stored_filename')})")
 
             # Clean up printed file immediately
-            secure_delete(file_path)
+            secure_delete(file_path, job_id=job_id)
             downloaded_files.remove(file_path)
 
         actual_duration = int(time.time() - start_time)
@@ -152,7 +152,7 @@ def handle_job(job: dict) -> bool:
         # Clean up any leftover downloaded files
         for fp in downloaded_files:
             if fp and os.path.exists(fp):
-                secure_delete(fp)
+                secure_delete(fp, job_id=job_id)
 
         return False
     finally:

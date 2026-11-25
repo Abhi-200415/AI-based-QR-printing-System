@@ -451,26 +451,118 @@ if (window.AIVoiceAssistant) {
 
     voiceAssistant.onResultCallback = (result) => {
         lastInterpreted = result;
+        const telemetry = window.AIVoiceTelemetry || { send: () => {}, speak: () => {} };
+
+        // 1. Greetings and Help
+        if (result.intent === 'GREETING' || result.intent === 'HELP') {
+            telemetry.send('EXECUTING', result.raw, result.intent);
+            telemetry.speak(result.message);
+            showStatus(result.message, false);
+            telemetry.send('COMPLETED', result.raw, result.intent);
+            return;
+        }
+
+        // 2. Navigation / Role-gated
+        if (result.intent === 'NAVIGATION') {
+            telemetry.speak(result.message);
+            showStatus(result.message, true);
+            telemetry.send('FAILED', result.raw, result.intent, 'Role Restricted');
+            return;
+        }
+
+        // 3. Document Preview
         if (result.intent === 'PREVIEW') {
-            btnOpenPreview.click();
-            return;
-        }
-        if (result.intent === 'UNKNOWN' || result.message) {
-            showStatus(result.message || "Sorry, I can't perform that voice command.", true);
+            telemetry.send('EXECUTING', result.raw, result.intent);
+            try {
+                btnOpenPreview.click();
+                telemetry.speak("Opening document preview.");
+                showStatus("✓ Document preview opened.");
+                telemetry.send('COMPLETED', result.raw, result.intent);
+            } catch (err) {
+                telemetry.send('FAILED', result.raw, result.intent, err.message);
+                showStatus("Failed to open preview.", true);
+            }
             return;
         }
 
-        // Build structured preview
-        const specs = [];
-        if (result.copies) specs.push(`• Copies: <strong>${result.copies}</strong>`);
-        if (result.printType) specs.push(`• Color: <strong>${result.printType}</strong>`);
-        if (result.duplex !== null) specs.push(`• Sides: <strong>${result.duplex ? 'Double-Sided' : 'Single-Sided'}</strong>`);
-        if (result.paperSize) specs.push(`• Paper: <strong>${result.paperSize}</strong>`);
-        if (result.pageRanges) specs.push(`• Pages: <strong>${result.pageRanges}</strong>`);
-        if (result.finishingService) specs.push(`• Finishing: <strong>${result.finishingService}</strong>`);
+        // 4. Order Summary / Checkout
+        if (result.intent === 'SUMMARY') {
+            telemetry.send('EXECUTING', result.raw, result.intent);
+            try {
+                telemetry.speak("Proceeding to checkout.");
+                telemetry.send('COMPLETED', result.raw, result.intent);
+                const saveBtn = document.getElementById("saveBtn");
+                if (saveBtn && !saveBtn.disabled) saveBtn.click();
+            } catch (err) {
+                telemetry.send('FAILED', result.raw, result.intent, err.message);
+                showStatus("Failed to proceed to checkout.", true);
+            }
+            return;
+        }
 
-        voiceInterpretedSpecs.innerHTML = specs.length > 0 ? specs.join("<br>") : "No changes detected.";
-        voiceResultCard.style.display = "block";
+        // 5. Ambiguous or Unknown Commands
+        if (result.intent === 'AMBIGUOUS' || result.intent === 'UNKNOWN' || (!result.copies && !result.printType && result.duplex === null && !result.paperSize && !result.pageRanges && !result.finishingService)) {
+            const msg = result.message || "Command unclear. Please specify copies, color mode, or paper size.";
+            telemetry.speak(msg);
+            showStatus(msg, true);
+            return;
+        }
+
+        // 6. Direct Print Configuration Execution
+        telemetry.send('EXECUTING', result.raw, result.intent);
+        try {
+            const specs = [];
+            const spokenParts = [];
+
+            if (result.copies) {
+                document.getElementById("copies").value = result.copies;
+                specs.push(`• Copies: <strong>${result.copies}</strong>`);
+                spokenParts.push(`${result.copies} ${result.copies > 1 ? 'copies' : 'copy'}`);
+            }
+            if (result.printType) {
+                document.getElementById("print_type").value = result.printType;
+                mixedSection.style.display = (result.printType === "MIXED") ? "block" : "none";
+                const modeLabel = result.printType === "BW" ? "Black & White" : (result.printType === "COLOR" ? "Color" : "Mixed");
+                specs.push(`• Color: <strong>${modeLabel}</strong>`);
+                spokenParts.push(`in ${modeLabel}`);
+            }
+            if (result.duplex !== null) {
+                document.getElementById("duplex").checked = result.duplex;
+                const sideLabel = result.duplex ? 'Double-Sided' : 'Single-Sided';
+                specs.push(`• Sides: <strong>${sideLabel}</strong>`);
+                spokenParts.push(sideLabel);
+            }
+            if (result.paperSize) {
+                document.getElementById("paper_size").value = result.paperSize;
+                specs.push(`• Paper: <strong>${result.paperSize}</strong>`);
+                spokenParts.push(`${result.paperSize} paper`);
+            }
+            if (result.pageRanges) {
+                document.getElementById("page_ranges").value = result.pageRanges;
+                specs.push(`• Pages: <strong>${result.pageRanges}</strong>`);
+                spokenParts.push(`pages ${result.pageRanges}`);
+            }
+            if (result.finishingService) {
+                const boxes = document.querySelectorAll(".service-checkbox");
+                boxes.forEach(cb => {
+                    const sName = cb.dataset.name ? cb.dataset.name.toLowerCase() : "";
+                    cb.checked = sName.includes(result.finishingService.toLowerCase());
+                });
+                specs.push(`• Finishing: <strong>${result.finishingService}</strong>`);
+                spokenParts.push(`with ${result.finishingService}`);
+            }
+
+            voiceInterpretedSpecs.innerHTML = specs.length > 0 ? specs.join("<br>") : "Settings applied.";
+            voiceResultCard.style.display = "block";
+
+            const confirmationMsg = spokenParts.length > 0 ? "Applied " + spokenParts.join(", ") : "Settings applied.";
+            telemetry.speak(confirmationMsg);
+            showStatus("✓ " + confirmationMsg);
+            telemetry.send('COMPLETED', result.raw, result.intent);
+        } catch (err) {
+            telemetry.send('FAILED', result.raw, result.intent, err.message);
+            showStatus("Failed to apply voice settings: " + err.message, true);
+        }
     };
 
     btnVoiceSpeak.addEventListener("click", () => {

@@ -130,3 +130,59 @@ def train_model(
     """
     result = train_ml_model_from_db(db)
     return result
+
+
+# ==========================================================
+# Voice Assistant Telemetry & Command Audit
+# ==========================================================
+
+from pydantic import BaseModel
+from typing import Optional
+from datetime import datetime
+from app.utils.logger import logger
+
+
+class VoiceLogRequest(BaseModel):
+    event: str
+    command: Optional[str] = None
+    intent: Optional[str] = None
+    detail: Optional[str] = None
+
+
+@router.post("/voice-command")
+def log_voice_command(payload: VoiceLogRequest):
+    """
+    Structured server-side terminal logging for voice assistant interactions.
+    Streams formatted logs to cloud container stdout/logs.
+    """
+    ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    evt = payload.event
+    safe_cmd = (payload.command or "").strip()[:100]
+    safe_intent = (payload.intent or "UNKNOWN").strip()
+    safe_detail = (payload.detail or "").strip()[:150]
+
+    if evt == "MIC_ACTIVATED":
+        print(f"[{ts}] [VOICE] Microphone activated", flush=True)
+        logger.info("[VOICE] Microphone activated")
+    elif evt == "SPEECH_CAPTURED":
+        print(f"[{ts}] [VOICE] Speech captured", flush=True)
+        print(f"[{ts}] [VOICE] Recognized command: {safe_cmd}", flush=True)
+        print(f"[{ts}] [VOICE] Intent identified: {safe_intent}", flush=True)
+        logger.info(f"[VOICE] Speech captured: {safe_cmd} (Intent: {safe_intent})")
+    elif evt == "EXECUTING":
+        print(f"[{ts}] [VOICE] Executing action", flush=True)
+        logger.info(f"[VOICE] Executing action: {safe_intent}")
+    elif evt == "COMPLETED":
+        print(f"[{ts}] [VOICE] Action completed successfully", flush=True)
+        logger.info(f"[VOICE] Action completed successfully: {safe_intent}")
+    elif evt == "UNCLEAR":
+        print(f"[{ts}] [VOICE] Command unclear", flush=True)
+        logger.warning(f"[VOICE] Command unclear: {safe_cmd}")
+    elif evt == "FAILED":
+        print(f"[{ts}] [VOICE] Execution failed: {safe_detail}", flush=True)
+        logger.error(f"[VOICE] Execution failed: {safe_detail}")
+    elif evt == "RECOGNITION_FAILED":
+        print(f"[{ts}] [VOICE] Recognition failed", flush=True)
+        logger.warning(f"[VOICE] Recognition failed: {safe_detail}")
+
+    return {"status": "ok", "event": evt}
