@@ -1,6 +1,6 @@
 from uuid import UUID
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Union
 
 from pydantic import BaseModel, ConfigDict
 
@@ -43,7 +43,7 @@ class QueueResponse(BaseModel):
 
     queue_position: Optional[int] = None
 
-    status: JobStatus
+    status: Union[JobStatus, str]
 
     # Estimated seconds is nullable — 0 when not yet calculated
     estimated_seconds: Optional[int] = 0

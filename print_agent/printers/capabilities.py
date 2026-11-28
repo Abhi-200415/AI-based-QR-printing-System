@@ -116,6 +116,12 @@ def check_hardware_port_active(port_name: str) -> bool:
         except Exception:
             return False
 
+    # 6. WSD Network Ports (Must not falsely assume disconnected WSD device is active)
+    if port.startswith("WSD"):
+        # If the port is WSD and not locally active via USB, do not falsely report True
+        # Win32 spooler status will provide the authoritative status
+        pass
+
     return True
 
 

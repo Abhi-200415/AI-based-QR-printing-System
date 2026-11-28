@@ -13,6 +13,9 @@ import sys
 os.environ["DATABASE_URL"] = "sqlite:///ai_printing.db"
 
 # Add project roots
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(PROJECT_ROOT, "cloud_server"))
+sys.path.insert(0, os.path.join(PROJECT_ROOT, "PRINT_AGENT"))
 sys.path.insert(0, os.path.abspath("cloud_server"))
 sys.path.insert(0, os.path.abspath("PRINT_AGENT"))
 

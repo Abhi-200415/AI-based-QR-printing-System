@@ -66,9 +66,11 @@ def _build_queue_response(job: ActiveJob) -> QueueResponse:
     pname = job.assigned_printer.printer_name if job.assigned_printer else None
     pmt_status = job.payment_status.value if hasattr(job.payment_status, "value") else str(job.payment_status or "PENDING")
 
+    job_st = job.status.value if hasattr(job.status, "value") else str(job.status or "QUEUED")
+
     return QueueResponse(
         job_id=job.job_id,
-        status=job.status,
+        status=job_st,
         assigned_printer_id=job.assigned_printer_id,
         assigned_printer_name=pname,
         queue_position=job.queue_position,
@@ -180,9 +182,11 @@ def cancel_job(
             detail="Job not found."
         )
 
+    job_st = job.status.value if hasattr(job.status, "value") else str(job.status or "QUEUED")
+
     return QueueResponse(
         job_id=job.job_id,
-        status=job.status,
+        status=job_st,
         assigned_printer_id=job.assigned_printer_id,
         queue_position=job.queue_position,
         estimated_seconds=0,

@@ -1,5 +1,8 @@
 import os
 import sys
+
+os.environ["TESTING"] = "1"
+
 import uuid
 import pytest
 from decimal import Decimal
@@ -43,11 +46,7 @@ def client_and_db():
     db = Session()
 
     def override_get_db():
-        session = Session()
-        try:
-            yield session
-        finally:
-            session.close()
+        yield db
 
     app.dependency_overrides[get_db] = override_get_db
     client = TestClient(app)

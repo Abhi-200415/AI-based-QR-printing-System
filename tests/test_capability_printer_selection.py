@@ -1,6 +1,16 @@
+import os
+import sys
 import uuid
-import pytest
 from decimal import Decimal
+
+# Ensure cloud_server and print_agent are on sys.path
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if os.path.join(BASE_DIR, "cloud_server") not in sys.path:
+    sys.path.insert(0, os.path.join(BASE_DIR, "cloud_server"))
+if os.path.join(BASE_DIR, "PRINT_AGENT") not in sys.path:
+    sys.path.insert(0, os.path.join(BASE_DIR, "PRINT_AGENT"))
+
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool

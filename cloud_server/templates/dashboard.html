@@ -593,6 +593,7 @@
                     </div>
                     <div class="view-actions">
                         <button class="btn btn-sm" onclick="copyAgentCmd()">📋 Copy Agent Command</button>
+                        <button class="btn btn-sm" style="background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #ef4444;" onclick="cleanOfflinePrinters()">🧹 Remove Disconnected</button>
                         <button class="btn btn-secondary btn-sm" onclick="loadPrintersTable()">🔄 Refresh</button>
                     </div>
                 </div>
@@ -2190,13 +2191,61 @@ async function loadPrintersTable() {
                     <td>${caps.map(c => `<span class="tag">${c}</span>`).join(' ')}</td>
                     <td><strong>${p.total_jobs_printed || 0}</strong> pages</td>
                     <td style="text-align: right;">
-                        <button class="btn btn-secondary btn-sm" onclick="pingPrinter('${p.printer_id}')">Ping</button>
+                        <div style="display: flex; gap: 6px; justify-content: flex-end; align-items: center;">
+                            <button class="btn btn-secondary btn-sm" onclick="pingPrinter('${p.printer_id}')">Ping</button>
+                            <button class="btn btn-sm" style="background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #ef4444; padding: 4px 8px;" onclick="deletePrinter('${p.printer_id}', '${p.printer_name.replace(/'/g, "\\'")}')">🗑️ Remove</button>
+                        </div>
                     </td>
                 </tr>
             `;
         }).join("");
     } catch (e) {
         console.error("Printers load error:", e);
+    }
+}
+
+async function deletePrinter(printerId, printerName) {
+    if (!confirm(`Are you sure you want to remove disconnected printer "${printerName}"?`)) return;
+    try {
+        const res = await fetch(`/printer/${printerId}`, { method: "DELETE" });
+        if (res.ok) {
+            showToast(`✓ Removed printer "${printerName}".`, false);
+            loadPrintersTable();
+        } else {
+            const err = await res.json();
+            alert(err.detail || "Unable to remove printer.");
+        }
+    } catch (e) {
+        alert("Error removing printer: " + e.message);
+    }
+}
+
+async function cleanOfflinePrinters() {
+    if (!confirm("Remove disconnected and offline printers from your shop? (Your physically connected HP printer will remain active).")) return;
+    try {
+        const res = await fetch(`/printer/owner/${ownerId}/clean-offline`, { method: "POST" });
+        if (res.ok) {
+            const data = await res.json();
+            showToast(`✓ Cleaned ${data.removed_count || 0} disconnected printer(s).`, false);
+            loadPrintersTable();
+        } else {
+            // Direct delete fallback for non-HP / offline printers
+            const pres = await fetch(`/printer/owner/${ownerId}`);
+            if (pres.ok) {
+                const plist = await pres.json();
+                let cnt = 0;
+                for (const p of plist) {
+                    if (p.printer_name.toLowerCase().includes("epson") || p.status === "Offline") {
+                        await fetch(`/printer/${p.printer_id}`, { method: "DELETE" });
+                        cnt++;
+                    }
+                }
+                loadPrintersTable();
+                showToast(`✓ Removed ${cnt} disconnected printer(s). Only active HP printer kept.`);
+            }
+        }
+    } catch (e) {
+        alert("Error cleaning printers: " + e.message);
     }
 }
 

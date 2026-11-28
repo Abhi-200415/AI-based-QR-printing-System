@@ -234,3 +234,42 @@ def ping_printer(
         "last_seen": printer.last_seen,
         "queue": printer.current_queue or 0
     }
+
+
+# ==========================================================
+# Clean / Remove Disconnected Offline Printers
+# ==========================================================
+
+@router.post("/owner/{owner_id}/clean-offline")
+def clean_offline_printers(
+    owner_id: UUID,
+    db: Session = Depends(get_db)
+):
+    """
+    Remove or deactivate all disconnected / offline / non-active printers for a shop owner.
+    Guarantees that shops with only 1 connected printer (e.g., HP) don't have phantom Epson/offline entries.
+    """
+    printers = db.query(Printer).filter(Printer.owner_id == owner_id).all()
+    removed = 0
+    for p in printers:
+        active_jobs_count = (
+            db.query(ActiveJob)
+            .filter(
+                ActiveJob.assigned_printer_id == p.printer_id,
+                ActiveJob.status.in_([JobStatus.QUEUED, JobStatus.ASSIGNED, JobStatus.PRINTING])
+            )
+            .count()
+        )
+        if active_jobs_count == 0:
+            p_name_lower = p.printer_name.lower()
+            if "epson" in p_name_lower or p.status == PrinterStatus.OFFLINE or p.is_virtual:
+                db.delete(p)
+                removed += 1
+
+    db.commit()
+    logger.info(f"Cleaned {removed} stale/disconnected printer(s) for owner {owner_id}")
+    return {
+        "success": True,
+        "removed_count": removed,
+        "message": f"Cleaned {removed} offline printer(s) successfully."
+    }

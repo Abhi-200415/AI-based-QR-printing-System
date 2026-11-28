@@ -17,11 +17,23 @@ from core.config import DOWNLOAD_FOLDER
 # SumatraPDF Location
 # ==========================================================
 
+BASE_DIR = os.path.dirname(
+    os.path.dirname(
+        os.path.abspath(__file__)
+    )
+)
+
 SUMATRA_PATH = os.path.join(
-    os.getcwd(),
+    BASE_DIR,
     "tools",
     "SumatraPDF.exe"
 )
+if not os.path.exists(SUMATRA_PATH):
+    SUMATRA_PATH = os.path.join(
+        os.getcwd(),
+        "tools",
+        "SumatraPDF.exe"
+    )
 
 
 # ==========================================================

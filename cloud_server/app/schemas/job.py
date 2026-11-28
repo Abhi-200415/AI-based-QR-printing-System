@@ -1,7 +1,7 @@
 from uuid import UUID
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, Union
 
 from pydantic import BaseModel, ConfigDict
 
@@ -53,9 +53,9 @@ class JobResponse(BaseModel):
 
     customer_phone: Optional[str] = None
 
-    status: JobStatus
+    status: Union[JobStatus, str]
 
-    payment_status: PaymentStatus
+    payment_status: Union[PaymentStatus, str]
 
     queue_position: Optional[int] = None
 

@@ -411,14 +411,6 @@ def sync_printers(
             continue
 
         # --------------------------------------------------
-        # Only manage this agent's printers
-        # --------------------------------------------------
-
-        if cloud_agent_id != AGENT_ID:
-
-            continue
-
-        # --------------------------------------------------
         # Printer is virtual or no longer detected locally
         # --------------------------------------------------
 
